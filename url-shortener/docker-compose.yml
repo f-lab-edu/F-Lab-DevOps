@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+
+  # ── API 서비스 ────────────────────────────────────────────────
+  api:
+    # Dockerfile 로 이미지를 빌드 (현재 폴더 기준)
+    build: .
+    container_name: url-shortener-api
+    ports:
+      - "8001:8000"   # 내 PC 8001 → 컨테이너 8000
+    env_file:
+      - .env           # .env 파일의 환경변수를 컨테이너에 주입
+    depends_on:
+      db:
+        # db 서비스가 healthcheck 를 통과한 후에 api 를 시작.
+        # 이것이 없으면 DB 초기화 전에 API 가 연결을 시도해 오류가 발생.
+        condition: service_healthy
+    restart: on-failure  # 오류 종료 시 자동 재시작
+
+  # ── PostgreSQL DB 서비스 ──────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: url-shortener-db
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-urluser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB:-urldb}
+    ports:
+      - "5432:5432"   # 로컬에서 직접 DB 접속이 필요할 때 사용
+    volumes:
+      # 컨테이너가 종료돼도 DB 데이터가 사라지지 않도록 볼륨에 저장
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # PostgreSQL 이 실제로 연결 가능한 상태인지 확인합니다.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-urluser} -d ${POSTGRES_DB:-urldb}"]
+      interval: 5s    # 5초마다 체크
+      timeout: 5s     # 5초 안에 응답 없으면 실패
+      retries: 5      # 5회 실패 시 unhealthy 처리
+
+# ── 볼륨 정의 ─────────────────────────────────────────────────
+volumes:
+  pgdata:   # DB 데이터 영구 저장소

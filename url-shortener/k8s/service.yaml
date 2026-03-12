@@ -1,0 +1,13 @@
+# API Pod의 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: url-shortener-svc
+spec:
+  selector:
+    app: url-shortener
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP

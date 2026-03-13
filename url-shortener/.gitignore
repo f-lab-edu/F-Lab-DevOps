@@ -26,3 +26,6 @@ build/
 # 테스트 커버리지
 .coverage
 htmlcov/
+
+# k8s 설정 파일
+secret.yaml

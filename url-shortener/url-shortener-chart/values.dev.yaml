@@ -1,0 +1,18 @@
+api:
+  replicas: 1           # dev는 1개로 충분
+  image:
+    tag: v1
+    pullPolicy: Never   # minikube 로컬 이미지 사용
+  env:
+    appEnv: development
+    debug: 'true'       # dev는 디버그 활성화
+
+postgres:
+  database: tempdb
+  password: dpdlvldzm1@            # 기존 k8s/db/secret.yaml 디코딩 값과 동일
+  databaseUrl: postgresql://postgres:dpdlvldzm1%40@url-shortener-postgres-svc:5432/tempdb
+  storage: 1Gi
+
+ingress:
+  enabled: true
+  host: url-shortener.local

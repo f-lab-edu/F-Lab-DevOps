@@ -1,0 +1,33 @@
+# ── API 설정 ──────────────────────────────────────────────
+api:
+  replicas: 2
+  port: 8000
+  image:
+    repository: url-shortener-api
+    tag: v1
+    pullPolicy: Never
+  env:
+    appEnv: production
+    debug: 'false'
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 20
+
+# ── PostgreSQL 설정 ────────────────────────────────────────
+postgres:
+  version: '15'
+  user: postgres
+  database: prod-db
+  # 민감정보는 values-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
+  password: ""
+  databaseUrl: ""
+  storage: 1Gi
+  storageClass: standard
+
+# ── Ingress 설정 ───────────────────────────────────────────
+ingress:
+  enabled: true
+  host: url-shortener.local

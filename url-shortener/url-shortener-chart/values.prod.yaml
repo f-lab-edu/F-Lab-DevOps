@@ -1,0 +1,17 @@
+api:
+  replicas: 2           # prod는 고가용성을 위해 2개
+  image:
+    tag: v1
+    pullPolicy: IfNotPresent
+  env:
+    appEnv: production
+    debug: 'false'      # prod는 디버그 비활성화
+
+postgres:
+  password: prod_password
+  databaseUrl: postgresql://postgres:prod_password@url-shortener-postgres-svc:5432/urldb
+  storage: 10Gi         # prod는 스토리지 넉넉하게
+
+ingress:
+  enabled: true
+  host: url-shortener.example.com   # prod는 실제 도메인

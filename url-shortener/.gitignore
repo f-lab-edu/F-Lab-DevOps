@@ -31,4 +31,4 @@ htmlcov/
 secret.yaml
 
 # Helm values (secrets)
-url-shortener-chart/values-secret.yaml
+url-shortener-chart/values.*-secret.yaml

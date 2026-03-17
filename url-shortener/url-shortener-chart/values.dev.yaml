@@ -9,8 +9,9 @@ api:
 
 postgres:
   database: tempdb
-  password: dpdlvldzm1@            # 기존 k8s/db/secret.yaml 디코딩 값과 동일
-  databaseUrl: postgresql://postgres:dpdlvldzm1%40@url-shortener-postgres-svc:5432/tempdb
+  # 민감정보는 values.dev-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
+  password: ""
+  databaseUrl: ""
   storage: 1Gi
 
 ingress:

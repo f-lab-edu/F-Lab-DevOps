@@ -4,9 +4,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ .Release.Name }}-postgres-pvc
 spec:
-  storageClassName: {{ .Values.postgresql.storageClass }}
+  storageClassName: {{ .Values.postgres.storageClass }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.postgresql.storage }}
+      storage: {{ .Values.postgres.storage }}

@@ -8,8 +8,10 @@ api:
     debug: 'false'      # prod는 디버그 비활성화
 
 postgres:
-  password: prod_password
-  databaseUrl: postgresql://postgres:prod_password@url-shortener-postgres-svc:5432/urldb
+  database: urldb
+  # 민감정보는 values.prod-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
+  password: ""
+  databaseUrl: ""
   storage: 10Gi         # prod는 스토리지 넉넉하게
 
 ingress:

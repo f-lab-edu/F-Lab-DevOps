@@ -15,14 +15,14 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: "postgres:{{ .Values.postgresql.version }}"
+          image: "postgres:{{ .Values.postgres.version }}"
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: {{ .Values.postgresql.user }}
+              value: {{ .Values.postgres.user }}
             - name: POSTGRES_DB
-              value: {{ .Values.postgresql.database }}
+              value: {{ .Values.postgres.database }}
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

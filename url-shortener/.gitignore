@@ -29,3 +29,6 @@ htmlcov/
 
 # k8s 설정 파일
 secret.yaml
+
+# Helm values (secrets)
+url-shortener-chart/values.*-secret.yaml

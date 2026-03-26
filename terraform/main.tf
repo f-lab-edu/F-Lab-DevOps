@@ -28,6 +28,7 @@ resource "aws_subnet" "public" {
     Name = "${var.project_name}-public-${var.availability_zones[count.index]}"
     # EKS가 LB를 Public Subnet에 붙일려면 이 태그가 필요함
     "kubernetes.io/cluster/${var.project_name}" = "shared"
+    # External NLB
     "kubernetes.io/role/elb"                    = "1"
   }
 }
@@ -42,7 +43,10 @@ resource "aws_subnet" "private" {
   tags = {
     Name = "${var.project_name}-private-${var.availability_zones[count.index]}"
     # EKS가 내부 로드밸런서를 Private Subnet에 붙이려면 이 태그 필요
+    # 이 Subnet이 어느 클러스터 소속인가를 나타내는 코드임
     "kubernetes.io/cluster/${var.project_name}" = "owned"
+    # 이 Subnet이 어떤 용도인가를 나타내는 코드임
+    # "kubernetes.io/role/internal-elb" = "1"
   }
 }
 
@@ -124,3 +128,122 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+# ----- I AM Role for EKS Cluster -----------------------------------------
+# EKS Control Plane이 AWS 서비스를 호출할 수 있는 권한
+
+# 누가(주체) 맡을 수 있는 Role 정의 - 권한 자체는 없음
+resource "aws_iam_role" "eks_cluster" {
+  name = "${var.project_name}-eks-cluster-role"
+
+  # 신뢰 정책 구조
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    # 허용/거부 규칙 배열: 허용/거부 -> 누가 -> 어떤 액션을?
+    Statement = [{
+      Effect    = "Allow"                          # 허용/거부
+      Principal = { Service = "eks.amazonaws.com" } # 누가
+      Action    = "sts:AssumeRole"                 # 허용할 AWS API 액션
+    }]
+  })
+}
+
+# Role에 권한을 붙이기 위해 만든 "권한"
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy" # AWS의 관리형 정책(권한 모음집)
+  role       = aws_iam_role.eks_cluster.name                    # 이 관리형 정책을 누구에게 붙일 것인가?
+}
+
+# ----- I AM Role for EKS NodeGroup -----------------------------------------
+# Worker Node(EC2)가 EKS/ECR/VPC 등을 사용할 수 있는 권한
+resource "aws_iam_role" "eks_node" {
+  name = "${var.project_name}-eks-node-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "ec2.amazonaws.com" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# 필수 정책 3개 연결
+
+# Worker Node가 EKS Control Plane과 토신
+resource "aws_iam_role_policy_attachment" "eks_worker_node" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_node.name
+}
+# aws-node(CNI)가 ENI를 조작하는 권한
+resource "aws_iam_role_policy_attachment" "eks_cni" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node.name
+}
+# ECR에서 이미지를 pull하는 권한
+resource "aws_iam_role_policy_attachment" "ecr_read" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_node.name
+}
+
+# ----- EKS Cluster * Control Plane * -----------------------------------------
+# 구성 요소: VPC / Subnet / IAM Role / Cluster Endpoint / Security Group
+resource "aws_eks_cluster" "main" {
+  name     = var.project_name
+  role_arn = aws_iam_role.eks_cluster.arn
+  version  = var.eks_cluster_version
+
+  vpc_config {
+    # Worker Node가 위치할 Subnet (Private)
+    subnet_ids = aws_subnet.private[*].id
+
+    # Public: kubectl이 외부에서 API Server 접근 가능 - 로컬에서 kubectl하려면 필요함
+    endpoint_public_access = true
+    # Private: VPC 내부에서도 API Server 접근 가능 - worker 노드가 control plane과 통신시 VPC를 사용함
+    endpoint_private_access = true
+  }
+
+  tags = {
+    Name = "${var.project_name}-eks"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_cluster_policy
+  ]
+}
+
+# ----- EKS Managed NodeGroup * Worker Node * -----------------------------------------
+# 구성 요소: Subnet / IAM Role / Instance Type / 노드 수 / EKS Cluster 이름 / Scaling 설
+resource "aws_eks_node_group" "main" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${var.project_name}-nodegroup"
+  node_role_arn   = aws_iam_role.eks_node.arn
+
+  # Worker Node는 Private Subnet에 배치
+  subnet_ids = aws_subnet.private[*].id
+
+  instance_types = [var.node_instance_type]
+
+  scaling_config {
+    desired_size = var.node_desired_size
+    min_size     = var.node_min_size
+    max_size     = var.node_max_size
+  }
+
+  # 노드 업데이트 방식: 최대 1개씩 교체 (서비스 무중단 배포 목적)
+  update_config {
+    max_unavailable = 1
+  }
+
+  tags = {
+    Name = "${var.project_name}-node"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_worker_node,
+    aws_iam_role_policy_attachment.eks_cni,
+    aws_iam_role_policy_attachment.ecr_read,
+  ]
+}

@@ -1,0 +1,19 @@
+api:
+  replicas: 1           # dev는 1개로 충분
+  image:
+    tag: v1
+    pullPolicy: Never   # minikube 로컬 이미지 사용
+  env:
+    appEnv: development
+    debug: 'true'       # dev는 디버그 활성화
+
+postgres:
+  database: tempdb
+  # 민감정보는 values.dev-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
+  password: ""
+  databaseUrl: ""
+  storage: 1Gi
+
+ingress:
+  enabled: true
+  host: url-shortener.local

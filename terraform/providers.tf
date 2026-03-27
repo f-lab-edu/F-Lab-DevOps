@@ -9,6 +9,10 @@ terraform {
       source = "hashicorp/aws"
       version = "~> 5.0" # 5.x 버전만 허용(고정) why?: 다른 환경에서 실행할 때 provider 버전이 달라저 발생하는 문제 방지
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 }
 

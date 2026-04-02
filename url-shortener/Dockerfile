@@ -19,7 +19,9 @@ COPY requirements.txt .
 # --no-cache-dir: pip 캐시를 저장하지 않아 이미지 크기를 줄임.
 # RUN pip install --no-cache-dir -r requirements.txt # 현재 Python 환경(site-packages)에 직접 설치
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt # 패키지를 /install 디렉토리에 따로 설치
-
+# 개선:
+# RUN --mount=type=cache,target=/root/.cache/pip \
+#          pip install --no-cache-dir --target=/install -r requirements.txt
 
 # ---- stage 2: 실행 단계 -------------------------------------------------------
 FROM python:3.11-slim

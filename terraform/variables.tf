@@ -33,7 +33,7 @@ variable "eks_cluster_version" {
 variable "node_instance_type" {
   description = "EKS Worker Node EC2 인스턴스 타입"
   type = string
-  default = "m7i-flex.large"
+  default = "t3.medium"
 }
 
 # terraform apply 시 생성되는 노드 수

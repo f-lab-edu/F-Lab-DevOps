@@ -24,3 +24,8 @@ output "update_kubeconfig_command" {
   description = "kubeconfig 업데이트 명령어"
   value = "aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.main.name}"
 }
+
+output "ecr_repository_url" {
+  description = "ECR Repository URL (docker push에 사용 목적)"
+  value = aws_ecr_repository.app.repository_url
+}

@@ -1,7 +1,8 @@
 api:
   replicas: 2           # prod는 고가용성을 위해 2개
   image:
-    tag: v1
+    repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/url-shortener
+    tag: sha-dd6185f
     pullPolicy: IfNotPresent
   env:
     appEnv: production
@@ -13,7 +14,7 @@ postgres:
   password: ""
   databaseUrl: ""
   storage: 10Gi         # prod는 스토리지 넉넉하게
+  storageClass: gp2
 
 ingress:
-  enabled: true
-  host: url-shortener.example.com   # prod는 실제 도메인
+  enabled: false

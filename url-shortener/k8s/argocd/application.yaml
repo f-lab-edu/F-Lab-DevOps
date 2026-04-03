@@ -1,0 +1,45 @@
+# k8s/argocd/application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: url-shortener          # ArgoCD에서 보이는 Application 이름
+  namespace: argocd            # Application 오브젝트는 argocd namespace에 생성
+spec:
+  # ── ArgoCD Project ──────────────────────────────
+  # project: default = ArgoCD 기본 프로젝트. 모든 repo/cluster 접근 허용.
+  # 실무에서는 팀별 Project를 만들어 접근 제어를 합니다.
+  project: default
+
+  # ── Git Source 설정 ─────────────────────────────
+  source:
+    # HTTPS vs SSH: HTTPS는 토큰 인증, SSH는 키 인증
+    # Public repo: 인증 불필요. Private repo: Secret 설정 필요 (아래 참고)
+    repoURL: https://github.com/f-lab-edu/Url-Shortener-EKS-Platform
+
+    # HEAD: 브랜치의 최신 커밋을 추적
+    # main: main 브랜치 고정
+    # v1.0.0: 특정 태그 고정 (운영 환경 권장)
+    targetRevision: feat/week5
+
+    # Helm chart가 있는 경로 (repo root 기준)
+    path: url-shortener/url-shortener-chart
+
+    # Helm 사용 시 추가 설정 (선택)
+    helm:
+      valueFiles:
+        - values.yaml                # 기본 설정
+        - values.prod.yaml           # 운영 환경 오버라이드
+        - values.prod-secret.yaml    # 민감 정보 (password, API key 등)
+
+  # ── 배포 대상 클러스터 및 namespace ────────────────
+  destination:
+    # https://kubernetes.default.svc = ArgoCD가 실행 중인 클러스터 자신
+    # 외부 클러스터에 배포할 때는 별도 클러스터 등록 후 해당 API 주소를 입력
+    server: https://kubernetes.default.svc
+    namespace: url-shortener    # 배포될 namespace
+
+  # ── Sync 정책 ──────────────────────────────────────
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true   # namespace가 없으면 자동 생성
+    # automated 블록이 없으면 Manual Sync

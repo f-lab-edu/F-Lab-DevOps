@@ -29,7 +29,6 @@ spec:
       valueFiles:
         - values.yaml                # 기본 설정
         - values.prod.yaml           # 운영 환경 오버라이드
-        - values.prod-secret.yaml    # 민감 정보 (password, API key 등)
 
   # ── 배포 대상 클러스터 및 namespace ────────────────
   destination:

@@ -10,7 +10,6 @@ class Item(Base):
     name(이름)과 description(설명)을 저장.
     """
     __tablename__ = "items"
-    __table_args__ = {"schema": "temp_schema"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)

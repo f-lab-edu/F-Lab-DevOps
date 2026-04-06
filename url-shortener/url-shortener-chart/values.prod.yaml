@@ -2,7 +2,7 @@ api:
   replicas: 2           # prod는 고가용성을 위해 2개
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/url-shortener
-    tag: sha-39eed71
+    tag: sha-9744e45
     pullPolicy: IfNotPresent
   env:
     appEnv: production

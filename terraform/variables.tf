@@ -9,7 +9,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "프로젝트 이름 - 리소스의 prefix로 사용"
   type = string
-  default = "urlShortener"
+  default = "urlshortener"
 }
 
 variable "vpc_cidr" {

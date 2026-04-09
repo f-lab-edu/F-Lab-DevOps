@@ -42,3 +42,7 @@ spec:
     syncOptions:
       - CreateNamespace=true   # namespace가 없으면 자동 생성
     # automated 블록이 없으면 Manual Sync
+    automated:
+      prune: true      # Git에서 삭제된 리소스를 클러스터에서도 자동 삭제
+      selfHeal: true   # 클러스터 상태가 Git과 다르면 자동으로 되돌림
+      # (kubectl로 직접 수정해도 ArgoCD가 Git 상태로 복구)

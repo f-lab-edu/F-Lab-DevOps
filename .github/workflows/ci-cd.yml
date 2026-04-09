@@ -39,7 +39,7 @@ jobs:
       - name: AWS OIDC 인증
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/url-shortener-github-actions-role
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/urlshortener-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
 
       # 3. ECR 로그인

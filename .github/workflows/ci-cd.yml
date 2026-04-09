@@ -1,0 +1,122 @@
+name: 자동화-CI/CD Pipeline
+
+# paths 필터: 실제 앱 코드나 Dockerfile이 변경된 경우에만 실행
+# (values.prod.yaml 변경 커밋이 다시 파이프라인을 트리거하지 않도록 방지)
+on:
+  push:
+    branches:
+      - main
+      - feat/week6to7
+    paths:
+      - 'url-shortener/app/**'
+      - 'url-shortener/Dockerfile'
+      - 'url-shortener/requirements.txt'
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: urlshortener
+  AWS_ACCOUNT_ID: "716174522908"
+
+# OIDC 토큰 요청 권한 (id-token: write) 과
+# values.prod.yaml을 커밋하기 위한 쓰기 권한 (contents: write) 이 필요
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 코드 체크아웃
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          # 커밋 후 push하려면 token이 필요 (기본 GITHUB_TOKEN 사용)
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. AWS OIDC 인증 (IAM Access Key 없이 임시 자격증명 획득)
+      - name: AWS OIDC 인증
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/url-shortener-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 3. ECR 로그인
+      - name: ECR 로그인
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 4. 코드 체크 (Lint)
+      #    빌드 전에 코드 품질을 검사해서 문제 있는 코드가 배포되는 것을 방지
+      #    ruff: Python 최신 고속 linter (flake8/isort/pyflakes 통합)
+      #    lint 실패 시 이후 빌드/배포 단계가 실행되지 않음
+      - name: 린트 검사 (ruff)
+        working-directory: url-shortener
+        run: |
+          pip install ruff --quiet
+          ruff check app/
+          echo "✅ Lint passed"
+
+      # 5. Docker Buildx 설정 (멀티 플랫폼 빌드, linux/amd64 대상)
+      #    EKS 노드는 amd64 아키텍처이므로 반드시 명시
+      #    Mac M1/M2에서 개발하면 기본 빌드가 arm64가 되어 EKS에서 실행 불가
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      # 6. 이미지 빌드 및 ECR 푸시
+      - name: 이미지 빌드 및 ECR 푸시
+        id: build-push
+        working-directory: url-shortener
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          # git commit SHA의 앞 7자리를 이미지 태그로 사용
+          # 예: sha-a1b2c3d
+          SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          IMAGE_TAG="sha-${SHA}"
+          FULL_IMAGE="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+
+          echo "Building image: ${FULL_IMAGE}"
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag "${FULL_IMAGE}" \
+            --push \
+            .
+
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "full_image=${FULL_IMAGE}" >> $GITHUB_OUTPUT
+
+      # 7. values.prod.yaml의 image.tag 업데이트
+      #    yq: YAML 파일을 커맨드라인에서 안전하게 수정하는 도구
+      #    sed를 쓰면 YAML 구조가 깨질 수 있으므로 yq 사용
+      - name: values.prod.yaml 이미지 태그 업데이트
+        run: |
+          IMAGE_TAG=${{ steps.build-push.outputs.image_tag }}
+
+        # yq 설치
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+        # values.prod.yaml의 api.image.tag만 정확히 변경
+          yq e ".api.image.tag = \"${IMAGE_TAG}\"" -i \
+            url-shortener/url-shortener-chart/values.prod.yaml
+
+          echo "Updated image tag to: ${IMAGE_TAG}"
+          cat url-shortener/url-shortener-chart/values.prod.yaml
+
+      # 8. 변경된 values.prod.yaml을 Git에 커밋 & 푸시
+      #    [skip ci]: 이 커밋으로 인해 파이프라인이 다시 실행되지 않도록 방지
+      #    paths 필터를 쓰더라도 명시적으로 [skip ci]를 추가하는 것이 안전
+      - name: values.prod.yaml 커밋 및 푸시
+        run: |
+          IMAGE_TAG=${{ steps.build-push.outputs.image_tag }}
+          BRANCH=${GITHUB_REF#refs/heads/}
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add url-shortener/url-shortener-chart/values.prod.yaml
+          git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
+          git push origin ${BRANCH}

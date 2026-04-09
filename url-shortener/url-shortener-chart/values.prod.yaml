@@ -7,6 +7,13 @@ api:
   env:
     appEnv: production
     debug: 'false'      # prod는 디버그 비활성화
+  resource:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
 
 postgres:
   database: urldb
@@ -16,5 +23,14 @@ postgres:
   storage: 10Gi         # prod는 스토리지 넉넉하게
   storageClass: gp2
 
+# ALB Ingress 활성화 (internet-facing = 인터넷에서 접근 가능)
 ingress:
-  enabled: false
+  enabled: true
+  className: alb
+  host: ""   # ALB DNS 직접 사용 시 비워야 함
+  pathType: Prefix
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing      # 인터넷에서 직접 접근
+    alb.ingress.kubernetes.io/target-type: ip              # Pod IP로 직접 포워딩 (권장)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'

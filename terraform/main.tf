@@ -323,6 +323,19 @@ module "eks" {
     }
   }
 
+  # 클러스터 생성자에게 AWS 리소스에 접근할 수 있는 Role을 부여하기 위한 코드: helm으로 ALB Controller를 직접 설치하기 위해 필요
+  access_entries = {
+    admin = {
+      principal_arn = "arn:aws:iam::716174522908:user/IAM-jounghyeon"
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+  }
+
   # EKS 기본 애드온 (EBS CSI는 IRSA 의존성으로 ebs_csi.tf에서 별도 관리)
   cluster_addons = {
     coredns    = {}

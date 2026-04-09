@@ -65,6 +65,32 @@ output "update_kubeconfig_command" {
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
 
+## --- github action 관련 output 추가 ------------------------
+output "alb_controller_role_arn" {
+  description = "ALB Controller IRSA Role ARN"
+  value       = module.alb_controller_irsa.iam_role_arn
+}
+
+output "github_actions_role_arn" {
+  description = "GitHub Actions OIDC Role ARN"
+  value       = module.github_actions_role.arn
+}
+
+output "karpenter_controller_role_arn" {
+  description = "Karpenter Controller IRSA Role ARN"
+  value       = module.karpenter.iam_role_arn
+}
+
+output "karpenter_node_role_arn" {
+  description = "Karpenter Node IAM Role ARN"
+  value       = module.karpenter.node_iam_role_arn
+}
+
+output "karpenter_queue_name" {
+  description = "Karpenter Interruption SQS Queue 이름"
+  value       = module.karpenter.queue_name
+}
+
 output "ecr_repository_url" {
   description = "ECR Repository URL (docker push에 사용 목적)"
   value       = module.ecr.repository_url

@@ -95,11 +95,11 @@ jobs:
         run: |
           IMAGE_TAG=${{ steps.build-push.outputs.image_tag }}
 
-        # yq 설치
+          # yq 설치
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-        # values.prod.yaml의 api.image.tag만 정확히 변경
+          # values.prod.yaml의 api.image.tag만 정확히 변경
           yq e ".api.image.tag = \"${IMAGE_TAG}\"" -i \
             url-shortener/url-shortener-chart/values.prod.yaml
 

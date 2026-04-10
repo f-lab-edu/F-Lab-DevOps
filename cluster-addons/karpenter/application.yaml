@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: public.ecr.aws/karpenter    # OCI 레지스트리
     chart: karpenter
-    targetRevision: 1.1.1
+    targetRevision: 1.3.3
     helm:
       values: |
         settings:
@@ -27,7 +27,7 @@ spec:
               memory: 1Gi
   destination:
     server: https://kubernetes.default.svc
-    namespace: kube-system
+    namespace: karpenter
   syncPolicy:
     automated:
       prune: true

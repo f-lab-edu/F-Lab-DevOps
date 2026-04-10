@@ -16,12 +16,12 @@ spec:
   # main.tf의 private subnet에 이 태그가 추가되어 있음
   subnetSelectorTerms:
     - tags:
-        karpenter.sh/discovery: url-shortener
+        karpenter.sh/discovery: urlshortener
 
   # SecurityGroup 선택: EKS 클러스터의 노드 SecurityGroup 자동 탐색
   securityGroupSelectorTerms:
     - tags:
-        karpenter.sh/discovery: url-shortener
+        karpenter.sh/discovery: urlshortener
     # 또는 EKS 관리형 노드 그룹의 SG를 직접 지정:
     # - tags:
     #     kubernetes.io/cluster/url-shortener: owned

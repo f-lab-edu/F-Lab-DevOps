@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://aws.github.io/eks-charts   # ALB Controller Helm 레포
+    chart: aws-load-balancer-controller
+    targetRevision: 1.8.1
+    helm:
+      values: |
+        clusterName: urlshortener
+        serviceAccount:
+          create: true
+          annotations:
+            eks.amazonaws.com/role-arn: <alb_controller_role_arn>
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

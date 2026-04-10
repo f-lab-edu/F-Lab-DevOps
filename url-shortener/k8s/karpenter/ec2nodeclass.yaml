@@ -1,0 +1,32 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  # AMI 선택: Amazon Linux 2023 최신 버전 자동 선택
+  # al2023: Amazon Linux 2023 (권장), al2: Amazon Linux 2 (구 버전)
+  amiSelectorTerms:
+    - alias: al2023@latest
+
+  # 노드에 부여할 IAM Instance Profile
+  # Karpenter가 프로비저닝하는 노드용 Role (karpenter_node.tf에서 생성)
+  instanceProfile: KarpenterNodeInstanceProfile-url-shortener
+
+  # Subnet 선택: karpenter.sh/discovery 태그로 자동 탐색
+  # main.tf의 private subnet에 이 태그가 추가되어 있음
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: url-shortener
+
+  # SecurityGroup 선택: EKS 클러스터의 노드 SecurityGroup 자동 탐색
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: url-shortener
+    # 또는 EKS 관리형 노드 그룹의 SG를 직접 지정:
+    # - tags:
+    #     kubernetes.io/cluster/url-shortener: owned
+
+  # 태그: Karpenter가 프로비저닝하는 모든 EC2에 자동으로 붙음
+  tags:
+    Name: karpenter-node-url-shortener
+    managed-by: karpenter

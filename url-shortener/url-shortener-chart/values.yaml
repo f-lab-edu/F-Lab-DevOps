@@ -17,13 +17,13 @@ api:
     periodSeconds: 20
 
 # HPA가 CPU 메트릭을 사용하기 위함 -> 컨테이너에도 적용
-#  resources:
-#    requests:        # Kubernetes가 Pod를 노드에 배치할 때 보장하는 최소 자원
-#      cpu: 100m
-#      memory: 128Mi
-#    limits:          # Pod가 사용할 수 있는 최대 자원 (초과 시 제한)
-#      cpu: 500m
-#      memory: 512Mi # 초과 시 OOMKilled (강제 종료)
+  resources:
+    requests:        # Kubernetes가 Pod를 노드에 배치할 때 보장하는 최소 자원
+      cpu: 100m
+      memory: 128Mi
+    limits:          # Pod가 사용할 수 있는 최대 자원 (초과 시 제한)
+      cpu: 500m
+      memory: 512Mi # 초과 시 OOMKilled (강제 종료)
 
 # ── PostgreSQL 설정 ────────────────────────────────────────
 postgres:
@@ -45,8 +45,8 @@ ingress:
   annotations: {}
 
 # ── HPA 설정 ───────────────────────────────────────────
-#hpa:
-#  enabled: false
-#  minReplicas: 2
-#  maxReplicas: 2
-#  targetCPUUtilizationPercentage: 50
+hpa:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 50

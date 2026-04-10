@@ -16,7 +16,7 @@ spec:
           interruptionQueue: Karpenter-urlshortener
         serviceAccount:
           annotations:
-            eks.amazonaws.com/role-arn: <karpenter_controller_role_arn>
+            eks.amazonaws.com/role-arn: arn:aws:iam::716174522908:role/KarpenterController-20260410025633575600000018
         controller:
           resources:
             requests:

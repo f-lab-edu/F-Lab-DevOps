@@ -10,7 +10,7 @@ spec:
 
   # 노드에 부여할 IAM Instance Profile
   # Karpenter가 프로비저닝하는 노드용 Role (karpenter_node.tf에서 생성)
-  instanceProfile: KarpenterNodeInstanceProfile-urlshortener
+  instanceProfile: KarpenterNodeRole-urlshortener
 
   # Subnet 선택: karpenter.sh/discovery 태그로 자동 탐색
   # main.tf의 private subnet에 이 태그가 추가되어 있음

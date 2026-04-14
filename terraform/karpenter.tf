@@ -11,7 +11,8 @@ module "karpenter" {
   # irsa_oidc_provider_arn = module.eks.oidc_provider_arn
   create_pod_identity_association = true
   namespace                       = "karpenter"
-  service_account                 = "karpenter"
+  service_account                 = "karpenter" # Karpenter Helm Chart가 생성하는 ServiceAccount 이름과 정확히 일치해야 함
+
 
   # 노드 IAM Role 이름 (EC2NodeClass의 instanceProfile 필드에서 참조)
   node_iam_role_name            = "KarpenterNodeRole-${var.project_name}"

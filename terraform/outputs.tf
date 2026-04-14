@@ -77,7 +77,7 @@ output "github_actions_role_arn" {
 }
 
 output "karpenter_controller_role_arn" {
-  description = "Karpenter Controller IRSA Role ARN"
+  description = "Karpenter Controller Pod Identity Role ARN"
   value       = module.karpenter.iam_role_arn
 }
 

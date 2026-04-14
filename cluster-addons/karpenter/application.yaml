@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: public.ecr.aws/karpenter    # OCI 레지스트리
     chart: karpenter
-    targetRevision: 1.8.5
+    targetRevision: 1.11.1
     helm:
       values: |
         settings:

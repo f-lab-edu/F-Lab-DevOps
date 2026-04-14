@@ -291,8 +291,11 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws" # Terraform Registry에 있는 공식 EKS 모듈 다운로드
   version = "~> 21.0"
 
-  name    = var.project_name
+  name               = var.project_name
   kubernetes_version = var.eks_cluster_version
+
+  authentication_mode = "API_AND_CONFIG_MAP"
+
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
@@ -306,7 +309,12 @@ module "eks" {
   # 관리형 노드 그룹
   eks_managed_node_groups = {
     main = {
-      name           = "${var.project_name}-nodegroup"
+      name            = "${var.project_name}-nodegroup"
+      use_name_prefix = false  # 타임스탬프 suffix 방지 - 항상 동일한 이름 유지
+
+      iam_role_name            = "${var.project_name}-nodegroup-role"
+      iam_role_use_name_prefix = false
+
       instance_types = [var.node_instance_type]
 
       min_size     = var.node_min_size
@@ -323,7 +331,7 @@ module "eks" {
     }
   }
 
-  # 클러스터 생성자에게 AWS 리소스에 접근할 수 있는 Role을 부여하기 위한 코드: helm으로 ALB Controller를 직접 설치하기 위해 필요
+  # 클러스터 생성자에게 AWS 리소스에 접근할 수 있는 Role을 부여하기 위한 코드
   access_entries = {
     admin = {
       principal_arn = "arn:aws:iam::716174522908:user/IAM-jounghyeon"
@@ -338,14 +346,22 @@ module "eks" {
 
   # EKS 기본 애드온 (EBS CSI는 IRSA 의존성으로 ebs_csi.tf에서 별도 관리)
   addons = {
+    # before_compute = true: NodeGroup 생성 전에 먼저 설치
+    # 노드가 부팅될 때 CNI 바이너리가 이미 있어야 NetworkReady 상태가 됨
+    # 이 옵션 없이면 addon과 NodeGroup이 동시에 생성되어 CNI not initialized 오류 발생
+    vpc-cni = {
+      before_compute              = true
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+    eks-pod-identity-agent = {
+      before_compute = true  # Pod Identity 자격증명 주입도 노드 시작 전에 준비
+    }
     coredns    = {}
     kube-proxy = {}
-    vpc-cni    = {}
-    eks-pod-identity-agent = {}
   }
 
-  # SecurityGroup에 태그 전파 (노드 네트워크 설정)
-  cluster_tags = {
+  node_security_group_tags = { # ← cluster_tags에서 변경
     "karpenter.sh/discovery" = var.project_name
   }
 

@@ -62,7 +62,7 @@ jobs:
       #    EKS 노드는 amd64 아키텍처이므로 반드시 명시
       #    Mac M1/M2에서 개발하면 기본 빌드가 arm64가 되어 EKS에서 실행 불가
       - name: Docker Buildx 설정
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # 6. 이미지 빌드 및 ECR 푸시
       - name: 이미지 빌드 및 ECR 푸시

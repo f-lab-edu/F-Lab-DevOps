@@ -253,7 +253,7 @@
 # VPC — terraform-aws-modules/vpc/aws
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "~> 6.0"
 
   name = "${var.project_name}-vpc"
   cidr = var.vpc_cidr
@@ -289,16 +289,16 @@ module "vpc" {
 # EKS — terraform-aws-modules/eks/aws
 module "eks" {
   source  = "terraform-aws-modules/eks/aws" # Terraform Registry에 있는 공식 EKS 모듈 다운로드
-  version = "~> 20.0"
+  version = "~> 21.0"
 
-  cluster_name    = var.project_name
-  cluster_version = var.eks_cluster_version
+  name    = var.project_name
+  kubernetes_version = var.eks_cluster_version
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = true
+  endpoint_public_access  = true
+  endpoint_private_access = true
 
   # IRSA용 OIDC Provider 자동 생성 (iam_oidc.tf 대체)
   enable_irsa = true
@@ -337,10 +337,11 @@ module "eks" {
   }
 
   # EKS 기본 애드온 (EBS CSI는 IRSA 의존성으로 ebs_csi.tf에서 별도 관리)
-  cluster_addons = {
+  addons = {
     coredns    = {}
     kube-proxy = {}
     vpc-cni    = {}
+    eks-pod-identity-agent = {}
   }
 
   # SecurityGroup에 태그 전파 (노드 네트워크 설정)

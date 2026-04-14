@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://aws.github.io/eks-charts   # ALB Controller Helm 레포
     chart: aws-load-balancer-controller
-    targetRevision: 1.8.1
+    targetRevision: 1.14.x # Helm Chart Version.
     helm:
       values: |
         clusterName: urlshortener
@@ -21,7 +21,7 @@ spec:
     namespace: kube-system
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: true # Git(또는 repo)에서 제거된 리소스는 클러스터에서도 삭제
+      selfHeal: true # 클러스터 상태가 Git 상태와 달라질 경우 Argo CD가 자동으로 원상 복구
     syncOptions:
       - CreateNamespace=true

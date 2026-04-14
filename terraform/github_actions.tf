@@ -1,7 +1,9 @@
 # GitHub OIDC Provider 등록 (AWS가 GitHub Actions 토큰을 신뢰하게 됨)
 module "github_oidc_provider" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-github-oidc-provider"
-  version = "~> 5.0"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-oidc-provider"
+  version = "~> 6.0"
+
+  url = "https://token.actions.githubusercontent.com" # ← 추가 (thumbprint 자동 계산)
 
   tags = {
     Name = "${var.project_name}-github-oidc"
@@ -10,15 +12,17 @@ module "github_oidc_provider" {
 
 # GitHub Actions가 assume할 IAM Role
 module "github_actions_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-github-oidc-role" # GitHub Actions용 IAM Role을 생성하는 모듈
-  version = "~> 5.0"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role" # GitHub Actions용 IAM Role을 생성하는 모듈
+  version = "~> 6.0"
 
   name = "${var.project_name}-github-actions-role"
+
+  enable_github_oidc = true # ← 추가 (GitHub OIDC 신뢰 관계 자동 구성)
 
   # 보안: 특정 레포지토리의 main 브랜치만 허용
   # pull_request 이벤트까지 허용하려면 "repo:org/repo:*"으로 변경
   # TODO: dev, prod 환경 구분하기
-  subjects = [
+  oidc_wildcard_subjects = [
     # "repo:f-lab-edu/Url-Shortener-EKS-Platform:ref:refs/heads/main",
     "repo:f-lab-edu/Url-Shortener-EKS-Platform:ref:refs/heads/feat/week6to7",
     "repo:f-lab-edu/Url-Shortener-EKS-Platform:pull_request"

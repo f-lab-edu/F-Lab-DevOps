@@ -3,10 +3,10 @@
 # iam-role-for-service-accounts-eks 서브모듈을 사용하면 ALB Controller 전용 IAM 정책이 내장되어 있어 수백 줄의 정책 JSON을 직접 작성할 필요가 없음.
 
 module "alb_controller_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.0"
 
-  role_name = "${var.project_name}-alb-controller-role"
+  name = "${var.project_name}-alb-controller-role"
 
   # AWS Load Balancer Controller 전용 IAM 정책을 모듈이 자동으로 생성·연결
   attach_load_balancer_controller_policy = true

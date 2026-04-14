@@ -57,7 +57,7 @@
 # ECR Repository — terraform-aws-modules/ecr/aws
 module "ecr" {
   source  = "terraform-aws-modules/ecr/aws"
-  version = "~> 2.0"
+  version = "~> 3.0"
 
   repository_name                 = var.project_name
   repository_image_tag_mutability = "IMMUTABLE"

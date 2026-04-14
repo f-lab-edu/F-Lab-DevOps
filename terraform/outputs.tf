@@ -68,7 +68,7 @@ output "update_kubeconfig_command" {
 ## --- github action 관련 output 추가 ------------------------
 output "alb_controller_role_arn" {
   description = "ALB Controller IRSA Role ARN"
-  value       = module.alb_controller_irsa.iam_role_arn
+  value       = module.alb_controller_irsa.arn
 }
 
 output "github_actions_role_arn" {

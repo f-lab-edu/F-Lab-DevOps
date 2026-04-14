@@ -29,7 +29,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
     # tls provider 제거 — EKS 모듈이 OIDC 처리, tls 직접 사용 불필요
     # AWS IAM에 OIDC Provider를 등록할 때 OIDC 서버 인증서의 지문(thumbprint) 을 제출해야 함

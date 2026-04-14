@@ -53,10 +53,10 @@
 ## --- 모듈 사용 ver.-------------------------
 # EBS CSI Driver IRSA — terraform-aws-modules/iam 서브모듈 사용
 module "ebs_csi_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.0"
 
-  role_name = "${var.project_name}-ebs-csi-role"
+  name = "${var.project_name}-ebs-csi-role"
 
   # EBS CSI 전용 관리형 정책 자동 연결
   attach_ebs_csi_policy = true
@@ -73,7 +73,7 @@ module "ebs_csi_irsa" {
 resource "aws_eks_addon" "ebs_csi" {
   cluster_name             = module.eks.cluster_name
   addon_name               = "aws-ebs-csi-driver"
-  service_account_role_arn = module.ebs_csi_irsa.iam_role_arn
+  service_account_role_arn = module.ebs_csi_irsa.arn
 
   tags = {
     Name = "${var.project_name}-ebs-csi"

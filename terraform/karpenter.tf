@@ -3,12 +3,15 @@
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.0"
+  version = "~> 21.0"
 
-  cluster_name      = module.eks.cluster_name
+  cluster_name = module.eks.cluster_name
 
-  enable_irsa = true
-  irsa_oidc_provider_arn = module.eks.oidc_provider_arn
+  # enable_irsa = true
+  # irsa_oidc_provider_arn = module.eks.oidc_provider_arn
+  create_pod_identity_association = true
+  namespace                       = "karpenter"
+  service_account                 = "karpenter"
 
   # 노드 IAM Role 이름 (EC2NodeClass의 instanceProfile 필드에서 참조)
   node_iam_role_name            = "KarpenterNodeRole-${var.project_name}"

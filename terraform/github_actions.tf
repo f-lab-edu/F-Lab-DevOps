@@ -24,8 +24,7 @@ module "github_actions_role" {
   # pull_request 이벤트까지 허용하려면 "repo:org/repo:*"으로 변경
   # TODO: dev, prod 환경 구분하기
   oidc_wildcard_subjects = [
-    # "repo:f-lab-edu/Url-Shortener-EKS-Platform:ref:refs/heads/main",
-    "repo:f-lab-edu/Url-Shortener-EKS-Platform:ref:refs/heads/feat/week6to7",
+    "repo:f-lab-edu/Url-Shortener-EKS-Platform:ref:refs/heads/*",  # 모든 브랜치 허용
     "repo:f-lab-edu/Url-Shortener-EKS-Platform:pull_request"
   ]
 

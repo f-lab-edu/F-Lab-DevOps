@@ -1,20 +1,39 @@
 api:
-  replicas: 2           # prod는 고가용성을 위해 2개
+  replicas: 2 # prod는 고가용성을 위해 2개
   image:
-    repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/url-shortener
-    tag: sha-9744e45
+    repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
+    tag: sha-a53dd65
     pullPolicy: IfNotPresent
   env:
     appEnv: production
-    debug: 'false'      # prod는 디버그 비활성화
-
+    debug: 'false' # prod는 디버그 비활성화
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
 postgres:
   database: urldb
   # 민감정보는 values.prod-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
   password: ""
   databaseUrl: ""
-  storage: 10Gi         # prod는 스토리지 넉넉하게
+  storage: 10Gi # prod는 스토리지 넉넉하게
   storageClass: gp2
-
+# ALB Ingress 활성화 (internet-facing = 인터넷에서 접근 가능)
 ingress:
-  enabled: false
+  enabled: true
+  className: alb
+  host: "" # ALB DNS 직접 사용 시 비워야 함
+  pathType: Prefix
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
+    alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'

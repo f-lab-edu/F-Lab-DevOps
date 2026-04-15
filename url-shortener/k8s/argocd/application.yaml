@@ -19,7 +19,7 @@ spec:
     # HEAD: 브랜치의 최신 커밋을 추적
     # main: main 브랜치 고정
     # v1.0.0: 특정 태그 고정 (운영 환경 권장)
-    targetRevision: feat/week5
+    targetRevision: feat/week6to7
 
     # Helm chart가 있는 경로 (repo root 기준)
     path: url-shortener/url-shortener-chart
@@ -42,3 +42,7 @@ spec:
     syncOptions:
       - CreateNamespace=true   # namespace가 없으면 자동 생성
     # automated 블록이 없으면 Manual Sync
+    automated:
+      prune: true      # Git에서 삭제된 리소스를 클러스터에서도 자동 삭제
+      selfHeal: true   # 클러스터 상태가 Git과 다르면 자동으로 되돌림
+      # (kubectl로 직접 수정해도 ArgoCD가 Git 상태로 복구)

@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://aws.github.io/eks-charts   # ALB Controller Helm 레포
+    chart: aws-load-balancer-controller
+    targetRevision: 1.14.x # Helm Chart Version.
+    helm:
+      values: |
+        clusterName: urlshortener
+        serviceAccount:
+          create: true
+          annotations:
+            eks.amazonaws.com/role-arn: <alb_controller_role_arn>
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true # Git(또는 repo)에서 제거된 리소스는 클러스터에서도 삭제
+      selfHeal: true # 클러스터 상태가 Git 상태와 달라질 경우 Argo CD가 자동으로 원상 복구
+    syncOptions:
+      - CreateNamespace=true

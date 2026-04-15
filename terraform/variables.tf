@@ -9,7 +9,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "프로젝트 이름 - 리소스의 prefix로 사용"
   type = string
-  default = "url-shortener"
+  default = "urlshortener"
 }
 
 variable "vpc_cidr" {
@@ -27,7 +27,7 @@ variable "availability_zones" {
 variable "eks_cluster_version" {
   description = "EKS Kubernetes 버전"
   type = string
-  default = "1.32"
+  default = "1.34"
 }
 
 variable "node_instance_type" {

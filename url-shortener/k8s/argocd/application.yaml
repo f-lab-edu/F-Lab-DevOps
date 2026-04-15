@@ -19,7 +19,7 @@ spec:
     # HEAD: 브랜치의 최신 커밋을 추적
     # main: main 브랜치 고정
     # v1.0.0: 특정 태그 고정 (운영 환경 권장)
-    targetRevision: feat/week6to7
+    targetRevision: feat/week8to9
 
     # Helm chart가 있는 경로 (repo root 기준)
     path: url-shortener/url-shortener-chart

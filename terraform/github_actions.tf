@@ -15,7 +15,8 @@ module "github_actions_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role" # GitHub Actions용 IAM Role을 생성하는 모듈
   version = "~> 6.0"
 
-  name = "${var.project_name}-github-actions-role"
+  name            = "${var.project_name}-github-actions-role"
+  use_name_prefix = false  # 타임스탬프 suffix 방지
 
   enable_github_oidc = true # ← 추가 (GitHub OIDC 신뢰 관계 자동 구성)
 

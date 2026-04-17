@@ -95,3 +95,14 @@ output "ecr_repository_url" {
   description = "ECR Repository URL (docker push에 사용 목적)"
   value       = module.ecr.repository_url
 }
+
+# --- RDS 관련 output 추가 ------------------------
+output "rds_primary_endpoint" {
+  description = "RDS Primary 엔드포인트 (host:port)"
+  value       = module.rds.db_instance_endpoint
+}
+
+output "rds_replica_endpoint" {
+  description = "RDS Read Replica 엔드포인트 (host:port)"
+  value       = module.rds_replica.db_instance_endpoint
+}

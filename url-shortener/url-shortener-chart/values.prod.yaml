@@ -20,6 +20,7 @@ hpa:
   maxReplicas: 10
   targetCPUUtilizationPercentage: 50
 postgres:
+  enabled: false # 운영 환경
   database: urldb
   # 민감정보는 values.prod-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
   password: ""

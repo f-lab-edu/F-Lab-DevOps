@@ -67,22 +67,6 @@ def _probe_db(db: Session) -> DbProbe:
 
 # ── 엔드포인트 ───────────────────────────────────────────────
 
-@router.get("/_db", response_model=DbProbeResponse)
-def probe_db(
-    write_db: Session = Depends(get_write_db),
-    read_db: Session = Depends(get_read_db),
-):
-    """
-    [진단] write/read 세션이 각각 Primary/Replica로 붙는지 확인.
-    - Replica면 pg_is_in_recovery() = true
-    - Primary면 pg_is_in_recovery() = false
-    """
-    return DbProbeResponse(
-        write=_probe_db(write_db),
-        read=_probe_db(read_db),
-    )
-
-
 @router.post("", response_model=ItemResponse, status_code=201)
 def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
     """[DB 쓰기 — Primary] 아이템을 DB에 저장."""
@@ -97,6 +81,22 @@ def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
 def list_items(db: Session = Depends(get_read_db)): 
     """[DB 읽기 — Replica] 저장된 아이템 목록을 반환."""
     return [ItemResponse.from_orm_custom(i) for i in db.query(Item).all()]
+
+
+@router.get("/_db", response_model=DbProbeResponse)
+def probe_db(
+    write_db: Session = Depends(get_write_db),
+    read_db: Session = Depends(get_read_db),
+):
+    """
+    [진단] write/read 세션이 각각 Primary/Replica로 붙는지 확인.
+    - Replica면 pg_is_in_recovery() = true
+    - Primary면 pg_is_in_recovery() = false
+    """
+    return DbProbeResponse(
+        write=_probe_db(write_db),
+        read=_probe_db(read_db),
+    )
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

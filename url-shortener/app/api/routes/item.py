@@ -1,3 +1,6 @@
+import json
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -7,6 +10,7 @@ from app.core.database import get_write_db, get_read_db
 from app.models.item import Item
 
 router = APIRouter(prefix="/items", tags=["items"])
+logger = logging.getLogger(__name__)
 
 ITEM_TTL   = 300   # 단건 조회 캐시 TTL: 5분
 LIST_TTL   = 60    # 목록 조회 캐시 TTL: 1분 (변경 가능성 높아 짧게)

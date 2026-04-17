@@ -31,6 +31,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secret
                   key: DATABASE_READ_URL
+          {{- if .Values.redis.url }}
+          - name: REDIS_URL
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Release.Name }}-secret
+                key: REDIS_URL
+          {{- end }}
             - name: APP_ENV
               value: {{ .Values.api.env.appEnv }}
             - name: DEBUG

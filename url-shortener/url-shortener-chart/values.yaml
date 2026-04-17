@@ -56,3 +56,8 @@ hpa:
 rds:
   writeUrl: ""    # prod: values.prod-secret.yaml로 주입
   readUrl: ""     # prod: values.prod-secret.yaml로 주입
+
+# ── Redis 설정 ───────────────────────────────────────────
+redis:
+  enabled: false
+  url: ""

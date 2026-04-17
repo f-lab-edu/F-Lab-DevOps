@@ -8,6 +8,9 @@ from app.models.item import Item
 
 router = APIRouter(prefix="/items", tags=["items"])
 
+ITEM_TTL   = 300   # 단건 조회 캐시 TTL: 5분
+LIST_TTL   = 60    # 목록 조회 캐시 TTL: 1분 (변경 가능성 높아 짧게)
+LIST_KEY   = "items:all"
 
 # ── 스키마 ────────────────────────────────────────────────────
 
@@ -31,6 +34,103 @@ class ItemResponse(BaseModel):
             created_at=item.created_at.isoformat() if item.created_at else "",
         )
 
+# ── POST: 캐시 무효화 불필요 (새 데이터는 캐시에 없음) ──────────
+@router.post("", response_model=ItemResponse, status_code=201)
+def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
+    """[Primary] 아이템 생성 — 목록 캐시 무효화."""
+    record = Item(name=body.name, description=body.description)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    # 목록 캐시 무효화 (새 항목이 추가됐으므로 stale)
+    cache = get_redis()
+    if cache:
+        try:
+            cache.delete(LIST_KEY)
+        except Exception as e:
+            logger.warning(f"캐시 무효화 실패 (무시): {e}")
+
+    return ItemResponse.from_orm_custom(record)
+
+
+# ── GET 목록: Cache-Aside ────────────────────────────────────────
+@router.get("", response_model=list[ItemResponse])
+def list_items(db: Session = Depends(get_read_db)):
+    """[Replica] 아이템 목록 — Cache-Aside (TTL: 1분)."""
+    cache = get_redis()
+
+    if cache:
+        try:
+            cached = cache.get(LIST_KEY)
+            if cached:
+                logger.info("cache_hit endpoint=list_items")
+                return [ItemResponse(**item) for item in json.loads(cached)]
+            logger.info("cache_miss endpoint=list_items")
+        except Exception as e:
+            logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
+
+    items = db.query(Item).all()
+    result = [ItemResponse.from_orm_custom(i) for i in items]
+
+    if cache:
+        try:
+            cache.setex(LIST_KEY, LIST_TTL, json.dumps([r.model_dump() for r in result]))
+        except Exception as e:
+            logger.warning(f"캐시 저장 실패 (무시): {e}")
+
+    return result
+
+
+# ── GET 단건: Cache-Aside ────────────────────────────────────────
+@router.get("/{item_id}", response_model=ItemResponse)
+def get_item(item_id: int, db: Session = Depends(get_read_db)):
+    """[Replica] 아이템 단건 조회 — Cache-Aside (TTL: 5분)."""
+    cache = get_redis()
+    cache_key = f"item:{item_id}"
+
+    if cache:
+        try:
+            cached = cache.get(cache_key)
+            if cached:
+                logger.info(f"cache_hit endpoint=get_item item_id={item_id}")
+                return ItemResponse(**json.loads(cached))
+            logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
+        except Exception as e:
+            logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
+
+    record = db.query(Item).filter(Item.id == item_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
+
+    result = ItemResponse.from_orm_custom(record)
+
+    if cache:
+        try:
+            cache.setex(cache_key, ITEM_TTL, json.dumps(result.model_dump()))
+        except Exception as e:
+            logger.warning(f"캐시 저장 실패 (무시): {e}")
+
+    return result
+
+
+# ── DELETE: 캐시 무효화 필수 ────────────────────────────────────
+@router.delete("/{item_id}", status_code=204)
+def delete_item(item_id: int, db: Session = Depends(get_write_db)):
+    """[Primary] 아이템 삭제 — 단건 + 목록 캐시 무효화."""
+    record = db.query(Item).filter(Item.id == item_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
+    db.delete(record)
+    db.commit()
+
+    cache = get_redis()
+    if cache:
+        try:
+            cache.delete(f"item:{item_id}")   # 단건 캐시
+            cache.delete(LIST_KEY)            # 목록 캐시
+        except Exception as e:
+            logger.warning(f"캐시 무효화 실패 (무시): {e}")
 
 class DbProbe(BaseModel):
     in_recovery: bool

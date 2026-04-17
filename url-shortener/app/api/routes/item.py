@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_write_db, get_read_db
@@ -31,7 +32,56 @@ class ItemResponse(BaseModel):
         )
 
 
+class DbProbe(BaseModel):
+    in_recovery: bool
+    server_addr: str | None
+    db: str
+    user: str
+
+
+class DbProbeResponse(BaseModel):
+    write: DbProbe
+    read: DbProbe
+
+
+def _probe_db(db: Session) -> DbProbe:
+    row = db.execute(
+        text(
+            """
+            select
+              pg_is_in_recovery() as in_recovery,
+              inet_server_addr()::text as server_addr,
+              current_database() as db,
+              current_user as "user"
+            """
+        )
+    ).mappings().one()
+
+    return DbProbe(
+        in_recovery=bool(row["in_recovery"]),
+        server_addr=row["server_addr"],
+        db=str(row["db"]),
+        user=str(row["user"]),
+    )
+
+
 # ── 엔드포인트 ───────────────────────────────────────────────
+
+@router.get("/_db", response_model=DbProbeResponse)
+def probe_db(
+    write_db: Session = Depends(get_write_db),
+    read_db: Session = Depends(get_read_db),
+):
+    """
+    [진단] write/read 세션이 각각 Primary/Replica로 붙는지 확인.
+    - Replica면 pg_is_in_recovery() = true
+    - Primary면 pg_is_in_recovery() = false
+    """
+    return DbProbeResponse(
+        write=_probe_db(write_db),
+        read=_probe_db(read_db),
+    )
+
 
 @router.post("", response_model=ItemResponse, status_code=201)
 def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):

@@ -31,7 +31,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secret
                   key: DATABASE_READ_URL
-            {{- if .Values.redis.url }}
+            {{- if .Values.redis.enabled }}
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:

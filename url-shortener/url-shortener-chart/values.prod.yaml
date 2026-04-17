@@ -38,3 +38,5 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
     alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+redis:
+  enabled: true # prod: Redis 캐시 활성화

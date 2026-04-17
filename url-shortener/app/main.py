@@ -1,7 +1,10 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.routes import health, item
 from app.core.database import Base, write_engine
+
+logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager # 비동기 context manager를 만들기 위한 데코레이터

@@ -29,7 +29,7 @@ spec:
       valueFiles:
         - values.yaml                # 기본 설정
         - values.prod.yaml           # 운영 환경 오버라이드
-        - values.prod-secret.yaml    # 운영 환경 비밀 설정
+        # values.prod-secret.yaml 은 Git에 없는 경우 Sync error가 발생하므로 제외
 
   # ── 배포 대상 클러스터 및 namespace ────────────────
   destination:

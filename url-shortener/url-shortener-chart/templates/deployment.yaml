@@ -26,6 +26,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secret
                   key: DATABASE_URL
+            - name: DATABASE_READ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: DATABASE_READ_URL
             - name: APP_ENV
               value: {{ .Values.api.env.appEnv }}
             - name: DEBUG

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_write_db, get_read_db
 from app.models.item import Item
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -34,8 +34,8 @@ class ItemResponse(BaseModel):
 # ── 엔드포인트 ───────────────────────────────────────────────
 
 @router.post("", response_model=ItemResponse, status_code=201)
-def create_item(body: ItemCreate, db: Session = Depends(get_db)):
-    """[DB 쓰기] 아이템을 DB에 저장."""
+def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
+    """[DB 쓰기 — Primary] 아이템을 DB에 저장."""
     record = Item(name=body.name, description=body.description)
     db.add(record)
     db.commit()
@@ -44,13 +44,13 @@ def create_item(body: ItemCreate, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[ItemResponse])
-def list_items(db: Session = Depends(get_db)):
-    """[DB 전체 읽기] 저장된 아이템 목록을 반환."""
+def list_items(db: Session = Depends(get_read_db)): 
+    """[DB 읽기 — Replica] 저장된 아이템 목록을 반환."""
     return [ItemResponse.from_orm_custom(i) for i in db.query(Item).all()]
 
 
 @router.get("/{item_id}", response_model=ItemResponse)
-def get_item(item_id: int, db: Session = Depends(get_db)):
+def get_item(item_id: int, db: Session = Depends(get_read_db)): 
     """[DB 단건 읽기] ID로 특정 아이템을 조회."""
     record = db.query(Item).filter(Item.id == item_id).first()
     if not record:
@@ -59,7 +59,7 @@ def get_item(item_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{item_id}", status_code=204)
-def delete_item(item_id: int, db: Session = Depends(get_db)):
+def delete_item(item_id: int, db: Session = Depends(get_write_db)): 
     """[DB 삭제] ID로 특정 아이템을 삭제합니다."""
     record = db.query(Item).filter(Item.id == item_id).first()
     if not record:

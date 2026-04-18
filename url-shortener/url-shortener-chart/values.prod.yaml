@@ -2,7 +2,7 @@ api:
   replicas: 2 # prod는 고가용성을 위해 2개
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
-    tag: sha-0e495f7
+    tag: sha-d442ecc
     pullPolicy: IfNotPresent
   env:
     appEnv: production
@@ -40,7 +40,6 @@ ingress:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 redis:
   enabled: true # prod: Redis 캐시 활성화
-
 # --- ServiceMonitor 설정 ────────────────────────────────────────
 serviceMonitor:
   enabled: true

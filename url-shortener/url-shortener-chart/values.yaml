@@ -61,3 +61,8 @@ rds:
 redis:
   enabled: false
   url: ""
+
+# --- ServiceMonitor 설정 ────────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  interval: 5s

@@ -40,3 +40,7 @@ ingress:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 redis:
   enabled: true # prod: Redis 캐시 활성화
+
+# --- ServiceMonitor 설정 ────────────────────────────────────────
+serviceMonitor:
+  enabled: true

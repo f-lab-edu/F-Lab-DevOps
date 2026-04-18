@@ -1,0 +1,22 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-api
+  labels:
+    app: {{ .Release.Name }}-api
+    # Prometheus Operator가 이 label로 ServiceMonitor를 선택
+    # kube-prometheus-stack의 기본 selector와 일치해야 함
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-api   # url-shortener-svc의 selector와 일치
+  endpoints:
+    - port: http                     # service.yaml의 port name과 일치
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval | default "30s" }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -8,6 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import get_redis
 from app.core.database import get_write_db, get_read_db
+from app.core.metrics import (
+    cache_hit_total,
+    cache_miss_total,
+    db_query_latency_seconds,
+)
 from app.models.item import Item
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -77,10 +83,16 @@ def _probe_db(db: Session) -> DbProbe:
 @router.post("", response_model=ItemResponse, status_code=201)
 def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
     """[Primary] 아이템 생성 — 목록 캐시 무효화."""
+    start = time.perf_counter()
+
     record = Item(name=body.name, description=body.description)
     db.add(record)
     db.commit()
     db.refresh(record)
+
+    db_query_latency_seconds.labels(operation="insert").observe(
+        time.perf_counter() - start
+    )
 
     # 목록 캐시 무효화 (새 항목이 추가됐으므로 stale)
     cache = get_redis()
@@ -103,13 +115,18 @@ def list_items(db: Session = Depends(get_read_db)):
         try:
             cached = cache.get(LIST_KEY)
             if cached:
-                logger.info("cache_hit endpoint=list_items")
-                return [ItemResponse(**item) for item in json.loads(cached)]
-            logger.info("cache_miss endpoint=list_items")
+                cache_hit_total.labels(endpoint="list_items").inc()
+                return [ItemResponse(**i) for i in json.loads(cached)]
+            cache_miss_total.labels(endpoint="list_items").inc()
         except Exception as e:
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
+    start = time.perf_counter()
     items = db.query(Item).all()
+    db_query_latency_seconds.labels(operation="select_all").observe(
+        time.perf_counter() - start
+    )
+
     result = [ItemResponse.from_orm_custom(i) for i in items]
 
     if cache:
@@ -150,13 +167,18 @@ def get_item(item_id: int, db: Session = Depends(get_read_db)):
         try:
             cached = cache.get(cache_key)
             if cached:
-                logger.info(f"cache_hit endpoint=get_item item_id={item_id}")
+                cache_hit_total.labels(endpoint="get_item").inc()
                 return ItemResponse(**json.loads(cached))
-            logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
+            cache_miss_total.labels(endpoint="get_item").inc()
         except Exception as e:
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
+    start = time.perf_counter()
     record = db.query(Item).filter(Item.id == item_id).first()
+    db_query_latency_seconds.labels(operation="select_one").observe(
+        time.perf_counter() - start
+    )
+
     if not record:
         raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
 
@@ -175,11 +197,18 @@ def get_item(item_id: int, db: Session = Depends(get_read_db)):
 @router.delete("/{item_id}", status_code=204)
 def delete_item(item_id: int, db: Session = Depends(get_write_db)):
     """[Primary] 아이템 삭제 — 단건 + 목록 캐시 무효화."""
+    start = time.perf_counter()
     record = db.query(Item).filter(Item.id == item_id).first()
+
     if not record:
         raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
+
     db.delete(record)
     db.commit()
+
+    db_query_latency_seconds.labels(operation="delete").observe(
+        time.perf_counter() - start
+    )
 
     cache = get_redis()
     if cache:

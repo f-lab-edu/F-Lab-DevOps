@@ -20,7 +20,10 @@ prometheus:
 
 # ── Grafana 설정 ──────────────────────────────────────────────
 grafana:
-  adminPassword: "admin"   # 실습용 고정 비밀번호 (운영: Secret으로 관리)
+  admin:
+    existingSecret: grafana-admin-secret
+    userKey: admin-user
+    passwordKey: admin-password              # Secret의 key 이름
   service:
     type: ClusterIP
   persistence:

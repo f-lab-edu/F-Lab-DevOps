@@ -39,7 +39,41 @@ class ItemResponse(BaseModel):
             created_at=item.created_at.isoformat() if item.created_at else "",
         )
 
-# ── POST: 캐시 무효화 불필요 (새 데이터는 캐시에 없음) ──────────
+
+class DbProbe(BaseModel):
+    in_recovery: bool
+    server_addr: str | None
+    db: str
+    user: str
+
+
+class DbProbeResponse(BaseModel):
+    write: DbProbe
+    read: DbProbe
+
+
+def _probe_db(db: Session) -> DbProbe:
+    row = db.execute(
+        text(
+            """
+            select
+              pg_is_in_recovery() as in_recovery,
+              inet_server_addr()::text as server_addr,
+              current_database() as db,
+              current_user as "user"
+            """
+        )
+    ).mappings().one()
+
+    return DbProbe(
+        in_recovery=bool(row["in_recovery"]),
+        server_addr=row["server_addr"],
+        db=str(row["db"]),
+        user=str(row["user"]),
+    )
+
+
+# ── POST: 아이템 생성 — 목록 캐시 무효화 ──────────────────────
 @router.post("", response_model=ItemResponse, status_code=201)
 def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
     """[Primary] 아이템 생성 — 목록 캐시 무효화."""
@@ -88,6 +122,7 @@ def list_items(db: Session = Depends(get_read_db)):
 
 
 # ── GET /_db: Write/Read 분리 진단 ───────────────────────────────
+# /{item_id} 보다 먼저 등록해야 라우트 충돌 방지
 @router.get("/_db", response_model=DbProbeResponse)
 def probe_db(
     write_db: Session = Depends(get_write_db),
@@ -153,35 +188,3 @@ def delete_item(item_id: int, db: Session = Depends(get_write_db)):
             cache.delete(LIST_KEY)            # 목록 캐시
         except Exception as e:
             logger.warning(f"캐시 무효화 실패 (무시): {e}")
-
-class DbProbe(BaseModel):
-    in_recovery: bool
-    server_addr: str | None
-    db: str
-    user: str
-
-
-class DbProbeResponse(BaseModel):
-    write: DbProbe
-    read: DbProbe
-
-
-def _probe_db(db: Session) -> DbProbe:
-    row = db.execute(
-        text(
-            """
-            select
-              pg_is_in_recovery() as in_recovery,
-              inet_server_addr()::text as server_addr,
-              current_database() as db,
-              current_user as "user"
-            """
-        )
-    ).mappings().one()
-
-    return DbProbe(
-        in_recovery=bool(row["in_recovery"]),
-        server_addr=row["server_addr"],
-        db=str(row["db"]),
-        user=str(row["user"]),
-    )

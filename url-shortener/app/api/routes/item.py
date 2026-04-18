@@ -87,6 +87,23 @@ def list_items(db: Session = Depends(get_read_db)):
     return result
 
 
+# ── GET /_db: Write/Read 분리 진단 ───────────────────────────────
+@router.get("/_db", response_model=DbProbeResponse)
+def probe_db(
+    write_db: Session = Depends(get_write_db),
+    read_db: Session = Depends(get_read_db),
+):
+    """
+    [진단] write/read 세션이 각각 Primary/Replica로 붙는지 확인.
+    - Replica면 pg_is_in_recovery() = true
+    - Primary면 pg_is_in_recovery() = false
+    """
+    return DbProbeResponse(
+        write=_probe_db(write_db),
+        read=_probe_db(read_db),
+    )
+
+
 # ── GET 단건: Cache-Aside ────────────────────────────────────────
 @router.get("/{item_id}", response_model=ItemResponse)
 def get_item(item_id: int, db: Session = Depends(get_read_db)):
@@ -168,21 +185,3 @@ def _probe_db(db: Session) -> DbProbe:
         db=str(row["db"]),
         user=str(row["user"]),
     )
-
-
-@router.get("/_db", response_model=DbProbeResponse)
-def probe_db(
-    write_db: Session = Depends(get_write_db),
-    read_db: Session = Depends(get_read_db),
-):
-    """
-    [진단] write/read 세션이 각각 Primary/Replica로 붙는지 확인.
-    - Replica면 pg_is_in_recovery() = true
-    - Primary면 pg_is_in_recovery() = false
-    """
-    return DbProbeResponse(
-        write=_probe_db(write_db),
-        read=_probe_db(read_db),
-    )
-
-

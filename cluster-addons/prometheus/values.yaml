@@ -1,0 +1,36 @@
+# ── Prometheus 설정 ───────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # 모든 namespace의 ServiceMonitor를 감시
+    # 기본값은 kube-prometheus-stack과 동일 namespace만 감시
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # 메트릭 보관 기간
+    retention: 7d
+
+    # 스토리지 — 실습: emptyDir (Pod 재시작 시 초기화)
+    storageSpec:
+      emptyDir:
+        medium: Memory
+
+    # 스토리지 상한 설정 — 미설정 시 PV 가득 차면 Prometheus 크래시
+    retentionSize: "45GB"   # PV 50Gi 기준 여유 5GB 확보
+
+# ── Grafana 설정 ──────────────────────────────────────────────
+grafana:
+  adminPassword: "admin"   # 실습용 고정 비밀번호 (운영: Secret으로 관리)
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: true          # Grafana 대시보드/설정 재시작 후에도 유지
+    storageClassName: gp2
+    size: 5Gi
+  # (실습에서는 persistence.enabled: false 로 비용 절감 가능)
+
+# ── AlertManager 설정 (Part 6에서 완성) ─────────────────────
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      emptyDir: {}

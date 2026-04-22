@@ -32,8 +32,7 @@ app = FastAPI(
 
 # --- /metrics 엔드포인트 마운트 -----------------------------------
 # prometheus_client의 ASGI 앱을 /metrics 경로에 마운트
-# Prometheus가 이 엔드포인트를 30초마다 scrape
-metrics_app = make_asgi_app()
+metrics_app = make_asgi_app() # 메트릭을 HTTP로 노출해주는 함수
 app.mount("/metrics", metrics_app)
 
 

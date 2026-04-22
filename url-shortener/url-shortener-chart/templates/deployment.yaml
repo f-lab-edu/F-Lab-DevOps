@@ -5,6 +5,7 @@ metadata:
   labels:
     app: {{ .Release.Name }}-api
 spec:
+  # TODO: strategy를 RollingUpdate 전략 추가
   replicas: {{ .Values.api.replicas }}
   selector:
     matchLabels:
@@ -42,6 +43,7 @@ spec:
               value: {{ .Values.api.env.appEnv }}
             - name: DEBUG
               value: {{ .Values.api.env.debug | quote }}
+           # TODO: path를 /readyz로 변경 + failureThreshold 값을 1~3으로 변경
           readinessProbe:
             httpGet:
               path: /healthz
@@ -49,7 +51,7 @@ spec:
             initialDelaySeconds: {{ .Values.api.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.readinessProbe.periodSeconds }}
           livenessProbe:
-            httpGet:
+            httpGet:  
               path: /healthz
               port: {{ .Values.api.port }}
             initialDelaySeconds: {{ .Values.api.livenessProbe.initialDelaySeconds }}

@@ -75,7 +75,7 @@ module "rds" {
   iam_database_authentication_enabled = true # IAM 인증 -> 일반 계정 사용자를 위한 접근 방법
 
   # 네트워크
-  # DB Subnet Group을 명시적으로 생성/사용해서 "기본 VPC"로 떨어지는 것을 방지
+  # DB Subnet Group을 명시적으로 생성/사용해서 "기본 VPC"로 떨어지는 것을 방₩지
   create_db_subnet_group = true
   subnet_ids             = module.vpc.private_subnets # EKS와 동일한 private subnet
   vpc_security_group_ids = [aws_security_group.rds.id]
@@ -131,6 +131,10 @@ module "rds" {
 }
 
 # --- RDS Read Replica ---------------------
+# TODO: Failover 발생 시, replica가 primary로 승격되면 replica는 없어짐. -> 대책 필요!!
+#  1. CloudWatch Event가 failover를 감지하면 Lamda를 통해 Read Replica 생성 API 호출
+#  2. Aurora 사용: failover 시, 자동 승격 및 reader는 그래도 유지 가능(replica 복수 자동 운용 가능)
+
 # replicate_source_db 한 줄이 Primary → Replica 복제를 설정
 module "rds_replica" {
   source = "terraform-aws-modules/rds/aws"
@@ -153,7 +157,9 @@ module "rds_replica" {
   create_db_option_group = false # Primary에서 상속 여부 설정
 
   # 백업
-  backup_retention_period = 0
+  backup_retention_period = 0 # 비활성화
+
+  # 삭제 시 백업
   skip_final_snapshot = true
 
   tags = { Name = "${var.project_name}-postgres-replica" }

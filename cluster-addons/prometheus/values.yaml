@@ -7,10 +7,15 @@ prometheus:
     serviceMonitorSelector: {}
     serviceMonitorNamespaceSelector: {}
 
+    # 모든 namespace의 PrometheusRule을 감지
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
     # 메트릭 보관 기간
     retention: 7d
 
     # 스토리지 — 실습: emptyDir (Pod 재시작 시 초기화)
+    # TODO: PV 사용 반영 -> 현재 emtyDir이면 pod 재시작 시 데이터 전부 소멸함
     storageSpec:
       emptyDir:
         medium: Memory
@@ -32,8 +37,9 @@ grafana:
     size: 5Gi
   # (실습에서는 persistence.enabled: false 로 비용 절감 가능)
 
-# ── AlertManager 설정 (Part 6에서 완성) ─────────────────────
+# ── AlertManager 설정 ─────────────────────
 alertmanager:
   alertmanagerSpec:
     storage:
       emptyDir: {}
+      # TODO: PV 사용 반영 -> 현재 emtyDir이면 pod 재시작 시 데이터 전부 소멸함

@@ -1,4 +1,8 @@
+# Prometheus로 애플리케이션 상태를 관측하기 위한 메트릭 정의
+
 from prometheus_client import Counter, Histogram
+
+# TODO: Path - Cardinality 폭발 가능성 존재 -> Label Value 제한 필요
 
 # ── HTTP 요청 카운터 ──────────────────────────────────────────
 # labels: method(GET/POST), path(/items, /items/{id}), status_code(200/404/500)

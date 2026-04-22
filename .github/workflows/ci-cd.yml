@@ -106,6 +106,8 @@ jobs:
           echo "Updated image tag to: ${IMAGE_TAG}"
           cat url-shortener/url-shortener-chart/values.prod.yaml
 
+      # TODO: 이미지 취약점 스캔(Trivy) 단계 추가
+
       # 8. 변경된 values.prod.yaml을 Git에 커밋 & 푸시
       #    [skip ci]: 이 커밋으로 인해 파이프라인이 다시 실행되지 않도록 방지
       #    paths 필터를 쓰더라도 명시적으로 [skip ci]를 추가하는 것이 안전

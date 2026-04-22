@@ -94,7 +94,7 @@ def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
         time.perf_counter() - start
     )
 
-    # 목록 캐시 무효화 (새 항목이 추가됐으므로 stale)
+    # 목록 캐시 무효화 (새 항목이 추가됐으므로 state)
     cache = get_redis()
     if cache:
         try:

@@ -6,7 +6,6 @@ metadata:
   labels:
     app: {{ .Release.Name }}-api
     # Prometheus Operator가 이 label로 ServiceMonitor를 선택
-    # kube-prometheus-stack의 기본 selector와 일치해야 함
     release: kube-prometheus-stack
 spec:
   selector:

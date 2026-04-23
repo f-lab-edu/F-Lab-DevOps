@@ -8,3 +8,8 @@ def healthcheck():
     서버 상태를 확인하는 헬스체크 엔드포인트.
     """
     return {"status": "ok", "version": "v28"}
+
+@router.get("/error-test")
+def error_test():
+    """[테스트용] 강제로 500 에러 발생"""
+    raise Exception("의도적 에러 — Alert 테스트용")

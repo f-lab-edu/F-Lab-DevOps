@@ -1,0 +1,65 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-alerts
+  labels:
+    app: {{ .Release.Name }}-api
+    release: kube-prometheus-stack   # Prometheus Operator가 이 label로 Rule 선택
+spec:
+  groups:
+    - name: url-shortener.rules
+      interval: 1m    # 이 group의 평가 주기
+      rules:
+
+        # ── 높은 에러율 ───────────────────────────────────────
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_request_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_request_total[5m])) > 0.05
+          for: 2m    # 2분 동안 지속될 때만 알림 발송
+          labels:
+            severity: warning
+          annotations:
+            summary: "높은 에러율 감지 ({{ $value | humanizePercentage }})"
+            description: "5xx 에러율이 5%를 초과했습니다. 최근 5분 평균: {{ $value | humanizePercentage }}"
+
+        # ── 캐시 히트율 저하 ─────────────────────────────────
+        - alert: CacheHitRateLow
+          expr: |
+            sum(rate(cache_hit_total[5m]))
+            /
+            (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m])))
+            < 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "캐시 히트율 저하 ({{ $value | humanizePercentage }})"
+            description: "캐시 히트율이 50% 미만입니다. Redis 상태 및 TTL 설정을 확인하세요."
+
+        # ── DB 쿼리 지연 ─────────────────────────────────────
+        - alert: DBQueryLatencyHigh
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(db_query_latency_seconds_bucket[5m])) by (le, operation)
+            ) > 0.5
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "DB 쿼리 P99 레이턴시 높음 ({{ $value }}s)"
+            description: "operation={{ $labels.operation }}의 P99 레이턴시가 500ms를 초과했습니다."
+
+        # Watchdog (DeadManSwitch) — Prometheus 자체 정상 동작 확인용
+        # 항상 발화하는 알림 → AlertManager → 외부 모니터링 시스템에 heartbeat 전송
+        # 이 알림이 멈추면 Prometheus 또는 AlertManager 자체에 문제 발생
+        - alert: Watchdog
+          expr: vector(1)
+          labels:
+            severity: none
+          annotations:
+            summary: "Prometheus 정상 동작 중 (Watchdog)"
+            description: "이 알림이 수신되지 않으면 Prometheus 또는 AlertManager에 문제가 있습니다."
+{{- end }}

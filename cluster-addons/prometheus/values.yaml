@@ -63,7 +63,7 @@ alertmanager:
         slack_configs:
           - api_url_file: /etc/alertmanager/secrets/alertmanager-slack-secret/webhook-url
             # ↑ Secret의 webhook-url key가 이 경로에 파일로 마운트됨 (Git에 URL 노출 없음)
-            channel: "#alerts" # 알림 채널
+            channel: "#test" # 알림 채널
             title: '{{ template "slack.default.title" . }}' # 알림 제목
             text: |
               {{ range .Alerts }}

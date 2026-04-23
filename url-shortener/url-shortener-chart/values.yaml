@@ -65,4 +65,4 @@ redis:
 # --- ServiceMonitor 설정 ────────────────────────────────────────
 serviceMonitor:
   enabled: false
-  interval: 10s
+  interval: 30s

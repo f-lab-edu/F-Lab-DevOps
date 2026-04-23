@@ -116,8 +116,10 @@ def list_items(db: Session = Depends(get_read_db)):
             cached = cache.get(LIST_KEY)
             if cached:
                 cache_hit_total.labels(endpoint="list_items").inc()
+                logger.info("cache_hit endpoint=list_items")
                 return [ItemResponse(**i) for i in json.loads(cached)]
             cache_miss_total.labels(endpoint="list_items").inc()
+            logger.info("cache_miss endpoint=list_items")
         except Exception as e:
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
@@ -168,8 +170,10 @@ def get_item(item_id: int, db: Session = Depends(get_read_db)):
             cached = cache.get(cache_key)
             if cached:
                 cache_hit_total.labels(endpoint="get_item").inc()
+                logger.info(f"cache_hit endpoint=get_item item_id={item_id}")
                 return ItemResponse(**json.loads(cached))
             cache_miss_total.labels(endpoint="get_item").inc()
+            logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
         except Exception as e:
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 

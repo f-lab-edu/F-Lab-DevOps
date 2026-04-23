@@ -22,8 +22,8 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: "높은 에러율 감지 ({{ $value | humanizePercentage }})"
-            description: "5xx 에러율이 5%를 초과했습니다. 최근 5분 평균: {{ $value | humanizePercentage }}"
+            summary: "높은 에러율 감지 ({{` {{ $value | humanizePercentage }}`}})"
+            description: "5xx 에러율이 5%를 초과했습니다. 최근 5분 평균: {{` {{ $value | humanizePercentage }}`}}"
 
         # ── 캐시 히트율 저하 ─────────────────────────────────
         - alert: CacheHitRateLow
@@ -36,7 +36,7 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: "캐시 히트율 저하 ({{ $value | humanizePercentage }})"
+            summary: "캐시 히트율 저하 ({{` {{ $value | humanizePercentage }}`}})"
             description: "캐시 히트율이 50% 미만입니다. Redis 상태 및 TTL 설정을 확인하세요."
 
         # ── DB 쿼리 지연 ─────────────────────────────────────
@@ -49,8 +49,8 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: "DB 쿼리 P99 레이턴시 높음 ({{ $value }}s)"
-            description: "operation={{ $labels.operation }}의 P99 레이턴시가 500ms를 초과했습니다."
+            summary: "DB 쿼리 P99 레이턴시 높음 ({{` {{ $value }}`}}s)"
+            description: "operation={{` {{ $labels.operation }}`}}의 P99 레이턴시가 500ms를 초과했습니다."
 
         # Watchdog (DeadManSwitch) — Prometheus 자체 정상 동작 확인용
         # 항상 발화하는 알림 → AlertManager → 외부 모니터링 시스템에 heartbeat 전송

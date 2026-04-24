@@ -7,7 +7,7 @@ def healthcheck():
     """
     서버 상태를 확인하는 헬스체크 엔드포인트.
     """
-    return {"status": "ok", "version": "v28"}
+    return {"status": "ok", "version": "v29"}
 
 @router.get("/error-test")
 def error_test():

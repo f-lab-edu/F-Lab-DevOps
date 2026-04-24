@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -12,4 +13,4 @@ def healthcheck():
 @router.get("/error-test")
 def error_test():
     """[테스트용] 강제로 500 에러 발생"""
-    raise Exception("의도적 에러 — Alert 테스트용")
+    raise HTTPException(status_code=500, detail="의도적 에러 — Alert 테스트용")

@@ -56,3 +56,9 @@ variable "node_max_size" {
   type = number
   default = 4
 }
+
+variable "db_password" {
+  description = "RDS master(user=postgres) password (manage_master_user_password=false 사용 시 필수)"
+  type        = string
+  sensitive   = true
+}

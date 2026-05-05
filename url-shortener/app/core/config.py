@@ -9,7 +9,13 @@ class Settings(BaseSettings):
 
     # 데이터베이스 연결 URL
     # 형식: postgresql://유저:비밀번호@호스트:포트/DB이름
-    DATABASE_URL: str
+    DATABASE_URL: str = ""
+
+    # Read Replica 연결 URL (비어있으면 DATABASE_URL로 fallback)
+    DATABASE_READ_URL: str = ""
+
+    # Redis URL. 비어있으면 캐시 비활성화 (운영 환경에서 설정)
+    REDIS_URL: str = ""
 
     # 실행 환경 (development / production)
     APP_ENV: str = "development"

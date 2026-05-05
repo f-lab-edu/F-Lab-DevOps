@@ -45,7 +45,7 @@ spec:
   disruption:
     # WhenEmptyOrUnderutilized: 노드가 비어있거나 다른 노드로 통합 가능할 때 삭제
     # WhenEmpty: 노드가 완전히 빌 때만 삭제 (더 보수적)
-    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidationPolicy: WhenEmpty
     consolidateAfter: 30s   # 30초 동안 미사용 상태면 삭제
 
   # 이 NodePool이 관리할 최대 리소스 (비용 폭주 방지)

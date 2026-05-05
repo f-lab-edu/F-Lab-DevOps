@@ -6,7 +6,7 @@ on:
   push:
     branches:
       - main
-      - feat/week8to9
+      - feat/week11
     paths:
       - 'url-shortener/app/**'
       - 'url-shortener/Dockerfile'

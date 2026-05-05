@@ -11,7 +11,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432 # 허용할 포트 시작
     to_port         = 5432 # 허용할 포트 끝
     protocol        = "tcp"
-    security_groups = [module.eks.node_security_group_id]
+    security_groups = [module.eks.node_security_group_id] # RDS SG에서 TCP 5432 인바운드를 ‘EKS 노드 SG’라는 소스에만 허용해서 접근 대상을 EKS로 한정한다는 의미.
   }
 
   # 아웃바운드 규칙: RDS에서 모든 포트로 외부로 접근 허용

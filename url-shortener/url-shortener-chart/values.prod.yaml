@@ -2,7 +2,7 @@ api:
   replicas: 2 # prod는 고가용성을 위해 2개
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
-    tag: sha-d0aae38
+    tag: sha-242fd27
     pullPolicy: IfNotPresent
   env:
     appEnv: production
@@ -37,11 +37,10 @@ ingress:
     enabled: true
     secretName: url-shortener-tls
   annotations:
-  # 아래는 ingress-nginx Ingress 설정 (prod 전용)
+    # 아래는 ingress-nginx Ingress 설정 (prod 전용)
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-
-  # 아래는 ALB Ingress 설정 (prod 전용)
+    # 아래는 ALB Ingress 설정 (prod 전용)
     # kubernetes.io/ingress.class: alb
     # alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
     # alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)

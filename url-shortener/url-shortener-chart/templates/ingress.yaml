@@ -13,6 +13,7 @@ metadata:
   {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className | default "nginx" }}
+  {{- if .Values.ingress.tls.enabled }}
   tls:
     - hosts:
         - {{ .Values.ingress.host | quote }}

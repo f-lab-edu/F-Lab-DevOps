@@ -40,6 +40,10 @@ ingress:
     # 아래는 ingress-nginx Ingress 설정 (prod 전용)
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Rate Limit 설정
+    nginx.ingress.kubernetes.io/limit-rps: "5" # 1초당 5개의 요청을 허용
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3" # 1초당 5개의 요청을 허용하고 3배의 요청을 허용
+    
     # 아래는 ALB Ingress 설정 (prod 전용)
     # kubernetes.io/ingress.class: alb
     # alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근

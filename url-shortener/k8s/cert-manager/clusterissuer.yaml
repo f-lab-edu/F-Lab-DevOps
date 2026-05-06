@@ -1,0 +1,16 @@
+# cert-manager가 Let's Encrypt를 이용해 인증서를 발급할 때 사용할 “발급자(issuer)” 설정
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod                # 이 발급자 이름. Certificate에서 issuerRef.name으로 참조함
+spec:
+  acme:                                 # ACME 프로토콜 기반 인증서 발급 설정 (Let's Encrypt가 대표적)
+    email: jounghyeon123@gmail.com      # 인증서 만료/문제 알림을 받을 이메일 주소
+    server: https://acme-v02.api.letsencrypt.org/directory  # Let's Encrypt 운영(production) 서버 주소
+    privateKeySecretRef:
+      name: letsencrypt-prod            # ACME 계정용 개인키를 저장할 Kubernetes Secret 이름
+    solvers:
+      - http01:                         # 도메인 소유권 검증 방식으로 HTTP-01 사용
+          ingress:
+            class: nginx                # HTTP-01 검증 요청을 ingress-nginx가 처리하도록 지정

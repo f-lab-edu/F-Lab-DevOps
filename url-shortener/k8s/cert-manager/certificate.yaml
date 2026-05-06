@@ -1,0 +1,14 @@
+# 특정 도메인(api.bidflow.cloud)에 대한 TLS 인증서를 발급해 달라고 cert-manager에 요청하는 리소스
+
+apiVersion: cert-manager.io/v1
+kind: Certificate                       # cert-manager에게 실제 인증서 발급을 요청하는 리소스
+metadata:
+  name: url-shortener-cert              # 이 인증서 요청 리소스의 이름
+  namespace: url-shortener              # 인증서와 Secret이 생성될 네임스페이스
+spec:
+  secretName: url-shortener-tls         # 발급된 인증서와 개인키를 저장할 Kubernetes Secret 이름
+  issuerRef:
+    name: letsencrypt-prod              # 어떤 발급자(issuer)를 사용할지 지정
+    kind: ClusterIssuer                 # 위 이름의 리소스 타입이 ClusterIssuer임을 명시
+  dnsNames:
+    - api.bidflow.cloud                 # 인증서를 발급받을 실제 도메인 이름

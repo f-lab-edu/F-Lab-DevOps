@@ -30,14 +30,22 @@ postgres:
 # ALB Ingress 활성화 (internet-facing = 인터넷에서 접근 가능)
 ingress:
   enabled: true
-  className: alb
-  host: "" # ALB DNS 직접 사용 시 비워야 함
+  className: nginx
+  host: "api.bidflow.cloud" # ALB DNS 직접 사용 시 비워야 함
   pathType: Prefix
+  tls:
+    enabled: true
+    secretName: url-shortener-tls
   annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
-    alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  # 아래는 ingress-nginx Ingress 설정 (prod 전용)
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+  # 아래는 ALB Ingress 설정 (prod 전용)
+    # kubernetes.io/ingress.class: alb
+    # alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
+    # alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 redis:
   enabled: true # prod: Redis 캐시 활성화
 # --- ServiceMonitor 설정 ────────────────────────────────────────

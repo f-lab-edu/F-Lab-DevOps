@@ -9,10 +9,15 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- else }}
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: / # ingress-nginx가 요청 경로를 백엔드 서비스로 보내기 전에 다른 값으로 변경하여 전달하도록 하는 annotation
   {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className | default "nginx" }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
   rules:
     {{- if .Values.ingress.host }} # ALB DNS를 사용하는 경우 아래 hosts는 필요 없으니 생략하도록 구현함
     - host: {{ .Values.ingress.host | quote }} # 특정 도메인으로 들어오는 요청만 처리

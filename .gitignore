@@ -1,2 +1,20 @@
 실습 가이드 문서 모음
 실습 가이드 문서 모음/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+plan.out
+
+# Helm secret values
+**/values.*-secret.yaml
+
+# Claude Code
+.claude/
+
+# macOS
+.DS_Store

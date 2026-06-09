@@ -5,6 +5,7 @@ metadata:
   labels:
     app: {{ .Release.Name }}-api
 spec:
+  # TODO: strategy를 RollingUpdate 전략 추가
   replicas: {{ .Values.api.replicas }}
   selector:
     matchLabels:
@@ -26,10 +27,23 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secret
                   key: DATABASE_URL
+            - name: DATABASE_READ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: DATABASE_READ_URL
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: REDIS_URL
+            {{- end }}
             - name: APP_ENV
               value: {{ .Values.api.env.appEnv }}
             - name: DEBUG
               value: {{ .Values.api.env.debug | quote }}
+           # TODO: path를 /readyz로 변경 + failureThreshold 값을 1~3으로 변경
           readinessProbe:
             httpGet:
               path: /healthz
@@ -37,8 +51,9 @@ spec:
             initialDelaySeconds: {{ .Values.api.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.readinessProbe.periodSeconds }}
           livenessProbe:
-            httpGet:
+            httpGet:  
               path: /healthz
               port: {{ .Values.api.port }}
             initialDelaySeconds: {{ .Values.api.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.livenessProbe.periodSeconds }}
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}

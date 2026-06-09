@@ -2,12 +2,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-svc
+  labels:
+    app: {{ .Release.Name }}-api    # ← ServiceMonitor selector와 일치하도록 label 추가
 spec:
   selector:
     app: {{ .Release.Name }}-api
   ports:
-    - protocol: TCP
+    - name: http                    # ← port 이름 추가 (ServiceMonitor에서 참조)
+      protocol: TCP
       port: 80
       targetPort: {{ .Values.api.port }}
   type: ClusterIP
-

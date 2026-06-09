@@ -1,0 +1,56 @@
+# ingress-nginx-controller 설치 Application in Kubernetes Cluster by ArgoCD
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: 4.15.x
+    helm:
+      values: |
+        controller:
+          replicaCount: 2
+
+          # TODO: Metric 여는 설정 추가하기
+
+          # ingress class resource 를 어떻게 생성할 것인가
+          ingressClassResource:
+            name: nginx
+            enabled: true
+            default: false      # true 로 설정하면 ingress-nginx-controller 가 ingressClassName 을 쓰지 않은 Ingress 도 처리할 수 있음
+
+          ingressClass: nginx     # ingress class: ingress-nginx-controller 가 처리할 Ingress (class) 이름
+                                  # ingressClassResource 와 ingressClass 를 모두 설정하면 ingressClassResource 가 우선순위를 가짐 -> 이 경우 ingressClassResource 가 우선순위를 가짐
+                                  # ingressClassResource 가 설정되어 있지 않으면 ingressClass 가 설정되어 있어도 처리하지 않음  -> ingressClass 가 우선순위를 가짐
+
+          # service(svc): ingress-nginx-controller 가 네트워크로 노출할 Service 설정
+          service:
+            type: LoadBalancer
+            externalTrafficPolicy: Local
+            annotations:
+              service.beta.kubernetes.io/aws-load-balancer-type: "external"
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+              service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+              service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "http"
+              service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/healthz"
+              service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "10254"
+            
+            ports: # 이 svc 가 외부에서 접근 가능한 포트 설정
+              http: 80
+              https: 443
+            targetPorts: # 받은 요청을 ingress-nginx-controller pod로 전달
+              http: http
+              https: https
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

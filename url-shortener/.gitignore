@@ -27,8 +27,9 @@ build/
 .coverage
 htmlcov/
 
-# k8s 설정 파일
-secret.yaml
+# k8s 설정 파일 (Helm templates/secret.yaml은 제외)
+k8s/secret.yaml
+k8s/db/secret.yaml
 
 # Helm values (secrets)
 url-shortener-chart/values.*-secret.yaml

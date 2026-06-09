@@ -1,0 +1,85 @@
+# ── Prometheus 설정 ───────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # 모든 namespace의 ServiceMonitor를 감시
+    # 기본값은 kube-prometheus-stack과 동일 namespace만 감시
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # 모든 namespace의 PrometheusRule을 감지
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    # 메트릭 보관 기간
+    retention: 7d
+
+    # 스토리지 — 실습: emptyDir (Pod 재시작 시 초기화)
+    # TODO: PV 사용 반영 -> 현재 emtyDir이면 pod 재시작 시 데이터 전부 소멸함
+    storageSpec:
+      emptyDir:
+        medium: Memory
+
+    # 스토리지 상한 설정 — 미설정 시 PV 가득 차면 Prometheus 크래시
+    retentionSize: "45GB"   # PV 50Gi 기준 여유 5GB 확보
+
+# ── Grafana 설정 ──────────────────────────────────────────────
+grafana:
+  admin:
+    existingSecret: grafana-admin-secret
+    userKey: admin-user
+    passwordKey: admin-password              # Secret의 key 이름
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: true          # Grafana 대시보드/설정 재시작 후에도 유지
+    storageClassName: gp2
+    size: 5Gi
+  # (실습에서는 persistence.enabled: false 로 비용 절감 가능)
+
+# ── AlertManager 설정 ─────────────────────
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      emptyDir: {}
+            # TODO: PV 사용 반영 -> 현재 emtyDir이면 pod 재시작 시 데이터 전부 소멸함
+    secrets:
+      - alertmanager-slack-secret   # Webhook URL이 담긴 Secret을 Pod에 마운트
+
+  config:
+    global:
+      resolve_timeout: 5m # 알림 해결 대기 시간
+
+    route:
+      group_by: ['...']        # 알림을 그룹핑하지 않고 개별 전송
+      group_wait: 0s          # 알림을 묶어서 보낼 대기 시간
+      repeat_interval: 1h      # 해결 안 된 알림 재발송 간격
+      receiver: slack-notifications # 알림 수신자
+
+    receivers:
+      - name: "null"              # Watchdog 등 무시할 알림용 no-op receiver
+      - name: slack-notifications # 알림 수신자 이름
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-slack-secret/webhook-url
+            # ↑ Secret의 webhook-url key가 이 경로에 파일로 마운트됨 (Git에 URL 노출 없음)
+            channel: "#test" # 알림 채널
+            title: '{{ template "slack.default.title" . }}' # 알림 제목
+            text: |
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              {{ end }}
+            send_resolved: true   # 알림이 해결되면 Slack에 통보
+
+    # inhibit_rules — critical 발생 시 하위 warning 알림 중복 발송 억제
+    inhibit_rules:
+      - source_matchers:
+          - severity="critical"
+        target_matchers:
+          - severity="warning"
+        equal:
+          - alertname
+          - namespace
+          - pod
+          - service

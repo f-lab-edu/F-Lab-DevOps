@@ -1,0 +1,54 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      # 이 NodePool이 사용할 EC2NodeClass 참조
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+
+      # 노드 요구사항 (AND 조건)
+      requirements:
+        # amd64만 허용 (arm64 제외) - ECR 이미지가 linux/amd64로 빌드됨
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+
+        # Spot과 On-demand 모두 허용
+        # Spot은 On-demand 대비 최대 70% 저렴하지만 중단될 수 있음
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+
+        # 허용할 인스턴스 타입 (CPU/메모리 비율이 비슷한 타입들)
+        # 여러 타입을 허용할수록 Spot 가용성이 높아짐
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - t3.medium    # 2 vCPU, 4 GB (기본)
+            - t3.large     # 2 vCPU, 8 GB
+            - t3a.medium   # t3.medium의 AMD 버전 (약 5% 저렴)
+            - t3a.large    # t3.large의 AMD 버전
+
+        # 사용 가능한 가용 영역
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values:
+            - ap-northeast-2a
+            - ap-northeast-2c
+
+  # 비용 최적화: 사용하지 않는 노드 자동 삭제 정책
+  disruption:
+    # WhenEmptyOrUnderutilized: 노드가 비어있거나 다른 노드로 통합 가능할 때 삭제
+    # WhenEmpty: 노드가 완전히 빌 때만 삭제 (더 보수적)
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30s   # 30초 동안 미사용 상태면 삭제
+
+  # 이 NodePool이 관리할 최대 리소스 (비용 폭주 방지)
+  limits:
+    cpu: "20"          # 최대 20 vCPU
+    memory: "40Gi"     # 최대 40 GB

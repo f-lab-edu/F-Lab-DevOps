@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: public.ecr.aws/karpenter    # OCI 레지스트리
+    chart: karpenter
+    targetRevision: 1.11.1
+    helm:
+      values: |
+        settings:
+          clusterName: urlshortener
+          interruptionQueue: Karpenter-urlshortener
+        controller:
+          resources:
+            requests:
+              cpu: 1
+              memory: 1Gi
+            limits:
+              cpu: 1
+              memory: 1Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: karpenter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

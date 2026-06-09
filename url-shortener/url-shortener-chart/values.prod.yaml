@@ -2,7 +2,7 @@ api:
   replicas: 2 # prod는 고가용성을 위해 2개
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
-    tag: sha-2e2d318
+    tag: sha-e1480e9
     pullPolicy: IfNotPresent
   env:
     appEnv: production
@@ -30,14 +30,28 @@ postgres:
 # ALB Ingress 활성화 (internet-facing = 인터넷에서 접근 가능)
 ingress:
   enabled: true
-  className: alb
-  host: "" # ALB DNS 직접 사용 시 비워야 함
+  className: nginx
+  host: "api.bidflow.cloud" # ALB DNS 직접 사용 시 비워야 함
   pathType: Prefix
+  tls:
+    enabled: true
+    secretName: url-shortener-tls
   annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
-    alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # 아래는 ingress-nginx Ingress 설정 (prod 전용)
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Rate Limit 설정
+    nginx.ingress.kubernetes.io/limit-rps: "5" # 1초당 5개의 요청을 허용
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3" # 1초당 5개의 요청을 허용하고 3배의 요청을 허용
+    # Ip 제한 설정
+    nginx.ingress.kubernetes.io/limit-ip-whitelist: "127.0.0.1" # 127.0.0.1 주소만 허용
+    nginx.ingress.kubernetes.io/whitelist-source-range: "203.0.113.10/32,10.0.0.0/8"
+    nginx.ingress.kubernetes.io/denylist-source-range: "198.51.100.0/24" # 198.51.100.0/24 주소만 허용하지 않음
+    # 아래는 ALB Ingress 설정 (prod 전용)
+    # kubernetes.io/ingress.class: alb
+    # alb.ingress.kubernetes.io/scheme: internet-facing # 인터넷에서 직접 접근
+    # alb.ingress.kubernetes.io/target-type: ip # Pod IP로 직접 포워딩 (권장)
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 redis:
   enabled: true # prod: Redis 캐시 활성화
 # --- ServiceMonitor 설정 ────────────────────────────────────────

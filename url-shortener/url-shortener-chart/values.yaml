@@ -44,6 +44,9 @@ ingress:
   host: url-shortener.local
   pathType: Prefix
   annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
 
 # ── HPA 설정 ───────────────────────────────────────────
 hpa:

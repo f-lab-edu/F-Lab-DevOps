@@ -133,18 +133,6 @@ Helm Chart는 개발/운영 환경 값을 분리합니다.
 - Prometheus ServiceMonitor 활성화
 - RDS Primary/Replica URL을 Kubernetes Secret으로 주입
 
-## API 엔드포인트
-
-| Method | Path | 설명 |
-| --- | --- | --- |
-| `GET` | `/healthz` | 애플리케이션 헬스체크 |
-| `GET` | `/metrics` | Prometheus 메트릭 |
-| `POST` | `/items` | write DB 세션을 통한 데이터 생성 |
-| `GET` | `/items` | read DB 세션과 Redis 캐시를 통한 목록 조회 |
-| `GET` | `/items/{item_id}` | read DB 세션과 Redis 캐시를 통한 단건 조회 |
-| `DELETE` | `/items/{item_id}` | 데이터 삭제 및 관련 캐시 무효화 |
-| `GET` | `/items/_db` | write/read DB 연결 대상 확인 |
-
 ## 구현 시 중점
 
 | 주제 | 구현 | 의도 |

@@ -12,7 +12,7 @@ FastAPI 애플리케이션을 AWS EKS에 배포하기 위한 인프라, CI/CD, G
 
 ## 아키텍처
 
-<img width="1472" height="1580" alt="image" src="https://github.com/user-attachments/assets/95660c7e-82c0-4831-9ec3-64e47bbebec3" />
+<img width="1500" height="1200" alt="image" src="https://github.com/user-attachments/assets/75e00e20-4614-432d-851a-9dd72df3e539" />
 
 
 ## 기술 스택

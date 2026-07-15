@@ -25,7 +25,7 @@ spec:
             enabled: true
           kubernetesIngress:
             enabled: true
-            ingressesClassName: traefik
+            ingressesClass: traefik
             publishedService:
               enabled: true
 

@@ -1,0 +1,9 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: url-shortener-ratelimit
+  namespace: url-shortener
+spec:
+  rateLimit:
+    average: 5
+    burst: 15

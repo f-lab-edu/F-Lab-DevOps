@@ -1,0 +1,10 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: url-shortener-ipallowlist
+  namespace: url-shortener
+spec:
+  ipAllowList:
+    sourceRange:
+      - 203.0.113.10/32
+      - 10.0.0.0/8

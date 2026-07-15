@@ -16,7 +16,7 @@ spec:
 
         ingressClass:
           enabled: true
-          isDefaultClass: true # true 로 설정하면 traefik-ingress-controller 가 ingressClassName 을 쓰지 않은 Ingress 도 처리할 수 있음
+          isDefaultClass: false # true 로 설정하면 traefik-ingress-controller 가 ingressClassName 을 쓰지 않은 Ingress 도 처리할 수 있음
           name: traefik
 
         # 라우팅 설정을 어디서 읽어 올지 결정하는 설정

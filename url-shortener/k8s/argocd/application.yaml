@@ -14,7 +14,7 @@ spec:
   source:
     # HTTPS vs SSH: HTTPS는 토큰 인증, SSH는 키 인증
     # Public repo: 인증 불필요. Private repo: Secret 설정 필요 (아래 참고)
-    repoURL: https://github.com/f-lab-edu/Url-Shortener-EKS-Platform
+    repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
 
     # HEAD: 브랜치의 최신 커밋을 추적
     # main: main 브랜치 고정

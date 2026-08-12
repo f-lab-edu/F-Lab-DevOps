@@ -1,7 +1,7 @@
-from fastapi import HTTPException
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
+
 
 @router.get("/healthz", tags=["health"])
 def healthcheck():
@@ -9,6 +9,7 @@ def healthcheck():
     서버 상태를 확인하는 헬스체크 엔드포인트.
     """
     return {"status": "ok", "version": "v33"}
+
 
 @router.get("/error-test")
 def error_test():

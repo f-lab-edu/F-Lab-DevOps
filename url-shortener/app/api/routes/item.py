@@ -1,14 +1,16 @@
 import json
 import logging
 import time
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from redis.exceptions import RedisError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.cache import get_redis
-from app.core.database import get_write_db, get_read_db
+from app.core.database import get_read_db, get_write_db
 from app.core.metrics import (
     cache_hit_total,
     cache_miss_total,
@@ -19,11 +21,15 @@ from app.models.item import Item
 router = APIRouter(prefix="/items", tags=["items"])
 logger = logging.getLogger(__name__)
 
-ITEM_TTL   = 300   # 단건 조회 캐시 TTL: 5분
-LIST_TTL   = 60    # 목록 조회 캐시 TTL: 1분 (변경 가능성 높아 짧게)
-LIST_KEY   = "items:all"
+ITEM_TTL = 300  # 단건 조회 캐시 TTL: 5분
+LIST_TTL = 60  # 목록 조회 캐시 TTL: 1분 (변경 가능성 높아 짧게)
+LIST_KEY = "items:all"
+
+WriteDb = Annotated[Session, Depends(get_write_db)]
+ReadDb = Annotated[Session, Depends(get_read_db)]
 
 # ── 스키마 ────────────────────────────────────────────────────
+
 
 class ItemCreate(BaseModel):
     name: str
@@ -81,7 +87,7 @@ def _probe_db(db: Session) -> DbProbe:
 
 # ── POST: 아이템 생성 — 목록 캐시 무효화 ──────────────────────
 @router.post("", response_model=ItemResponse, status_code=201)
-def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
+def create_item(body: ItemCreate, db: WriteDb):
     """[Primary] 아이템 생성 — 목록 캐시 무효화."""
     start = time.perf_counter()
 
@@ -99,7 +105,7 @@ def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
     if cache:
         try:
             cache.delete(LIST_KEY)
-        except Exception as e:
+        except RedisError as e:
             logger.warning(f"캐시 무효화 실패 (무시): {e}")
 
     return ItemResponse.from_orm_custom(record)
@@ -107,7 +113,7 @@ def create_item(body: ItemCreate, db: Session = Depends(get_write_db)):
 
 # ── GET 목록: Cache-Aside ────────────────────────────────────────
 @router.get("", response_model=list[ItemResponse])
-def list_items(db: Session = Depends(get_read_db)):
+def list_items(db: ReadDb):
     """[Replica] 아이템 목록 — Cache-Aside (TTL: 1분)."""
     cache = get_redis()
 
@@ -120,7 +126,7 @@ def list_items(db: Session = Depends(get_read_db)):
                 return [ItemResponse(**i) for i in json.loads(cached)]
             cache_miss_total.labels(endpoint="list_items").inc()
             logger.info("cache_miss endpoint=list_items")
-        except Exception as e:
+        except (RedisError, json.JSONDecodeError) as e:
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
     start = time.perf_counter()
@@ -134,7 +140,7 @@ def list_items(db: Session = Depends(get_read_db)):
     if cache:
         try:
             cache.setex(LIST_KEY, LIST_TTL, json.dumps([r.model_dump() for r in result]))
-        except Exception as e:
+        except RedisError as e:
             logger.warning(f"캐시 저장 실패 (무시): {e}")
 
     return result
@@ -144,8 +150,8 @@ def list_items(db: Session = Depends(get_read_db)):
 # /{item_id} 보다 먼저 등록해야 라우트 충돌 방지
 @router.get("/_db", response_model=DbProbeResponse)
 def probe_db(
-    write_db: Session = Depends(get_write_db),
-    read_db: Session = Depends(get_read_db),
+    write_db: WriteDb,
+    read_db: ReadDb,
 ):
     """
     [진단] write/read 세션이 각각 Primary/Replica로 붙는지 확인.
@@ -160,7 +166,7 @@ def probe_db(
 
 # ── GET 단건: Cache-Aside ────────────────────────────────────────
 @router.get("/{item_id}", response_model=ItemResponse)
-def get_item(item_id: int, db: Session = Depends(get_read_db)):
+def get_item(item_id: int, db: ReadDb):
     """[Replica] 아이템 단건 조회 — Cache-Aside (TTL: 5분)."""
     cache = get_redis()
     cache_key = f"item:{item_id}"
@@ -174,7 +180,7 @@ def get_item(item_id: int, db: Session = Depends(get_read_db)):
                 return ItemResponse(**json.loads(cached))
             cache_miss_total.labels(endpoint="get_item").inc()
             logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
-        except Exception as e:
+        except (RedisError, json.JSONDecodeError) as e:
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
     start = time.perf_counter()
@@ -191,7 +197,7 @@ def get_item(item_id: int, db: Session = Depends(get_read_db)):
     if cache:
         try:
             cache.setex(cache_key, ITEM_TTL, json.dumps(result.model_dump()))
-        except Exception as e:
+        except RedisError as e:
             logger.warning(f"캐시 저장 실패 (무시): {e}")
 
     return result
@@ -199,7 +205,7 @@ def get_item(item_id: int, db: Session = Depends(get_read_db)):
 
 # ── DELETE: 캐시 무효화 필수 ────────────────────────────────────
 @router.delete("/{item_id}", status_code=204)
-def delete_item(item_id: int, db: Session = Depends(get_write_db)):
+def delete_item(item_id: int, db: WriteDb):
     """[Primary] 아이템 삭제 — 단건 + 목록 캐시 무효화."""
     start = time.perf_counter()
     record = db.query(Item).filter(Item.id == item_id).first()
@@ -217,7 +223,7 @@ def delete_item(item_id: int, db: Session = Depends(get_write_db)):
     cache = get_redis()
     if cache:
         try:
-            cache.delete(f"item:{item_id}")   # 단건 캐시
-            cache.delete(LIST_KEY)            # 목록 캐시
-        except Exception as e:
+            cache.delete(f"item:{item_id}")  # 단건 캐시
+            cache.delete(LIST_KEY)  # 목록 캐시
+        except RedisError as e:
             logger.warning(f"캐시 무효화 실패 (무시): {e}")

@@ -16,16 +16,17 @@ module "github_actions_role" {
   version = "~> 6.0"
 
   name            = "${var.project_name}-github-actions-role"
-  use_name_prefix = false  # 타임스탬프 suffix 방지
+  use_name_prefix = false # 타임스탬프 suffix 방지
 
   enable_github_oidc = true # ← 추가 (GitHub OIDC 신뢰 관계 자동 구성)
 
   # 보안: 특정 레포지토리의 main 브랜치만 허용
   # pull_request 이벤트까지 허용하려면 "repo:org/repo:*"으로 변경
   # TODO: dev, prod 환경 구분하기
+  # 현재 저장소의 모든 브랜치와 pull_request 이벤트 허용
   oidc_wildcard_subjects = [
-    "repo:f-lab-edu/Url-Shortener-EKS-Platform:ref:refs/heads/*",  # 모든 브랜치 허용
-    "repo:f-lab-edu/Url-Shortener-EKS-Platform:pull_request"
+    "repo:f-lab-edu/F-Lab-DevOps:ref:refs/heads/*",
+    "repo:f-lab-edu/F-Lab-DevOps:pull_request"
   ]
 
   policies = {

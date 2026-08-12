@@ -29,7 +29,7 @@ spec:
             publishedService:
               enabled: true
 
-          services:
+        services:
             enabled: true
             type: LoadBalancer
             annotations:

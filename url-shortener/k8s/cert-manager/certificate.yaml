@@ -11,4 +11,4 @@ spec:
     name: letsencrypt-prod              # 어떤 발급자(issuer)를 사용할지 지정
     kind: ClusterIssuer                 # 위 이름의 리소스 타입이 ClusterIssuer임을 명시
   dnsNames:
-    - api.bidflow.cloud                 # 인증서를 발급받을 실제 도메인 이름
+    - api.bidservice.store              # 인증서를 발급받을 실제 도메인 이름

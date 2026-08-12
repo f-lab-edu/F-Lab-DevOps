@@ -9,4 +9,4 @@ spec:
     name: letsencrypt-traefik
     kind: ClusterIssuer
   dnsNames:
-    - traefik-api.bidflow.cloud
+    - traefik-api.bidservice.store

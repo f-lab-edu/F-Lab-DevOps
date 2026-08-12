@@ -31,7 +31,7 @@ postgres:
 ingress:
   enabled: true
   className: nginx
-  host: "api.bidflow.cloud" # ALB DNS 직접 사용 시 비워야 함
+  host: "api.bidservice.store" # ALB DNS 직접 사용 시 비워야 함
   pathType: Prefix
   tls:
     enabled: true

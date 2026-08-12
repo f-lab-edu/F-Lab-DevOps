@@ -1,5 +1,10 @@
+# Karpenter가 Spot 인스턴스를 생성할 때 사용하는 AWS 관리형 서비스 연결 역할
+resource "aws_iam_service_linked_role" "ec2_spot" {
+  aws_service_name = "spot.amazonaws.com"
+}
+
 # Karpenter 인프라 — terraform-aws-modules/eks karpenter 서브모듈 사용
-# Controller IRSA + Node Role + Instance Profile + SQS + EventBridge를 한 번에 생성
+# Controller Pod Identity + Node Role + Instance Profile + SQS + EventBridge를 한 번에 생성
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"

@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/f-lab-edu/Url-Shortener-EKS-Platform
+    repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
     targetRevision: cvt/traefik
     path: url-shortener/k8s/traefik-canary
   destination:

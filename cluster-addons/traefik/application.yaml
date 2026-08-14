@@ -23,31 +23,38 @@ spec:
         providers:
           kubernetesCRD:
             enabled: true
+            ingressClass: traefik
           kubernetesIngress:
             enabled: true
-            ingressesClass: traefik
+            ingressClass: traefik
             publishedService:
               enabled: true
 
-        services:
-            enabled: true
+        service:
+          enabled: true
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "external"
+            service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+          spec:
             type: LoadBalancer
-            annotations:
-              service.beta.kubernetes.io/aws-load-balancer-type: "external"
-              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-              service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-          
-          ports:
-            web:
-              port: 80
-            websecure:
-              port: 443
 
-            logs:
-              general:
-                level: INFO
-              access:
-                enabled: true
+        ports:
+          web:
+            exposedPort: 80
+            http:
+              redirections:
+                entryPoint:
+                  to: websecure
+                  scheme: https
+                  permanent: true
+          websecure:
+            exposedPort: 443
+
+        log:
+          level: INFO
+        accessLog:
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik

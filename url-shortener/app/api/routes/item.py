@@ -96,6 +96,8 @@ def create_item(body: ItemCreate, db: WriteDb):
     db.commit()
     db.refresh(record)
 
+    logger.info(f"db_route=primary operation=insert item_id={record.id} name={body.name}")
+
     db_query_latency_seconds.labels(operation="insert").observe(
         time.perf_counter() - start
     )
@@ -134,6 +136,8 @@ def list_items(db: ReadDb):
     db_query_latency_seconds.labels(operation="select_all").observe(
         time.perf_counter() - start
     )
+
+    logger.info(f"db_route=replica operation=select_all count={len(items)}")
 
     result = [ItemResponse.from_orm_custom(i) for i in items]
 
@@ -192,6 +196,8 @@ def get_item(item_id: int, db: ReadDb):
     if not record:
         raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
 
+    logger.info(f"db_route=replica operation=select_one item_id={item_id}")
+
     result = ItemResponse.from_orm_custom(record)
 
     if cache:
@@ -215,6 +221,8 @@ def delete_item(item_id: int, db: WriteDb):
 
     db.delete(record)
     db.commit()
+
+    logger.info(f"db_route=primary operation=delete item_id={item_id}")
 
     db_query_latency_seconds.labels(operation="delete").observe(
         time.perf_counter() - start

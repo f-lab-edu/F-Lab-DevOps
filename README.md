@@ -12,6 +12,11 @@ FastAPI 애플리케이션을 AWS EKS에 배포하기 위한 인프라, CI/CD, G
 
 ## 아키텍처
 
+### 멀티 AZ 인프라 아키텍처
+<img width="2752" height="1536" alt="AIDrawing_260901_9c28db43-9288-4fec-9dae-449eb76fbda3_0_MiriCanvas" src="https://github.com/user-attachments/assets/ce64e73e-4368-409a-ab73-780ced0ea609" />
+
+### nginx Ingress 기반 트래픽 흐름 구조
+
 <img width="1500" height="1200" alt="image" src="https://github.com/user-attachments/assets/75e00e20-4614-432d-851a-9dd72df3e539" />
 
 

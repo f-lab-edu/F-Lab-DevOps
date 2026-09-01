@@ -10,3 +10,5 @@ spec:
     kind: ClusterIssuer
   dnsNames:
     - traefik-api.bidservice.store
+
+# TODO: ownerReference 추가하기 > 리스트업 해보자

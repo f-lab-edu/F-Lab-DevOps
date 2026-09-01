@@ -15,6 +15,21 @@ spec:
       labels:
         app: {{ .Release.Name }}-api
     spec:
+      {{- if .Values.api.topologySpread.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: {{ .Values.api.topologySpread.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-api
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: {{ .Values.api.topologySpread.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-api
+      {{- end }}
       containers:
         - name: api
           image: {{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}
@@ -43,17 +58,22 @@ spec:
               value: {{ .Values.api.env.appEnv }}
             - name: DEBUG
               value: {{ .Values.api.env.debug | quote }}
-           # TODO: path를 /readyz로 변경 + failureThreshold 값을 1~3으로 변경
+            - name: ENABLE_FAULT_INJECTION
+              value: {{ .Values.api.env.enableFaultInjection | default false | quote }}
+            - name: MAX_FAULT_DELAY_MS
+              value: {{ .Values.api.env.maxFaultDelayMs | default 2000 | quote }}
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: {{ .Values.api.port }}
             initialDelaySeconds: {{ .Values.api.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.api.readinessProbe.failureThreshold | default 3 }}
           livenessProbe:
             httpGet:  
               path: /healthz
               port: {{ .Values.api.port }}
             initialDelaySeconds: {{ .Values.api.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.api.livenessProbe.failureThreshold | default 3 }}
           resources: {{- toYaml .Values.api.resources | nindent 12 }}

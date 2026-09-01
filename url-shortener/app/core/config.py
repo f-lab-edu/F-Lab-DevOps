@@ -23,10 +23,18 @@ class Settings(BaseSettings):
     # 디버그 모드 여부
     DEBUG: bool = False
 
+    # Week 12 비운영 실습에서만 사용하는 읽기 지연/캐시 우회 기능.
+    # 운영 중에는 반드시 false로 유지한다.
+    ENABLE_FAULT_INJECTION: bool = False
+    MAX_FAULT_DELAY_MS: int = 2000
+
     class Config:
         # 이 파일과 같은 경로의 .env 를 자동으로 읽습니다
         env_file = ".env"
         env_file_encoding = "utf-8"
+        # docker-compose용 POSTGRES_* 등 애플리케이션 외 변수가 같은 .env에
+        # 있어도 Settings 초기화를 막지 않도록 합니다.
+        extra = "ignore"
 
 
 # 앱 전체에서 공유할 settings 인스턴스

@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: week12-end-to-end-alert-test
+  namespace: url-shortener
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: week12.test.rules
+      interval: 15s
+      rules:
+        - alert: Week12EndToEndTest
+          expr: vector(1)
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "Week 12 Alert 전송 경로 테스트"
+            description: "Prometheus → Alertmanager → Slack end-to-end 검증용 임시 Alert"

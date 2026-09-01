@@ -14,6 +14,18 @@ spec:
         deployment:
           replicas: 2
 
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+
+        podDisruptionBudget:
+          enabled: true
+          minAvailable: 1
+
         ingressClass:
           enabled: true
           isDefaultClass: false # true 로 설정하면 traefik-ingress-controller 가 ingressClassName 을 쓰지 않은 Ingress 도 처리할 수 있음
@@ -55,6 +67,19 @@ spec:
           level: INFO
         accessLog:
           enabled: true
+
+        metrics:
+          prometheus:
+            addEntryPointsLabels: true
+            addRoutersLabels: true
+            addServicesLabels: true
+            buckets: "0.01,0.025,0.05,0.1,0.25,0.5,1.0,2.0,5.0"
+            service:
+              enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: kube-prometheus-stack
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik

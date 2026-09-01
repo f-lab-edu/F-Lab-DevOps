@@ -310,7 +310,7 @@ module "eks" {
   eks_managed_node_groups = {
     main = {
       name            = "${var.project_name}-nodegroup"
-      use_name_prefix = false  # 타임스탬프 suffix 방지 - 항상 동일한 이름 유지
+      use_name_prefix = true  # 교체 시 새 노드 그룹을 먼저 생성할 수 있도록 이름 충돌 방지
 
       iam_role_name            = "${var.project_name}-nodegroup-role"
       iam_role_use_name_prefix = false

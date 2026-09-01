@@ -29,9 +29,7 @@ spec:
         - key: node.kubernetes.io/instance-type
           operator: In
           values:
-            - t3.medium    # 2 vCPU, 4 GB (기본)
             - t3.large     # 2 vCPU, 8 GB
-            - t3a.medium   # t3.medium의 AMD 버전 (약 5% 저렴)
             - t3a.large    # t3.large의 AMD 버전
 
         # 사용 가능한 가용 영역

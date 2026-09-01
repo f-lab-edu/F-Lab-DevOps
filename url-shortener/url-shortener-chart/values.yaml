@@ -9,12 +9,19 @@ api:
   env:
     appEnv: production
     debug: 'false'
+    enableFaultInjection: false
+    maxFaultDelayMs: 2000
+  topologySpread:
+    enabled: false
+    whenUnsatisfiable: ScheduleAnyway
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
+    failureThreshold: 3
   livenessProbe:
     initialDelaySeconds: 15
     periodSeconds: 20
+    failureThreshold: 3
 
 # HPA가 CPU 메트릭을 사용하기 위함 -> 컨테이너에도 적용
   resources:
@@ -54,6 +61,28 @@ hpa:
   minReplicas: 2
   maxReplicas: 2
   targetCPUUtilizationPercentage: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      selectPolicy: Max
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+
+pdb:
+  enabled: false
+  minAvailable: 1
 
 # ── RDS 설정 (prod 전용) ────────────────────────────────────────
 rds:

@@ -7,6 +7,11 @@ api:
   env:
     appEnv: production
     debug: 'false' # prod는 디버그 비활성화
+    enableFaultInjection: false # Week 12 DB 지연 실습 때만 GitOps로 true 전환
+    maxFaultDelayMs: 2000
+  topologySpread:
+    enabled: true
+    whenUnsatisfiable: ScheduleAnyway
   resources:
     requests:
       cpu: 200m
@@ -19,6 +24,9 @@ hpa:
   minReplicas: 2
   maxReplicas: 10
   targetCPUUtilizationPercentage: 50
+pdb:
+  enabled: true
+  minAvailable: 1
 postgres:
   enabled: false # 운영 환경
   database: urldb

@@ -3,17 +3,19 @@ import logging
 import time
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from redis.exceptions import RedisError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.cache import get_redis
+from app.core.config import settings
 from app.core.database import get_read_db, get_write_db
 from app.core.metrics import (
     cache_hit_total,
     cache_miss_total,
+    cache_operation_total,
     db_query_latency_seconds,
 )
 from app.models.item import Item
@@ -27,6 +29,38 @@ LIST_KEY = "items:all"
 
 WriteDb = Annotated[Session, Depends(get_write_db)]
 ReadDb = Annotated[Session, Depends(get_read_db)]
+Week12BypassCache = Annotated[
+    bool | None,
+    Header(alias="X-Week12-Bypass-Cache"),
+]
+Week12ReadDelayMs = Annotated[
+    int | None,
+    Header(alias="X-Week12-Read-Delay-Ms"),
+]
+
+
+def _week12_fault_options(
+    bypass_cache: bool | None,
+    read_delay_ms: int | None,
+) -> tuple[bool, int]:
+    """비운영 Week 12 실습용 옵션을 안전한 범위로 제한한다."""
+    if not settings.ENABLE_FAULT_INJECTION:
+        return False, 0
+
+    bounded_delay_ms = min(
+        max(read_delay_ms or 0, 0),
+        max(settings.MAX_FAULT_DELAY_MS, 0),
+    )
+    return bool(bypass_cache), bounded_delay_ms
+
+
+def _inject_read_delay(db: Session, delay_ms: int) -> None:
+    """애플리케이션이 사용하는 Read DB 세션 안에서 지연을 발생시킨다."""
+    if delay_ms > 0:
+        db.execute(
+            text("select pg_sleep(:delay_seconds)"),
+            {"delay_seconds": delay_ms / 1000},
+        )
 
 # ── 스키마 ────────────────────────────────────────────────────
 
@@ -115,23 +149,40 @@ def create_item(body: ItemCreate, db: WriteDb):
 
 # ── GET 목록: Cache-Aside ────────────────────────────────────────
 @router.get("", response_model=list[ItemResponse])
-def list_items(db: ReadDb):
+def list_items(
+    db: ReadDb,
+    x_week12_bypass_cache: Week12BypassCache = None,
+    x_week12_read_delay_ms: Week12ReadDelayMs = None,
+):
     """[Replica] 아이템 목록 — Cache-Aside (TTL: 1분)."""
-    cache = get_redis()
+    bypass_cache, read_delay_ms = _week12_fault_options(
+        x_week12_bypass_cache,
+        x_week12_read_delay_ms,
+    )
+    cache = None if bypass_cache else get_redis()
+
+    if bypass_cache:
+        cache_operation_total.labels(endpoint="list_items", result="bypass").inc()
+    elif cache is None:
+        cache_operation_total.labels(endpoint="list_items", result="unavailable").inc()
 
     if cache:
         try:
             cached = cache.get(LIST_KEY)
             if cached:
                 cache_hit_total.labels(endpoint="list_items").inc()
+                cache_operation_total.labels(endpoint="list_items", result="hit").inc()
                 logger.info("cache_hit endpoint=list_items")
                 return [ItemResponse(**i) for i in json.loads(cached)]
             cache_miss_total.labels(endpoint="list_items").inc()
+            cache_operation_total.labels(endpoint="list_items", result="miss").inc()
             logger.info("cache_miss endpoint=list_items")
         except (RedisError, json.JSONDecodeError) as e:
+            cache_operation_total.labels(endpoint="list_items", result="error").inc()
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
     start = time.perf_counter()
+    _inject_read_delay(db, read_delay_ms)
     items = db.query(Item).all()
     db_query_latency_seconds.labels(operation="select_all").observe(
         time.perf_counter() - start
@@ -170,24 +221,42 @@ def probe_db(
 
 # ── GET 단건: Cache-Aside ────────────────────────────────────────
 @router.get("/{item_id}", response_model=ItemResponse)
-def get_item(item_id: int, db: ReadDb):
+def get_item(
+    item_id: int,
+    db: ReadDb,
+    x_week12_bypass_cache: Week12BypassCache = None,
+    x_week12_read_delay_ms: Week12ReadDelayMs = None,
+):
     """[Replica] 아이템 단건 조회 — Cache-Aside (TTL: 5분)."""
-    cache = get_redis()
+    bypass_cache, read_delay_ms = _week12_fault_options(
+        x_week12_bypass_cache,
+        x_week12_read_delay_ms,
+    )
+    cache = None if bypass_cache else get_redis()
     cache_key = f"item:{item_id}"
+
+    if bypass_cache:
+        cache_operation_total.labels(endpoint="get_item", result="bypass").inc()
+    elif cache is None:
+        cache_operation_total.labels(endpoint="get_item", result="unavailable").inc()
 
     if cache:
         try:
             cached = cache.get(cache_key)
             if cached:
                 cache_hit_total.labels(endpoint="get_item").inc()
+                cache_operation_total.labels(endpoint="get_item", result="hit").inc()
                 logger.info(f"cache_hit endpoint=get_item item_id={item_id}")
                 return ItemResponse(**json.loads(cached))
             cache_miss_total.labels(endpoint="get_item").inc()
+            cache_operation_total.labels(endpoint="get_item", result="miss").inc()
             logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
         except (RedisError, json.JSONDecodeError) as e:
+            cache_operation_total.labels(endpoint="get_item", result="error").inc()
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
 
     start = time.perf_counter()
+    _inject_read_delay(db, read_delay_ms)
     record = db.query(Item).filter(Item.id == item_id).first()
     db_query_latency_seconds.labels(operation="select_one").observe(
         time.perf_counter() - start

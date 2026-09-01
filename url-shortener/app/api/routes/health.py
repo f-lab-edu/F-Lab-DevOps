@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -6,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_write_db
 
 router = APIRouter()
+WriteDb = Annotated[Session, Depends(get_write_db)]
 
 
 @router.get("/healthz", tags=["health"])
@@ -17,7 +20,7 @@ def healthcheck():
 
 
 @router.get("/readyz", tags=["health"])
-def readiness(db: Session = Depends(get_write_db)):
+def readiness(db: WriteDb):
     """트래픽을 받을 준비가 됐는지 Primary DB 연결까지 확인한다."""
     try:
         db.execute(text("select 1"))

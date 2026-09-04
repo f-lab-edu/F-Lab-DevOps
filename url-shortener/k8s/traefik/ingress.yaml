@@ -4,6 +4,7 @@ metadata:
   name: url-shortener-traefik-ingress
   namespace: url-shortener
   annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-traefik
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.middlewares: >
       url-shortener-url-shortener-ratelimit@kubernetescrd,

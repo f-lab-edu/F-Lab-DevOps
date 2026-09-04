@@ -26,6 +26,24 @@ spec:
           enabled: true
           minAvailable: 1
 
+        # DoNotSchedule: 두 번째 replica를 다른 AZ/노드에 둘 수 없으면 Pending으로 두어
+        # 단일 AZ 장애를 Ready replica로 숨기지 않는다.
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: traefik-traefik
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: traefik-traefik
+
         ingressClass:
           enabled: true
           isDefaultClass: false # true 로 설정하면 traefik-ingress-controller 가 ingressClassName 을 쓰지 않은 Ingress 도 처리할 수 있음
@@ -48,18 +66,19 @@ spec:
             service.beta.kubernetes.io/aws-load-balancer-type: "external"
             service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
             service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: "preserve_client_ip.enabled=true"
           spec:
             type: LoadBalancer
 
         ports:
           web:
             exposedPort: 80
-            http:
-              redirections:
-                entryPoint:
-                  to: websecure
-                  scheme: https
-                  permanent: true
+            # http:
+            #   redirections:
+            #     entryPoint:
+            #       to: websecure
+            #       scheme: https
+            #       permanent: true
           websecure:
             exposedPort: 443
 

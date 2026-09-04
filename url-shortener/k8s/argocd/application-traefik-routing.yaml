@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: url-shortener-traefik-canary
+  name: url-shortener-traefik-routing
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
     targetRevision: cvt/traefik
-    path: url-shortener/k8s/traefik-canary
+    path: url-shortener/k8s/traefik
   destination:
     server: https://kubernetes.default.svc
     namespace: url-shortener

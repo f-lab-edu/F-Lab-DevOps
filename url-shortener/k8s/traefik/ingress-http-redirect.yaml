@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: traefik-api.bidservice.store
+    - host: api.bidservice.store
       http:
         paths:
           - path: /

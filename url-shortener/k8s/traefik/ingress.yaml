@@ -4,7 +4,6 @@ metadata:
   name: url-shortener-traefik-ingress
   namespace: url-shortener
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-traefik
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.middlewares: >
       url-shortener-url-shortener-ratelimit@kubernetescrd,
@@ -14,10 +13,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - traefik-api.bidservice.store
-      secretName: url-shortener-traefik-tls
+        - api.bidservice.store
+      secretName: url-shortener-tls
   rules:
-    - host: traefik-api.bidservice.store
+    - host: api.bidservice.store
       http:
         paths:
           - path: /

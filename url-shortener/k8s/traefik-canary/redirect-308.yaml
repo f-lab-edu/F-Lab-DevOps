@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redirect-308-config
+  namespace: url-shortener
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        return 308 https://$host$request_uri;
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redirect-308
+  namespace: url-shortener
+  labels:
+    app: redirect-308
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redirect-308
+  template:
+    metadata:
+      labels:
+        app: redirect-308
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: redirect-308-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redirect-308
+  namespace: url-shortener
+  labels:
+    app: redirect-308
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  selector:
+    app: redirect-308

@@ -7,3 +7,4 @@ spec:
   ipAllowList:
     sourceRange:
       - "61.72.0.87/32"
+      - "121.128.27.156/32"

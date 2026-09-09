@@ -6,7 +6,9 @@ metadata:
     app: {{ .Release.Name }}-api
 spec:
   # TODO: strategy를 RollingUpdate 전략 추가
+  {{- if not .Values.hpa.enabled }}
   replicas: {{ .Values.api.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-api

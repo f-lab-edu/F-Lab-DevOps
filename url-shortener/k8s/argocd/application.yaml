@@ -38,10 +38,19 @@ spec:
     server: https://kubernetes.default.svc
     namespace: url-shortener    # 배포될 namespace
 
+  # HPA가 조정하는 Pod 수는 Git의 고정 replicas 값과 비교하지 않는다.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: url-shortener-api
+      jsonPointers:
+        - /spec/replicas
+
   # ── Sync 정책 ──────────────────────────────────────
   syncPolicy:
     syncOptions:
       - CreateNamespace=true   # namespace가 없으면 자동 생성
+      - RespectIgnoreDifferences=true # HPA가 관리하는 replicas를 Sync 때 유지
     # automated 블록이 없으면 Manual Sync
     automated:
       prune: true      # Git에서 삭제된 리소스를 클러스터에서도 자동 삭제

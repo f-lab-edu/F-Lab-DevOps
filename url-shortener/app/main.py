@@ -1,4 +1,5 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -6,7 +7,7 @@ from prometheus_client import make_asgi_app
 
 from app.api.routes import health, item
 from app.core.database import Base, write_engine
-from app.core.metrics import http_request_total
+from app.core.metrics import http_request_duration_seconds, http_request_total
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,17 +41,30 @@ app.mount("/metrics", metrics_app)
 # 모든 요청에 대해 http_request_total 카운터 증가
 @app.middleware("http")
 async def record_http_metrics(request: Request, call_next):
-    response = await call_next(request)
+    start = time.perf_counter()
+    status_code = "500"
 
-    # /metrics 자체 요청은 카운터에서 제외 (무한 루프 방지)
-    if request.url.path != "/metrics":
-        http_request_total.labels(
-            method=request.method,
-            path=request.url.path,
-            status_code=str(response.status_code),
-        ).inc()
-
-    return response
+    try:
+        response = await call_next(request)
+        status_code = str(response.status_code)
+        return response
+    finally:
+        # /metrics와 /metrics/ scrape 자체는 애플리케이션 지표에서 제외한다.
+        if not request.url.path.startswith("/metrics"):
+            # 라우팅이 끝난 뒤 scope에 들어온 템플릿 경로를 사용한다.
+            # 일치하지 않은 요청은 실제 path 대신 "unmatched"로 묶는다.
+            route = request.scope.get("route")
+            route_path = getattr(route, "path", "unmatched")
+            http_request_total.labels(
+                method=request.method,
+                path=route_path,
+                status_code=status_code,
+            ).inc()
+            http_request_duration_seconds.labels(
+                method=request.method,
+                route=route_path,
+                status_code=status_code,
+            ).observe(time.perf_counter() - start)
 
 
 app.include_router(health.router)  # 헬스체크 엔드포인트

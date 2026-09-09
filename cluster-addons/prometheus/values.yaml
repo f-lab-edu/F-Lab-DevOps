@@ -55,6 +55,10 @@ alertmanager:
       group_wait: 0s          # 알림을 묶어서 보낼 대기 시간
       repeat_interval: 1h      # 해결 안 된 알림 재발송 간격
       receiver: slack-notifications # 알림 수신자
+      routes:
+        - matchers:
+            - alertname="Watchdog"
+          receiver: "null"
 
     receivers:
       - name: "null"              # Watchdog 등 무시할 알림용 no-op receiver

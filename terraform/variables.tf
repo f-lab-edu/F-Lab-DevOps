@@ -27,13 +27,13 @@ variable "availability_zones" {
 variable "eks_cluster_version" {
   description = "EKS Kubernetes 버전"
   type = string
-  default = "1.34"
+  default = "1.35"
 }
 
 variable "node_instance_type" {
   description = "EKS Worker Node EC2 인스턴스 타입"
   type = string
-  default = "t3.medium"
+  default = "t3.large"
 }
 
 # terraform apply 시 생성되는 노드 수

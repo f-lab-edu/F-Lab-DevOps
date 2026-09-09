@@ -1,17 +1,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: url-shortener-ingress
+  name: url-shortener-traefik-http-redirect
+  namespace: url-shortener
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
-    - host: url-shortener.local
+    - host: api.bidservice.store
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: url-shortener-svc
+                name: redirect-308
                 port:
                   number: 80

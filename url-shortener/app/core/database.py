@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.config import settings
 
@@ -12,10 +12,10 @@ from app.core.config import settings
 write_engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
-    pool_size=5,          # 연결 풀 크기 — RDS t3.micro max_connections ≈ 85
-    max_overflow=10,      # pool_size 초과 시 임시 추가 연결 (최대 15개 총합)
-    pool_timeout=30,      # 연결 획득 대기 최대 시간 (초)
-    pool_recycle=1800,    # 30분마다 연결 재생성 — RDS 재시작·IAM토큰 만료 대비
+    pool_size=5,  # 연결 풀 크기 — RDS t3.micro max_connections ≈ 85
+    max_overflow=10,  # pool_size 초과 시 임시 추가 연결 (최대 15개 총합)
+    pool_timeout=30,  # 연결 획득 대기 최대 시간 (초)
+    pool_recycle=1800,  # 30분마다 연결 재생성 — RDS 재시작·IAM토큰 만료 대비
 )
 
 # ── Read Engine (Replica) ─────────────────────────────────────
@@ -23,15 +23,15 @@ write_engine = create_engine(
 _read_url = settings.DATABASE_READ_URL or settings.DATABASE_URL
 read_engine = create_engine(
     _read_url,
-    pool_pre_ping=True,   # 연결 유지 확인 (비활성화 시 연결 끊김 가능성 증가)
-    pool_size=10,         # Read Replica: 읽기 트래픽이 많으므로 pool 크게
-    max_overflow=20,      # pool_size 초과 시 임시 추가 연결 (최대 30개 총합)
-    pool_timeout=30,      # 연결 획득 대기 최대 시간 (초)
-    pool_recycle=1800,    # Replica 재시작 시 stale connection 방지
+    pool_pre_ping=True,  # 연결 유지 확인 (비활성화 시 연결 끊김 가능성 증가)
+    pool_size=10,  # Read Replica: 읽기 트래픽이 많으므로 pool 크게
+    max_overflow=20,  # pool_size 초과 시 임시 추가 연결 (최대 30개 총합)
+    pool_timeout=30,  # 연결 획득 대기 최대 시간 (초)
+    pool_recycle=1800,  # Replica 재시작 시 stale connection 방지
 )
 
 WriteSession = sessionmaker(bind=write_engine, autocommit=False, autoflush=False)
-ReadSession  = sessionmaker(bind=read_engine,  autocommit=False, autoflush=False)
+ReadSession = sessionmaker(bind=read_engine, autocommit=False, autoflush=False)
 
 
 class Base(DeclarativeBase):

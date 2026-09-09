@@ -1,5 +1,7 @@
-import redis
 import logging
+
+import redis
+from redis.exceptions import RedisError
 
 from app.core.config import settings
 
@@ -25,13 +27,13 @@ def get_redis() -> redis.Redis | None:
         try:
             client = redis.from_url(
                 settings.REDIS_URL,
-                decode_responses=True,    # bytes 대신 str 반환
-                socket_connect_timeout=2, # 연결 타임아웃 2초
+                decode_responses=True,  # bytes 대신 str 반환
+                socket_connect_timeout=2,  # 연결 타임아웃 2초
                 socket_timeout=2,
             )
-            client.ping()               # 실제 연결 테스트 (실패 시 except로 이동)
+            client.ping()  # 실제 연결 테스트 (실패 시 except로 이동)
             _redis_client = client
-        except Exception as e:
+        except (RedisError, ValueError) as e:
             # Redis 연결 실패 시 None 반환 → 캐시 없이 DB 직접 조회
             # _redis_client는 None으로 유지 → 다음 요청에서 재시도
             logger.warning(f"Redis 연결 실패, 캐시 비활성화: {e}")

@@ -1,6 +1,8 @@
-# [F-Lab] DevOps Project
+# URL Shortener EKS Platform
 
 FastAPI 애플리케이션을 AWS EKS에 배포하기 위한 인프라, CI/CD, GitOps, 모니터링 구성을 한 저장소에 정리한 프로젝트입니다.
+
+면접 제출용으로는 "단순 API 구현"보다 다음 역량을 보여주는 데 초점을 둡니다.
 
 - Terraform으로 AWS 네트워크, EKS, ECR, RDS, IAM/OIDC 리소스 구성
 - Docker 이미지 빌드 후 ECR에 배포하는 GitHub Actions CI/CD 파이프라인
@@ -8,17 +10,28 @@ FastAPI 애플리케이션을 AWS EKS에 배포하기 위한 인프라, CI/CD, G
 - RDS Primary/Read Replica 분리, Redis Cache-Aside, Prometheus 메트릭 수집
 - HPA와 Karpenter를 통한 Pod/Node 확장 구조
 
-> 현재 애플리케이션 API는 메인 애플리케이션 로직보다 인프라 검증에 초점을 둔 `/healthz`, `/items`, `/metrics` 엔드포인트 중심으로 구성되어 있습니다.
+> 현재 애플리케이션 API는 URL 단축 비즈니스 로직보다 인프라 검증에 초점을 둔 `/healthz`, `/items`, `/metrics` 엔드포인트 중심으로 구성되어 있습니다.
 
 ## 아키텍처
 
-### 멀티 AZ 인프라 아키텍처
-<img width="2752" height="1536" alt="AIDrawing_260901_9c28db43-9288-4fec-9dae-449eb76fbda3_0_MiriCanvas" src="https://github.com/user-attachments/assets/ce64e73e-4368-409a-ab73-780ced0ea609" />
+```mermaid
+flowchart LR
+    dev["Developer"] --> github["GitHub Repository"]
+    github --> actions["GitHub Actions"]
+    actions --> ecr["Amazon ECR"]
+    actions --> helmValues["Helm values.prod.yaml update"]
+    helmValues --> argocd["Argo CD"]
+    argocd --> eks["Amazon EKS"]
+    ecr --> eks
 
-### nginx Ingress 기반 트래픽 흐름 구조
-
-<img width="1500" height="1200" alt="image" src="https://github.com/user-attachments/assets/75e00e20-4614-432d-851a-9dd72df3e539" />
-
+    eks --> api["FastAPI Pods"]
+    api --> rdsPrimary["RDS PostgreSQL Primary"]
+    api --> rdsReplica["RDS PostgreSQL Read Replica"]
+    api --> redis["Redis"]
+    prometheus["Prometheus"] --> api
+    hpa["HPA"] --> api
+    karpenter["Karpenter"] --> eks
+```
 
 ## 기술 스택
 
@@ -65,14 +78,12 @@ GitHub Actions는 AWS OIDC로 IAM Role을 assume하도록 구성했습니다. �
 
 파이프라인 흐름:
 
-```
 1. `ruff`로 lint 검사
 2. EKS 노드 아키텍처에 맞춰 `linux/amd64` Docker 이미지 빌드
 3. Git SHA 기반 immutable 이미지 태그를 ECR에 push
 4. `url-shortener/url-shortener-chart/values.prod.yaml`의 이미지 태그 갱신
 5. 변경된 Helm values 파일을 Git에 다시 commit
 6. Argo CD가 Git 상태를 기준으로 EKS에 동기화
-```
 
 ### 2. GitOps 배포
 
@@ -120,6 +131,80 @@ Helm Chart에는 Prometheus Operator 연동을 위한 `ServiceMonitor`, `Prometh
 - 높은 DB query P99 latency
 - Prometheus Watchdog
 
+## 로컬 실행
+
+자세한 로컬 실행 가이드는 [url-shortener/README.md](url-shortener/README.md)를 참고합니다.
+
+빠른 실행:
+
+```bash
+cd url-shortener
+cp .env.example .env
+docker compose up -d --build
+```
+
+헬스체크:
+
+```bash
+curl http://localhost:8001/healthz
+```
+
+데이터 생성:
+
+```bash
+curl -X POST http://localhost:8001/items \
+  -H "Content-Type: application/json" \
+  -d '{"name":"test","description":"DB write test"}'
+```
+
+데이터 조회:
+
+```bash
+curl http://localhost:8001/items
+```
+
+메트릭 확인:
+
+```bash
+curl http://localhost:8001/metrics
+```
+
+## 인프라 배포
+
+> 실제 AWS 리소스를 생성하므로 비용이 발생할 수 있습니다. `terraform apply` 전에 변수와 생성 리소스를 반드시 확인하세요.
+
+```bash
+cd terraform
+terraform init
+terraform plan -var="db_password=<change-me>"
+terraform apply -var="db_password=<change-me>"
+```
+
+EKS 생성 후 kubeconfig 설정:
+
+```bash
+aws eks update-kubeconfig \
+  --region ap-northeast-2 \
+  --name urlshortener
+```
+
+클러스터 공통 애드온은 `cluster-addons/` 아래의 Argo CD Application으로 관리합니다.
+
+예시:
+
+```bash
+kubectl apply -f cluster-addons/ingress-nginx/application.yaml
+kubectl apply -f cluster-addons/cert-manager/application.yaml
+kubectl apply -f cluster-addons/prometheus/application.yaml
+kubectl apply -f cluster-addons/karpenter/application.yaml
+```
+
+애플리케이션 배포:
+
+```bash
+kubectl apply -f url-shortener/k8s/argocd/application.yaml
+```
+
 ## Kubernetes 배포 구성
 
 Helm Chart는 개발/운영 환경 값을 분리합니다.
@@ -137,6 +222,18 @@ Helm Chart는 개발/운영 환경 값을 분리합니다.
 - TLS Ingress 활성화
 - Prometheus ServiceMonitor 활성화
 - RDS Primary/Replica URL을 Kubernetes Secret으로 주입
+
+## API 엔드포인트
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| `GET` | `/healthz` | 애플리케이션 헬스체크 |
+| `GET` | `/metrics` | Prometheus 메트릭 |
+| `POST` | `/items` | write DB 세션을 통한 데이터 생성 |
+| `GET` | `/items` | read DB 세션과 Redis 캐시를 통한 목록 조회 |
+| `GET` | `/items/{item_id}` | read DB 세션과 Redis 캐시를 통한 단건 조회 |
+| `DELETE` | `/items/{item_id}` | 데이터 삭제 및 관련 캐시 무효화 |
+| `GET` | `/items/_db` | write/read DB 연결 대상 확인 |
 
 ## 구현 시 중점
 
@@ -160,3 +257,19 @@ Helm Chart는 개발/운영 환경 값을 분리합니다.
 - 운영급 가용성을 위해 RDS Multi-AZ와 deletion protection 활성화
 - 배포 전략, 롤백 절차, 배포 후 smoke test 문서화
 - 동적 path label 정규화로 Prometheus metric cardinality 축소
+
+## 제출 전 체크리스트
+
+면접 제출 전에 다음 항목을 확인합니다.
+
+- 루트 `README.md`가 GitHub 저장소 첫 화면에 표시되는지 확인
+- 실제 AWS Account ID, 비밀번호, 토큰, private endpoint가 노출되지 않았는지 확인
+- 배포 환경을 보여줄 수 있다면 스크린샷 또는 아키텍처 다이어그램 추가
+- 최신 GitHub Actions 실행 결과가 성공인지 확인
+- Argo CD Application이 `Healthy`, `Synced` 상태인지 확인
+- `/healthz`, `/items`, `/items/_db`, `/metrics`를 실제로 테스트할 수 있는지 확인
+- 시연 후 불필요한 AWS 리소스를 정리했는지 확인
+
+## 라이선스
+
+개인 학습 및 면접 제출용 프로젝트입니다. 오픈소스로 공개할 경우 별도의 `LICENSE` 파일을 추가하세요.

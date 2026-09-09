@@ -1,0 +1,110 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 41.0.2
+    helm:
+      values: |
+        deployment:
+          replicas: 2
+
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+
+        podDisruptionBudget:
+          enabled: true
+          minAvailable: 1
+
+        # DoNotSchedule: 두 번째 replica를 다른 AZ/노드에 둘 수 없으면 Pending으로 두어
+        # 단일 AZ 장애를 Ready replica로 숨기지 않는다.
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: traefik-traefik
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: traefik-traefik
+
+        ingressClass:
+          enabled: true
+          isDefaultClass: false # true 로 설정하면 traefik-ingress-controller 가 ingressClassName 을 쓰지 않은 Ingress 도 처리할 수 있음
+          name: traefik
+
+        # 라우팅 설정을 어디서 읽어 올지 결정하는 설정
+        providers:
+          kubernetesCRD:
+            enabled: true
+            ingressClass: traefik
+          kubernetesIngress:
+            enabled: true
+            ingressClass: traefik
+            publishedService:
+              enabled: true
+
+        service:
+          enabled: true
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "external"
+            service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: "preserve_client_ip.enabled=true"
+          spec:
+            type: LoadBalancer
+
+        ports:
+          web:
+            exposedPort: 80
+            # http:
+            #   redirections:
+            #     entryPoint:
+            #       to: websecure
+            #       scheme: https
+            #       permanent: true
+          websecure:
+            exposedPort: 443
+
+        log:
+          level: INFO
+        accessLog:
+          enabled: true
+
+        metrics:
+          prometheus:
+            addEntryPointsLabels: true
+            addRoutersLabels: true
+            addServicesLabels: true
+            buckets: "0.01,0.025,0.05,0.1,0.25,0.5,1.0,2.0,5.0"
+            service:
+              enabled: true
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: kube-prometheus-stack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -15,9 +15,13 @@ spec:
         # ── 높은 에러율 ───────────────────────────────────────
         - alert: HighErrorRate
           expr: |
-            sum(rate(http_request_total{status_code=~"5.."}[5m]))
-            /
-            sum(rate(http_request_total[5m])) > 0.05
+            (
+              sum(rate(http_request_total{status_code=~"5.."}[5m]))
+              /
+              clamp_min(sum(rate(http_request_total[5m])), 0.001)
+            ) > 0.05
+            and
+            sum(rate(http_request_total[5m])) > 1
           for: 2m    # 2분 동안 지속될 때만 알림 발송
           labels:
             severity: warning
@@ -28,10 +32,16 @@ spec:
         # ── 캐시 히트율 저하 ─────────────────────────────────
         - alert: CacheHitRateLow
           expr: |
-            sum(rate(cache_hit_total[5m]))
-            /
-            (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m])))
-            < 0.5
+            (
+              sum(rate(cache_hit_total[5m]))
+              /
+              clamp_min(
+                sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m])),
+                0.001
+              )
+            ) < 0.5
+            and
+            (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m]))) > 1
           for: 5m
           labels:
             severity: warning
@@ -39,18 +49,58 @@ spec:
             summary: "캐시 히트율 저하 ({{` {{ $value | humanizePercentage }}`}})"
             description: "캐시 히트율이 50% 미만입니다. Redis 상태 및 TTL 설정을 확인하세요."
 
+        # ── Redis 캐시 접근 오류/사용 불가 ─────────────────────
+        - alert: CacheOperationErrorHigh
+          expr: |
+            (
+              sum(rate(cache_operation_total{result=~"error|unavailable"}[5m]))
+              /
+              clamp_min(sum(rate(cache_operation_total[5m])), 0.001)
+            ) > 0.05
+            and
+            sum(rate(cache_operation_total[5m])) > 1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Redis 캐시 접근 오류 증가 ({{` {{ $value | humanizePercentage }}`}})"
+            description: "캐시 요청 중 Redis 오류 또는 사용 불가 비율이 5%를 초과했습니다."
+
         # ── DB 쿼리 지연 ─────────────────────────────────────
         - alert: DBQueryLatencyHigh
           expr: |
-            histogram_quantile(0.99,
-              sum(rate(db_query_latency_seconds_bucket[5m])) by (le, operation)
-            ) > 0.5
+            (
+              histogram_quantile(0.99,
+                sum(rate(db_query_latency_seconds_bucket[5m])) by (le, operation)
+              ) > 0.5
+            )
+            and on (operation)
+            sum(rate(db_query_latency_seconds_count[5m])) by (operation) > 1
           for: 3m
           labels:
             severity: critical
           annotations:
             summary: "DB 쿼리 P99 레이턴시 높음 ({{` {{ $value }}`}}s)"
             description: "operation={{` {{ $labels.operation }}`}}의 P99 레이턴시가 500ms를 초과했습니다."
+
+        # ── 사용자 관점 API 응답 지연 ───────────────────────────
+        - alert: APIRequestLatencyHigh
+          expr: |
+            (
+              histogram_quantile(0.95,
+                sum(rate(http_request_duration_seconds_bucket{route!~"/healthz|/readyz"}[5m]))
+                by (le, route)
+              ) > 1
+            )
+            and on (route)
+            sum(rate(http_request_duration_seconds_count{route!~"/healthz|/readyz"}[5m]))
+            by (route) > 1
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "API P95 응답 지연 ({{` {{ $value }}`}}s)"
+            description: "route={{` {{ $labels.route }}`}}의 P95 응답시간이 1초를 초과했습니다."
 
         # Watchdog (DeadManSwitch) — Prometheus 자체 정상 동작 확인용
         # 항상 발화하는 알림 → AlertManager → 외부 모니터링 시스템에 heartbeat 전송

@@ -9,6 +9,16 @@ api:
     debug: 'false' # prod는 디버그 비활성화
     enableFaultInjection: false # Week 12 DB 지연 실습 때만 GitOps로 true 전환
     maxFaultDelayMs: 2000
+  # HPA 최대 10개와 롤링 업데이트 surge를 고려한 DB 연결 예산.
+  # db.t3.micro 기준 Primary 최대 39개, Replica 최대 52개 연결을 사용한다.
+  databasePool:
+    write:
+      size: 2
+      maxOverflow: 1
+    read:
+      size: 3
+      maxOverflow: 1
+    timeoutSeconds: 10
   topologySpread:
     enabled: true
     whenUnsatisfiable: ScheduleAnyway

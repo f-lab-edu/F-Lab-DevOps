@@ -11,6 +11,14 @@ api:
     debug: 'false'
     enableFaultInjection: false
     maxFaultDelayMs: 2000
+  databasePool:
+    write:
+      size: 2
+      maxOverflow: 1
+    read:
+      size: 3
+      maxOverflow: 1
+    timeoutSeconds: 10
   topologySpread:
     enabled: false
     whenUnsatisfiable: ScheduleAnyway

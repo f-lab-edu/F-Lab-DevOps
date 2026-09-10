@@ -49,6 +49,16 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secret
                   key: DATABASE_READ_URL
+            - name: DATABASE_WRITE_POOL_SIZE
+              value: {{ .Values.api.databasePool.write.size | quote }}
+            - name: DATABASE_WRITE_MAX_OVERFLOW
+              value: {{ .Values.api.databasePool.write.maxOverflow | quote }}
+            - name: DATABASE_READ_POOL_SIZE
+              value: {{ .Values.api.databasePool.read.size | quote }}
+            - name: DATABASE_READ_MAX_OVERFLOW
+              value: {{ .Values.api.databasePool.read.maxOverflow | quote }}
+            - name: DATABASE_POOL_TIMEOUT_SECONDS
+              value: {{ .Values.api.databasePool.timeoutSeconds | quote }}
             {{- if .Values.redis.enabled }}
             - name: REDIS_URL
               valueFrom:

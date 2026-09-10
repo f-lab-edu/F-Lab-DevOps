@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -13,6 +14,13 @@ class Settings(BaseSettings):
 
     # Read Replica 연결 URL (비어있으면 DATABASE_URL로 fallback)
     DATABASE_READ_URL: str = ""
+
+    # DB 연결 풀은 환경별 Pod 수와 DB 연결 한도에 맞춰 Helm values에서 주입한다.
+    DATABASE_WRITE_POOL_SIZE: int = Field(default=2, ge=1)
+    DATABASE_WRITE_MAX_OVERFLOW: int = Field(default=1, ge=0)
+    DATABASE_READ_POOL_SIZE: int = Field(default=3, ge=1)
+    DATABASE_READ_MAX_OVERFLOW: int = Field(default=1, ge=0)
+    DATABASE_POOL_TIMEOUT_SECONDS: int = Field(default=10, ge=1)
 
     # Redis URL. 비어있으면 캐시 비활성화 (운영 환경에서 설정)
     REDIS_URL: str = ""

@@ -59,6 +59,8 @@ spec:
               value: {{ .Values.api.databasePool.read.maxOverflow | quote }}
             - name: DATABASE_POOL_TIMEOUT_SECONDS
               value: {{ .Values.api.databasePool.timeoutSeconds | quote }}
+            - name: REPLICA_CONSISTENCY_WINDOW_SECONDS
+              value: {{ .Values.api.cacheConsistency.replicaWindowSeconds | quote }}
             {{- if .Values.redis.enabled }}
             - name: REDIS_URL
               valueFrom:

@@ -19,6 +19,10 @@ api:
       size: 3
       maxOverflow: 1
     timeoutSeconds: 10
+  cacheConsistency:
+    # 생성·삭제 직후 Replica의 오래된 결과를 현재 세대 캐시에 저장하지 않도록 한다.
+    # 실제 RDS ReplicaLag의 p99/p999 관측값으로 조정한다.
+    replicaWindowSeconds: 60
   topologySpread:
     enabled: true
     whenUnsatisfiable: ScheduleAnyway

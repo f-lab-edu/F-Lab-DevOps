@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     DATABASE_READ_MAX_OVERFLOW: int = Field(default=1, ge=0)
     DATABASE_POOL_TIMEOUT_SECONDS: int = Field(default=10, ge=1)
 
+    # 최근 쓰기 후 Replica 대신 Primary를 조회하는 시간. ReplicaLag 관측값으로 조정한다.
+    REPLICA_CONSISTENCY_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
     # Redis URL. 비어있으면 캐시 비활성화 (운영 환경에서 설정)
     REDIS_URL: str = ""
 

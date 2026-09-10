@@ -11,17 +11,29 @@ prometheus:
     ruleSelector: {}
     ruleNamespaceSelector: {}
 
-    # 메트릭 보관 기간
+    # 메트릭 보관 기간 및 용량 상한
     retention: 7d
+    retentionSize: "40Gi"   # 50Gi PVC 기준 디스크 풀 방지를 위한 여유 공간 확보
 
-    # 스토리지 — 실습: emptyDir (Pod 재시작 시 초기화)
-    # TODO: PV 사용 반영 -> 현재 emtyDir이면 pod 재시작 시 데이터 전부 소멸함
+    # EBS PVC 기반 영구 저장소
     storageSpec:
-      emptyDir:
-        medium: Memory
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Gi
 
-    # 스토리지 상한 설정 — 미설정 시 PV 가득 차면 Prometheus 크래시
-    retentionSize: "45GB"   # PV 50Gi 기준 여유 5GB 확보
+    # Prometheus Pod 리소스 제한 (노드 OOM 방지)
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 1000m
+        memory: 4Gi
 
 # ── Grafana 설정 ──────────────────────────────────────────────
 grafana:
@@ -41,8 +53,14 @@ grafana:
 alertmanager:
   alertmanagerSpec:
     storage:
-      emptyDir: {}
-            # TODO: PV 사용 반영 -> 현재 emtyDir이면 pod 재시작 시 데이터 전부 소멸함
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
     secrets:
       - alertmanager-slack-secret   # Webhook URL이 담긴 Secret을 Pod에 마운트
 

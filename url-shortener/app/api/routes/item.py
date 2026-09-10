@@ -10,6 +10,13 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.cache import get_redis
+from app.core.cache_consistency import (
+    advance_generations,
+    begin_primary_read_window,
+    current_generation,
+    requires_primary_read,
+    versioned_cache_key,
+)
 from app.core.config import settings
 from app.core.database import get_read_db, get_write_db
 from app.core.metrics import (
@@ -26,6 +33,8 @@ logger = logging.getLogger(__name__)
 ITEM_TTL = 300  # 단건 조회 캐시 TTL: 5분
 LIST_TTL = 60  # 목록 조회 캐시 TTL: 1분 (변경 가능성 높아 짧게)
 LIST_KEY = "items:all"
+LIST_GENERATION_KEY = "items:version"
+LIST_PRIMARY_READ_MARKER_KEY = "items:primary-read"
 
 WriteDb = Annotated[Session, Depends(get_write_db)]
 ReadDb = Annotated[Session, Depends(get_read_db)]
@@ -122,8 +131,20 @@ def _probe_db(db: Session) -> DbProbe:
 # ── POST: 아이템 생성 — 목록 캐시 무효화 ──────────────────────
 @router.post("", response_model=ItemResponse, status_code=201)
 def create_item(body: ItemCreate, db: WriteDb):
-    """[Primary] 아이템 생성 — 목록 캐시 무효화."""
+    """[Primary] 아이템 생성 — 목록 캐시 세대를 증가시킨다."""
     start = time.perf_counter()
+    cache = get_redis()
+
+    if cache:
+        try:
+            begin_primary_read_window(
+                cache,
+                (LIST_PRIMARY_READ_MARKER_KEY,),
+                settings.REPLICA_CONSISTENCY_WINDOW_SECONDS,
+            )
+        except RedisError as e:
+            logger.warning(f"Primary 조회 창 설정 실패: {e}")
+            cache = None
 
     record = Item(name=body.name, description=body.description)
     db.add(record)
@@ -136,13 +157,11 @@ def create_item(body: ItemCreate, db: WriteDb):
         time.perf_counter() - start
     )
 
-    # 목록 캐시 무효화 (새 항목이 추가됐으므로 state)
-    cache = get_redis()
     if cache:
         try:
-            cache.delete(LIST_KEY)
+            advance_generations(cache, (LIST_GENERATION_KEY,), (LIST_KEY,))
         except RedisError as e:
-            logger.warning(f"캐시 무효화 실패 (무시): {e}")
+            logger.warning(f"목록 캐시 세대 증가 실패: {e}")
 
     return ItemResponse.from_orm_custom(record)
 
@@ -150,16 +169,19 @@ def create_item(body: ItemCreate, db: WriteDb):
 # ── GET 목록: Cache-Aside ────────────────────────────────────────
 @router.get("", response_model=list[ItemResponse])
 def list_items(
-    db: ReadDb,
+    read_db: ReadDb,
+    write_db: WriteDb,
     x_week12_bypass_cache: Week12BypassCache = None,
     x_week12_read_delay_ms: Week12ReadDelayMs = None,
 ):
-    """[Replica] 아이템 목록 — Cache-Aside (TTL: 1분)."""
+    """목록 Cache-Aside — 최근 쓰기 직후에만 Primary를 조회한다."""
     bypass_cache, read_delay_ms = _week12_fault_options(
         x_week12_bypass_cache,
         x_week12_read_delay_ms,
     )
     cache = None if bypass_cache else get_redis()
+    read_from_primary = False
+    cache_key = LIST_KEY
 
     if bypass_cache:
         cache_operation_total.labels(endpoint="list_items", result="bypass").inc()
@@ -168,19 +190,31 @@ def list_items(
 
     if cache:
         try:
-            cached = cache.get(LIST_KEY)
-            if cached:
-                cache_hit_total.labels(endpoint="list_items").inc()
-                cache_operation_total.labels(endpoint="list_items", result="hit").inc()
-                logger.info("cache_hit endpoint=list_items")
-                return [ItemResponse(**i) for i in json.loads(cached)]
-            cache_miss_total.labels(endpoint="list_items").inc()
-            cache_operation_total.labels(endpoint="list_items", result="miss").inc()
-            logger.info("cache_miss endpoint=list_items")
+            generation = current_generation(cache, LIST_GENERATION_KEY)
+            cache_key = versioned_cache_key(LIST_KEY, generation)
+            read_from_primary = requires_primary_read(cache, LIST_PRIMARY_READ_MARKER_KEY)
+            if read_from_primary:
+                cache_operation_total.labels(
+                    endpoint="list_items", result="consistency_primary"
+                ).inc()
+                logger.info("cache_bypass endpoint=list_items reason=recent_write")
+            else:
+                cached = cache.get(cache_key)
+                if cached:
+                    cache_hit_total.labels(endpoint="list_items").inc()
+                    cache_operation_total.labels(endpoint="list_items", result="hit").inc()
+                    logger.info("cache_hit endpoint=list_items")
+                    return [ItemResponse(**i) for i in json.loads(cached)]
+                cache_miss_total.labels(endpoint="list_items").inc()
+                cache_operation_total.labels(endpoint="list_items", result="miss").inc()
+                logger.info("cache_miss endpoint=list_items")
         except (RedisError, json.JSONDecodeError) as e:
             cache_operation_total.labels(endpoint="list_items", result="error").inc()
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
+            cache = None
+            read_from_primary = True
 
+    db = write_db if read_from_primary else read_db
     start = time.perf_counter()
     _inject_read_delay(db, read_delay_ms)
     items = db.query(Item).all()
@@ -188,13 +222,14 @@ def list_items(
         time.perf_counter() - start
     )
 
-    logger.info(f"db_route=replica operation=select_all count={len(items)}")
+    db_route = "primary" if read_from_primary else "replica"
+    logger.info(f"db_route={db_route} operation=select_all count={len(items)}")
 
     result = [ItemResponse.from_orm_custom(i) for i in items]
 
     if cache:
         try:
-            cache.setex(LIST_KEY, LIST_TTL, json.dumps([r.model_dump() for r in result]))
+            cache.setex(cache_key, LIST_TTL, json.dumps([r.model_dump() for r in result]))
         except RedisError as e:
             logger.warning(f"캐시 저장 실패 (무시): {e}")
 
@@ -223,17 +258,22 @@ def probe_db(
 @router.get("/{item_id}", response_model=ItemResponse)
 def get_item(
     item_id: int,
-    db: ReadDb,
+    read_db: ReadDb,
+    write_db: WriteDb,
     x_week12_bypass_cache: Week12BypassCache = None,
     x_week12_read_delay_ms: Week12ReadDelayMs = None,
 ):
-    """[Replica] 아이템 단건 조회 — Cache-Aside (TTL: 5분)."""
+    """단건 Cache-Aside — 최근 쓰기 직후에만 Primary를 조회한다."""
     bypass_cache, read_delay_ms = _week12_fault_options(
         x_week12_bypass_cache,
         x_week12_read_delay_ms,
     )
     cache = None if bypass_cache else get_redis()
-    cache_key = f"item:{item_id}"
+    item_key = f"item:{item_id}"
+    generation_key = f"{item_key}:version"
+    primary_read_marker_key = f"{item_key}:primary-read"
+    cache_key = item_key
+    read_from_primary = False
 
     if bypass_cache:
         cache_operation_total.labels(endpoint="get_item", result="bypass").inc()
@@ -242,19 +282,33 @@ def get_item(
 
     if cache:
         try:
-            cached = cache.get(cache_key)
-            if cached:
-                cache_hit_total.labels(endpoint="get_item").inc()
-                cache_operation_total.labels(endpoint="get_item", result="hit").inc()
-                logger.info(f"cache_hit endpoint=get_item item_id={item_id}")
-                return ItemResponse(**json.loads(cached))
-            cache_miss_total.labels(endpoint="get_item").inc()
-            cache_operation_total.labels(endpoint="get_item", result="miss").inc()
-            logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
+            generation = current_generation(cache, generation_key)
+            cache_key = versioned_cache_key(item_key, generation)
+            read_from_primary = requires_primary_read(cache, primary_read_marker_key)
+            if read_from_primary:
+                cache_operation_total.labels(
+                    endpoint="get_item", result="consistency_primary"
+                ).inc()
+                logger.info(
+                    f"cache_bypass endpoint=get_item item_id={item_id} reason=recent_write"
+                )
+            else:
+                cached = cache.get(cache_key)
+                if cached:
+                    cache_hit_total.labels(endpoint="get_item").inc()
+                    cache_operation_total.labels(endpoint="get_item", result="hit").inc()
+                    logger.info(f"cache_hit endpoint=get_item item_id={item_id}")
+                    return ItemResponse(**json.loads(cached))
+                cache_miss_total.labels(endpoint="get_item").inc()
+                cache_operation_total.labels(endpoint="get_item", result="miss").inc()
+                logger.info(f"cache_miss endpoint=get_item item_id={item_id}")
         except (RedisError, json.JSONDecodeError) as e:
             cache_operation_total.labels(endpoint="get_item", result="error").inc()
             logger.warning(f"캐시 조회 실패, DB 직접 조회: {e}")
+            cache = None
+            read_from_primary = True
 
+    db = write_db if read_from_primary else read_db
     start = time.perf_counter()
     _inject_read_delay(db, read_delay_ms)
     record = db.query(Item).filter(Item.id == item_id).first()
@@ -265,7 +319,8 @@ def get_item(
     if not record:
         raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
 
-    logger.info(f"db_route=replica operation=select_one item_id={item_id}")
+    db_route = "primary" if read_from_primary else "replica"
+    logger.info(f"db_route={db_route} operation=select_one item_id={item_id}")
 
     result = ItemResponse.from_orm_custom(record)
 
@@ -281,12 +336,24 @@ def get_item(
 # ── DELETE: 캐시 무효화 필수 ────────────────────────────────────
 @router.delete("/{item_id}", status_code=204)
 def delete_item(item_id: int, db: WriteDb):
-    """[Primary] 아이템 삭제 — 단건 + 목록 캐시 무효화."""
+    """[Primary] 아이템 삭제 — 단건과 목록 캐시 세대를 증가시킨다."""
     start = time.perf_counter()
     record = db.query(Item).filter(Item.id == item_id).first()
 
     if not record:
         raise HTTPException(status_code=404, detail=f"id={item_id} 아이템을 찾을 수 없습니다.")
+
+    cache = get_redis()
+    if cache:
+        try:
+            begin_primary_read_window(
+                cache,
+                (f"item:{item_id}:primary-read", LIST_PRIMARY_READ_MARKER_KEY),
+                settings.REPLICA_CONSISTENCY_WINDOW_SECONDS,
+            )
+        except RedisError as e:
+            logger.warning(f"Primary 조회 창 설정 실패: {e}")
+            cache = None
 
     db.delete(record)
     db.commit()
@@ -297,10 +364,12 @@ def delete_item(item_id: int, db: WriteDb):
         time.perf_counter() - start
     )
 
-    cache = get_redis()
     if cache:
         try:
-            cache.delete(f"item:{item_id}")  # 단건 캐시
-            cache.delete(LIST_KEY)  # 목록 캐시
+            advance_generations(
+                cache,
+                (f"item:{item_id}:version", LIST_GENERATION_KEY),
+                (f"item:{item_id}", LIST_KEY),
+            )
         except RedisError as e:
-            logger.warning(f"캐시 무효화 실패 (무시): {e}")
+            logger.warning(f"캐시 세대 증가 실패: {e}")

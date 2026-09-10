@@ -11,6 +11,17 @@ api:
     debug: 'false'
     enableFaultInjection: false
     maxFaultDelayMs: 2000
+  databasePool:
+    write:
+      size: 2
+      maxOverflow: 1
+    read:
+      size: 3
+      maxOverflow: 1
+    timeoutSeconds: 10
+  cacheConsistency:
+    # 실제 RDS ReplicaLag의 p99/p999를 관측한 뒤 조정한다.
+    replicaWindowSeconds: 60
   topologySpread:
     enabled: false
     whenUnsatisfiable: ScheduleAnyway

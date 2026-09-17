@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
-    targetRevision: cvt/traefik
+    targetRevision: feat/code-improvements
     path: url-shortener/k8s/traefik
   destination:
     server: https://kubernetes.default.svc

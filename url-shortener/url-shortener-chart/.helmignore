@@ -21,3 +21,5 @@
 .idea/
 *.tmproj
 .vscode/
+# Secret values must never be included in a packaged chart.
+values.*-secret.yaml

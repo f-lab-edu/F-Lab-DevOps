@@ -32,7 +32,7 @@ cache_miss_total = Counter(
 cache_operation_total = Counter(
     "cache_operation_total",
     "캐시 조회 결과 총 수",
-    ["endpoint", "result"],  # hit / miss / error / unavailable / bypass
+    ["endpoint", "result"],  # hit / miss / error / unavailable / bypass / consistency_primary
 )
 
 # ── HTTP 응답 레이턴시 ────────────────────────────────────────

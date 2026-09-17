@@ -19,7 +19,7 @@ spec:
     # HEAD: 브랜치의 최신 커밋을 추적
     # main: main 브랜치 고정
     # v1.0.0: 특정 태그 고정 (운영 환경 권장)
-    targetRevision: cvt/traefik
+    targetRevision: feat/code-improvements
 
     # Helm chart가 있는 경로 (repo root 기준)
     path: url-shortener/url-shortener-chart
@@ -38,10 +38,19 @@ spec:
     server: https://kubernetes.default.svc
     namespace: url-shortener    # 배포될 namespace
 
+  # HPA가 조정하는 Pod 수는 Git의 고정 replicas 값과 비교하지 않는다.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: url-shortener-api
+      jsonPointers:
+        - /spec/replicas
+
   # ── Sync 정책 ──────────────────────────────────────
   syncPolicy:
     syncOptions:
       - CreateNamespace=true   # namespace가 없으면 자동 생성
+      - RespectIgnoreDifferences=true # HPA가 관리하는 replicas를 Sync 때 유지
     # automated 블록이 없으면 Manual Sync
     automated:
       prune: true      # Git에서 삭제된 리소스를 클러스터에서도 자동 삭제

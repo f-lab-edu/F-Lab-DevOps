@@ -1,12 +1,14 @@
 name: 자동화-CI/CD Pipeline
 
+# 운영 배포는 main 브랜치에서만 실행한다.
 # paths 필터: 실제 앱 코드나 Dockerfile이 변경된 경우에만 실행
 # (values.prod.yaml 변경 커밋이 다시 파이프라인을 트리거하지 않도록 방지)
 on:
   push:
     branches:
       - main
-      - cvt/traefik
+      # TODO: 나중에 main 브랜치에서만 실행되도록 수정
+      - feat/code-improvements
     paths:
       - 'url-shortener/app/**'
       - 'url-shortener/Dockerfile'
@@ -17,15 +19,17 @@ env:
   ECR_REPOSITORY: urlshortener
   AWS_ACCOUNT_ID: "716174522908"
 
-# OIDC 토큰 요청 권한 (id-token: write) 과
-# values.prod.yaml을 커밋하기 위한 쓰기 권한 (contents: write) 이 필요
+# 기본 권한은 읽기 전용으로 제한한다.
 permissions:
-  id-token: write
-  contents: write
+  contents: read
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # AWS 인증과 배포 태그 커밋에만 쓰기 권한을 부여한다.
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
       # 1. 코드 체크아웃

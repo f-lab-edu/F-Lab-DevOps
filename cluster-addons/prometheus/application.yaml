@@ -6,12 +6,17 @@ metadata:
 spec:
   project: default
   sources:
-    repoURL: https://prometheus-community.github.io/helm-charts
-    chart: kube-prometheus-stack
-    targetRevision: 83.x.x
-    helm:
-      valueFiles:
-        - values.yaml   # cluster-addons/prometheus/values.yaml 참조
+    # Prometheus 스택을 설치할 외부 Helm 차트
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 83.x.x
+      helm:
+        valueFiles:
+          - $values/cluster-addons/prometheus/values.yaml
+    # $values는 이 Git 저장소의 루트이며, path 없이 values 파일만 제공한다.
+    - repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
+      targetRevision: feat/code-improvements
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

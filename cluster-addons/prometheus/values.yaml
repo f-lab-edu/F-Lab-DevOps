@@ -63,6 +63,7 @@ alertmanager:
               storage: 10Gi
     secrets:
       - alertmanager-slack-secret   # Webhook URL이 담긴 Secret을 Pod에 마운트
+      - alertmanager-heartbeat-secret   # Heartbeat Secret을 Pod에 마운트
 
   config:
     global:
@@ -76,10 +77,18 @@ alertmanager:
       routes:
         - matchers:
             - alertname="Watchdog"
-          receiver: "null"
+          receiver: heartbeat-receiver
+          group_wait: 0s
+          group_interval: 5m
+          repeat_interval: 5m
 
     receivers:
       - name: "null"              # Watchdog 등 무시할 알림용 no-op receiver
+      - name: heartbeat-receiver   # Healthchecks.io에 Watchdog heartbeat 전송
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-heartbeat-secret/webhook-url
+            send_resolved: false
+            timeout: 10s
       - name: slack-notifications # 알림 수신자 이름
         slack_configs:
           - api_url_file: /etc/alertmanager/secrets/alertmanager-slack-secret/webhook-url

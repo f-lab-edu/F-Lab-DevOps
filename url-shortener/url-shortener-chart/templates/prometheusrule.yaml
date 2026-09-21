@@ -7,7 +7,7 @@ metadata:
     app: {{ .Release.Name }}-api
     release: kube-prometheus-stack   # Prometheus Operator가 이 label로 Rule 선택
 spec:
-  groups:
+   groups:
     - name: url-shortener.rules
       interval: 1m    # 이 group의 평가 주기
       rules:

@@ -109,3 +109,26 @@ redis:
 serviceMonitor:
   enabled: false
   interval: 30s
+
+# ── NetworkPolicy 설정 ─────────────────────────────────────────
+# 외부 시스템의 주소는 환경별 values에서 CIDR로 제공한다.
+networkPolicy:
+  enabled: false
+  traefik:
+    namespace: traefik
+    podSelector:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/instance: traefik-traefik
+  prometheus:
+    namespace: monitoring
+    podSelector:
+      app.kubernetes.io/name: prometheus
+  dns:
+    namespace: kube-system
+    podSelector:
+      k8s-app: kube-dns
+  externalEgress:
+    # RDS와 Redis가 있는 VPC 또는 subnet CIDR만 환경별 values에서 허용한다.
+    cidrs: []
+    postgresPort: 5432
+    redisPort: 6379

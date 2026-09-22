@@ -44,7 +44,7 @@ pdb:
 postgres:
   enabled: false # 운영 환경
   database: urldb
-  # 민감정보는 values.prod-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
+  # 민감정보는 values.prod-secret.yaml로 분리해서 사용하기 (Git ignore 권장)
   password: ""
   databaseUrl: ""
   storage: 10Gi # prod는 스토리지 넉넉하게
@@ -57,3 +57,12 @@ redis:
 # --- ServiceMonitor 설정 ────────────────────────────────────────
 serviceMonitor:
   enabled: true
+
+# API Pod는 Traefik·Prometheus와 필요한 데이터 저장소에만 통신을 허용
+# RDS와 Redis는 현재 같은 VPC(private subnet)에 있으므로 VPC CIDR을 사용
+# 외부 Redis로 이전하면 해당 서비스의 CIDR을 추가하거나 Security Groups for Pods로 경계를 좁힌다.
+networkPolicy:
+  enabled: true
+  externalEgress:
+    cidrs:
+      - 10.0.0.0/16

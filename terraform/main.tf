@@ -353,6 +353,11 @@ module "eks" {
       before_compute              = true
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
+
+      # Kubernetes NetworkPolicy 리소스를 VPC CNI가 실제로 집행하도록 활성화
+      configuration_values = jsonencode({
+        enableNetworkPolicy = "true"
+      })
     }
     eks-pod-identity-agent = {
       before_compute = true  # Pod Identity 자격증명 주입도 노드 시작 전에 준비

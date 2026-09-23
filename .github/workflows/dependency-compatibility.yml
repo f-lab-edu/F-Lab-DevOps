@@ -36,7 +36,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install pinned Python tools
-        run: python3 -m pip install --require-hashes --only-binary=:all: -r .github/requirements-ci.txt
+        run: |
+          python3 -m pip install --require-hashes --only-binary=:all: -r .github/requirements-ci.txt
       - name: Check Python dependency lock
         working-directory: url-shortener
         run: |

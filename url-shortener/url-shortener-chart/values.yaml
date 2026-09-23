@@ -59,10 +59,10 @@ postgres:
 # ── Ingress 설정 ───────────────────────────────────────────
 ingress:
   enabled: true
-  className: nginx
+  className: traefik # cluster-addons/traefik의 ingressClass와 일치
   host: url-shortener.local
   pathType: Prefix
-  annotations: {}
+  annotations: {} # 필요한 annotation만 명시; API 경로는 재작성하지 않음
   tls:
     enabled: false
     secretName: ""

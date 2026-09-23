@@ -58,8 +58,8 @@ postgres:
 
 # ── Ingress 설정 ───────────────────────────────────────────
 ingress:
-  enabled: true
-  className: traefik # cluster-addons/traefik의 ingressClass와 일치
+  enabled: false # 기본 배포는 별도 url-shortener/k8s/traefik/ingress.yaml 사용
+  className: traefik # chart Ingress를 명시적으로 켤 때 사용할 컨트롤러
   host: url-shortener.local
   pathType: Prefix
   annotations: {} # 필요한 annotation만 명시; API 경로는 재작성하지 않음

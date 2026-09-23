@@ -12,6 +12,18 @@ variable "project_name" {
   default = "urlshortener"
 }
 
+# 실습 환경은 운영과 별도 state 및 project_name을 사용한다.
+variable "environment" {
+  description = "리소스 보존 정책을 적용할 환경 (production 또는 practice)"
+  type        = string
+  default     = "production"
+
+  validation {
+    condition     = contains(["production", "practice"], var.environment)
+    error_message = "environment는 production 또는 practice여야 합니다."
+  }
+}
+
 variable "vpc_cidr" {
   description = "VPC CIDR 블록"
   type = string

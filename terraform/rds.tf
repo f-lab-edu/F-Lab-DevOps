@@ -32,8 +32,8 @@ resource "aws_iam_role" "rds_enhanced_monitoring" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = { Service = "monitoring.rds.amazonaws.com" }
     }]
   })
@@ -69,8 +69,8 @@ module "rds" {
   port     = 5432
   # Read Replica를 사용하기 위해 Secrets Manager 자동관리(ManageMasterUserPassword)는 비활성화
   manage_master_user_password = false
-  password_wo         = var.db_password
-  password_wo_version = 1 # 비밀번호 버전 1로 설정
+  password_wo                 = var.db_password
+  password_wo_version         = 1 # 비밀번호 버전 1로 설정
 
   iam_database_authentication_enabled = true # IAM 인증 -> 일반 계정 사용자를 위한 접근 방법
 
@@ -83,14 +83,14 @@ module "rds" {
 
   # Parameter Group
   # pg_stat_statements: 느린 쿼리 분석용
-  family = "postgres17"
+  family                 = "postgres17"
   create_db_option_group = false
 
   parameters = [
     {
       name         = "shared_preload_libraries"
       value        = "pg_stat_statements" # 
-      apply_method = "pending-reboot" # 파라미터 변경이 재부팅 후 적용되도록 설정
+      apply_method = "pending-reboot"     # 파라미터 변경이 재부팅 후 적용되도록 설정
     },
     {
       name         = "pg_stat_statements.track"
@@ -107,7 +107,7 @@ module "rds" {
   maintenance_window = "sun:18:00-sun:19:00"
 
   # Enhanced Monitoring: RDS 인스턴스가 올라가 있는 EC2 호스트의 메트릭 수집 / 대상: OS
-  monitoring_interval = 60                                         # 메트릭 수집 간격 설정
+  monitoring_interval = 60                                       # 메트릭 수집 간격 설정
   monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn # 메트릭 수집 대상
 
   # Performance insights: RDS에서 어떤 쿼리가 DB를 얼마나 점유하고 있는지 시각화 / 대상: DB 엔진 내부
@@ -120,11 +120,12 @@ module "rds" {
   # Primary 장애 시 Standby로 자동 장애조치한다. Standby는 읽기 트래픽을 처리하지 않는다.
   multi_az = true
 
-  # 삭제 보호 설정
-  deletion_protection = false # 비용 때문에 false로 설정 -> 운영환경에서는 true로 설정
+  # 운영 DB는 보호를 해제하고 별도 apply한 뒤에만 삭제할 수 있다.
+  deletion_protection = var.environment == "production"
 
-  # 삭제 시 백업 생성
-  skip_final_snapshot              = true # 비용 때문에 true로 설정 -> 운영환경에서는 false로 설정
+  # 운영 DB를 삭제할 때 final snapshot을 남긴다. 실습 환경은 정리할 수 있다.
+  # final_snapshot_identifier_prefix는 삭제마다 충돌하지 않는 식별자를 생성한다.
+  skip_final_snapshot              = var.environment != "production"
   final_snapshot_identifier_prefix = "${var.project_name}-postgres-final-snapshot"
 
   tags = { Name = "${var.project_name}-postgres-primary" }
@@ -138,7 +139,7 @@ module "rds" {
 
 # replicate_source_db 한 줄이 Primary → Replica 복제를 설정
 module "rds_replica" {
-  source = "terraform-aws-modules/rds/aws"
+  source  = "terraform-aws-modules/rds/aws"
   version = "~> 7.2.0"
 
   identifier = "${var.project_name}-postgres-replica"
@@ -147,7 +148,7 @@ module "rds_replica" {
   replicate_source_db = module.rds.db_instance_arn
 
   instance_class = "db.t3.micro"
-  storage_type = "gp3"
+  storage_type   = "gp3"
 
   vpc_security_group_ids = [aws_security_group.rds.id]
 

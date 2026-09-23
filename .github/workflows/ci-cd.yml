@@ -56,6 +56,17 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # 배포 설정을 변경하기 전에 검증 도구를 준비한다.
+      - name: Argo CD CLI 준비
+        env:
+          ARGOCD_CLI_VERSION: ${{ vars.ARGOCD_CLI_VERSION }}
+        run: |
+          test -n "${ARGOCD_CLI_VERSION}"
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/argocd" \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_CLI_VERSION}/argocd-linux-amd64"
+          chmod +x "${RUNNER_TEMP}/argocd"
+
       # GitOps 값을 변경하기 전에 롤백할 이전 이미지 tag를 기록한다.
       - name: 이전 배포 이미지 기록
         id: previous-image
@@ -154,13 +165,47 @@ jobs:
           GITOPS_COMMIT: ${{ steps.push-gitops.outputs.commit }}
           SMOKE_TEST_BASE_URL: ${{ vars.SMOKE_TEST_BASE_URL }}
         run: |
-          ARGOCD_CLI_VERSION="${{ vars.ARGOCD_CLI_VERSION }}"
-          test -n "${ARGOCD_CLI_VERSION}"
-          curl --fail --silent --show-error --location \
-            --output /usr/local/bin/argocd \
-            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_CLI_VERSION}/argocd-linux-amd64"
-          chmod +x /usr/local/bin/argocd
           bash .github/scripts/verify-gitops-deployment.sh
+
+      # 검증을 통과한 이미지에만 별도 release 태그를 붙여 롤백 후보로 보존한다.
+      # ECR의 immutable tag 정책 때문에 같은 release 태그를 덮어쓰지 않는다.
+      - name: 검증된 롤백 이미지 보존
+        id: mark-release
+        if: steps.verify-deployment.outcome == 'success'
+        env:
+          IMAGE_TAG: ${{ steps.build-push.outputs.image_tag }}
+          RELEASE_TAG: release-${{ github.sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          SOURCE_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids "imageTag=${IMAGE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          test -n "${SOURCE_DIGEST}" && test "${SOURCE_DIGEST}" != "None"
+
+          if EXISTING_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids "imageTag=${RELEASE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null)"; then
+            test "${EXISTING_DIGEST}" = "${SOURCE_DIGEST}"
+            echo "Release tag already points to verified image: ${RELEASE_TAG}"
+            echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Buildx가 만든 단일 manifest 또는 image index 형식을 그대로 유지한다.
+          docker buildx imagetools create --prefer-index=false \
+            --tag "${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${RELEASE_TAG}" \
+            "${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+          RELEASE_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids "imageTag=${RELEASE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          test "${RELEASE_DIGEST}" = "${SOURCE_DIGEST}"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
       # Argo CD self-heal과 충돌하지 않도록 kubectl rollback 대신 Git desired state를 되돌린다.
       - name: 이전 이미지로 GitOps 롤백 및 복구 검증

@@ -22,9 +22,8 @@ module "github_actions_role" {
 
   # 운영 배포 Role은 main 브랜치의 push 실행만 허용한다.
   # PR과 기능 브랜치는 이 Role을 맡을 수 없다.
-  oidc_wildcard_subjects = [
-    "repo:f-lab-edu/F-Lab-DevOps:ref:refs/heads/*",
-    "repo:f-lab-edu/F-Lab-DevOps:pull_request"
+  oidc_subjects = [
+    "repo:f-lab-edu/F-Lab-DevOps:ref:refs/heads/main"
   ]
 
   policies = {

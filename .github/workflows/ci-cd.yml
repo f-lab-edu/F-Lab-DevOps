@@ -7,8 +7,6 @@ on:
   push:
     branches:
       - main
-      # TODO: 나중에 main 브랜치에서만 실행되도록 수정
-      - feat/code-improvements
     paths:
       - 'url-shortener/app/**'
       - 'url-shortener/Dockerfile'

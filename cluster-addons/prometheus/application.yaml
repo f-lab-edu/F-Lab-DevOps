@@ -15,7 +15,7 @@ spec:
           - $values/cluster-addons/prometheus/values.yaml
     # $values는 이 Git 저장소의 루트이며, path 없이 values 파일만 제공한다.
     - repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
-      targetRevision: feat/code-improvements
+      targetRevision: main
       ref: values
   destination:
     server: https://kubernetes.default.svc

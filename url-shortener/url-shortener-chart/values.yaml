@@ -1,6 +1,7 @@
 # ── API 설정 ──────────────────────────────────────────────
 api:
   replicas: 2
+  secretRevision: 1 # 외부 Secret 변경 후 증가시켜 새 Pod에 환경변수를 주입
   port: 8000
   image:
     repository: url-shortener-api

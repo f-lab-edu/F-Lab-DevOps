@@ -73,4 +73,15 @@ variable "db_password" {
   description = "RDS master(user=postgres) password (manage_master_user_password=false 사용 시 필수)"
   type        = string
   sensitive   = true
+  ephemeral   = true
+}
+
+variable "db_password_rotation_version" {
+  description = "RDS master 비밀번호 회전 버전 (초기 배포는 1, 변경 시 증가; 매 실행마다 지정)"
+  type        = number
+
+  validation {
+    condition     = var.db_password_rotation_version >= 1 && floor(var.db_password_rotation_version) == var.db_password_rotation_version
+    error_message = "db_password_rotation_version은 1 이상의 정수여야 합니다."
+  }
 }

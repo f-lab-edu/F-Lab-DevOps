@@ -70,7 +70,7 @@ module "rds" {
   # Read Replica를 사용하기 위해 Secrets Manager 자동관리(ManageMasterUserPassword)는 비활성화
   manage_master_user_password = false
   password_wo                 = var.db_password
-  password_wo_version         = 1 # 비밀번호 버전 1로 설정
+  password_wo_version         = var.db_password_rotation_version
 
   iam_database_authentication_enabled = true # IAM 인증 -> 일반 계정 사용자를 위한 접근 방법
 

@@ -1,5 +1,6 @@
 api:
   replicas: 2 # prod는 고가용성을 위해 2개
+  secretRevision: 1 # 운영 Secret 변경 후 증가시켜 Pod rollout
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
     tag: sha-c3071c9

@@ -7,7 +7,7 @@ metadata:
     app: {{ .Release.Name }}-api
     release: kube-prometheus-stack   # Prometheus Operator가 이 label로 Rule 선택
 spec:
-  groups:
+   groups:
     - name: url-shortener.rules
       interval: 1m    # 이 group의 평가 주기
       rules:
@@ -16,12 +16,25 @@ spec:
         - alert: HighErrorRate
           expr: |
             (
-              sum(rate(http_request_total{status_code=~"5.."}[5m]))
+              sum(rate(http_request_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }},
+                path!~"/healthz|/readyz",
+                status_code=~"5.."
+              }[5m]))
               /
-              clamp_min(sum(rate(http_request_total[5m])), 0.001)
+              clamp_min(sum(rate(http_request_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }},
+                path!~"/healthz|/readyz"
+              }[5m])), 0.001)
             ) > 0.05
             and
-            sum(rate(http_request_total[5m])) > 1
+            sum(rate(http_request_total{
+              namespace={{ .Release.Namespace | quote }},
+              service={{ printf "%s-svc" .Release.Name | quote }},
+              path!~"/healthz|/readyz"
+            }[5m])) > 1
           for: 2m    # 2분 동안 지속될 때만 알림 발송
           labels:
             severity: warning
@@ -33,15 +46,31 @@ spec:
         - alert: CacheHitRateLow
           expr: |
             (
-              sum(rate(cache_hit_total[5m]))
+              (sum(rate(cache_hit_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) or vector(0))
               /
               clamp_min(
-                sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m])),
+                (sum(rate(cache_hit_total{
+                  namespace={{ .Release.Namespace | quote }},
+                  service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) or vector(0))
+                +
+                (sum(rate(cache_miss_total{
+                  namespace={{ .Release.Namespace | quote }},
+                  service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) or vector(0)),
                 0.001
               )
             ) < 0.5
             and
-            (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m]))) > 1
+            (
+              (sum(rate(cache_hit_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) or vector(0))
+              +
+              (sum(rate(cache_miss_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) or vector(0))
+            ) > 1
           for: 5m
           labels:
             severity: warning
@@ -53,12 +82,20 @@ spec:
         - alert: CacheOperationErrorHigh
           expr: |
             (
-              sum(rate(cache_operation_total{result=~"error|unavailable"}[5m]))
+              sum(rate(cache_operation_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }},
+                result=~"error|unavailable"
+              }[5m]))
               /
-              clamp_min(sum(rate(cache_operation_total[5m])), 0.001)
+              clamp_min(sum(rate(cache_operation_total{
+                namespace={{ .Release.Namespace | quote }},
+                service={{ printf "%s-svc" .Release.Name | quote }}}[5m])), 0.001)
             ) > 0.05
             and
-            sum(rate(cache_operation_total[5m])) > 1
+            sum(rate(cache_operation_total{
+              namespace={{ .Release.Namespace | quote }},
+              service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) > 1
           for: 2m
           labels:
             severity: warning
@@ -71,11 +108,15 @@ spec:
           expr: |
             (
               histogram_quantile(0.99,
-                sum(rate(db_query_latency_seconds_bucket[5m])) by (le, operation)
+                sum(rate(db_query_latency_seconds_bucket{
+                  namespace={{ .Release.Namespace | quote }},
+                  service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) by (le, operation)
               ) > 0.5
             )
             and on (operation)
-            sum(rate(db_query_latency_seconds_count[5m])) by (operation) > 1
+            sum(rate(db_query_latency_seconds_count{
+              namespace={{ .Release.Namespace | quote }},
+              service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) by (operation) > 1
           for: 3m
           labels:
             severity: critical
@@ -88,12 +129,20 @@ spec:
           expr: |
             (
               histogram_quantile(0.95,
-                sum(rate(http_request_duration_seconds_bucket{route!~"/healthz|/readyz"}[5m]))
+                sum(rate(http_request_duration_seconds_bucket{
+                  namespace={{ .Release.Namespace | quote }},
+                  service={{ printf "%s-svc" .Release.Name | quote }},
+                  route!~"/healthz|/readyz"
+                }[5m]))
                 by (le, route)
               ) > 1
             )
             and on (route)
-            sum(rate(http_request_duration_seconds_count{route!~"/healthz|/readyz"}[5m]))
+            sum(rate(http_request_duration_seconds_count{
+              namespace={{ .Release.Namespace | quote }},
+              service={{ printf "%s-svc" .Release.Name | quote }},
+              route!~"/healthz|/readyz"
+            }[5m]))
             by (route) > 1
           for: 3m
           labels:

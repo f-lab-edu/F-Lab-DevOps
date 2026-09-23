@@ -1,43 +1,53 @@
 name: 자동화-CI/CD Pipeline
 
+# 운영 배포는 main 브랜치에서만 실행한다.
 # paths 필터: 실제 앱 코드나 Dockerfile이 변경된 경우에만 실행
 # (values.prod.yaml 변경 커밋이 다시 파이프라인을 트리거하지 않도록 방지)
 on:
   push:
     branches:
       - main
-      - cvt/traefik
     paths:
       - 'url-shortener/app/**'
       - 'url-shortener/Dockerfile'
       - 'url-shortener/requirements.txt'
+      - 'url-shortener/requirements.lock'
 
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: urlshortener
   AWS_ACCOUNT_ID: "716174522908"
+  ARGOCD_APPLICATION: url-shortener
+  ARGOCD_WAIT_TIMEOUT: "600"
 
-# OIDC 토큰 요청 권한 (id-token: write) 과
-# values.prod.yaml을 커밋하기 위한 쓰기 권한 (contents: write) 이 필요
+# 앞선 배포의 검증·롤백이 끝난 뒤 다음 배포를 실행한다.
+concurrency:
+  group: url-shortener-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+# 기본 권한은 읽기 전용으로 제한한다.
 permissions:
-  id-token: write
-  contents: write
+  contents: read
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # AWS 인증과 배포 태그 커밋에만 쓰기 권한을 부여한다.
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
       # 1. 코드 체크아웃
       - name: 코드 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           # 커밋 후 push하려면 token이 필요 (기본 GITHUB_TOKEN 사용)
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # 2. AWS OIDC 인증 (IAM Access Key 없이 임시 자격증명 획득)
       - name: AWS OIDC 인증
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/urlshortener-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
@@ -45,16 +55,45 @@ jobs:
       # 3. ECR 로그인
       - name: ECR 로그인
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
+
+      # 배포 설정을 변경하기 전에 검증 도구를 준비한다.
+      - name: Argo CD CLI 준비
+        env:
+          ARGOCD_CLI_VERSION: v3.5.3
+          ARGOCD_CLI_SHA256: b860f73f57cbddd993cd446f5236d797c1b1ac8554857b2683d2669f17e765b4
+        run: |
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/argocd" \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_CLI_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_CLI_SHA256}  ${RUNNER_TEMP}/argocd" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/argocd"
+
+      # GitOps 값을 변경하기 전에 롤백할 이전 이미지 tag를 기록한다.
+      - name: 이전 배포 이미지 기록
+        id: previous-image
+        env:
+          YQ_VERSION: v4.53.6
+          YQ_SHA256: c5f056448f973ae7d39b5401949648a78f2dc1947d6a8eb65be60d5c504b9385
+        run: |
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/yq" \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_SHA256}  ${RUNNER_TEMP}/yq" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/yq"
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+
+          previous_tag=$("${RUNNER_TEMP}/yq" e -r '.api.image.tag' url-shortener/url-shortener-chart/values.prod.yaml)
+          echo "tag=${previous_tag}" >> "$GITHUB_OUTPUT"
 
       # 4. 코드 체크 (Lint)
       #    빌드 전에 코드 품질을 검사해서 문제 있는 코드가 배포되는 것을 방지
-      #    ruff: Python 최신 고속 linter (flake8/isort/pyflakes 통합)
+      #    ruff: 고정 버전의 Python linter (flake8/isort/pyflakes 통합)
       #    lint 실패 시 이후 빌드/배포 단계가 실행되지 않음
       - name: 린트 검사 (ruff)
         working-directory: url-shortener
         run: |
-          pip install ruff --quiet
+          python3 -m pip install --require-hashes --only-binary=:all: -r ../.github/requirements-ci.txt --quiet
           ruff check app/
           echo "✅ Lint passed"
 
@@ -62,7 +101,7 @@ jobs:
       #    EKS 노드는 amd64 아키텍처이므로 반드시 명시
       #    Mac M1/M2에서 개발하면 기본 빌드가 arm64가 되어 EKS에서 실행 불가
       - name: Docker Buildx 설정
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       # 6. 이미지 빌드 및 ECR 푸시
       - name: 이미지 빌드 및 ECR 푸시
@@ -95,16 +134,11 @@ jobs:
         run: |
           IMAGE_TAG=${{ steps.build-push.outputs.image_tag }}
 
-          # yq 설치
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-
-          # values.prod.yaml의 api.image.tag만 정확히 변경
+          # ECR이 immutable tag를 강제하므로 커밋 SHA 기반 tag만 기록한다.
           yq e ".api.image.tag = \"${IMAGE_TAG}\"" -i \
             url-shortener/url-shortener-chart/values.prod.yaml
 
-          echo "Updated image tag to: ${IMAGE_TAG}"
-          cat url-shortener/url-shortener-chart/values.prod.yaml
+          echo "Updated image tag"
 
       # TODO: 이미지 취약점 스캔(Trivy) 단계 추가
 
@@ -112,6 +146,7 @@ jobs:
       #    [skip ci]: 이 커밋으로 인해 파이프라인이 다시 실행되지 않도록 방지
       #    paths 필터를 쓰더라도 명시적으로 [skip ci]를 추가하는 것이 안전
       - name: values.prod.yaml 커밋 및 푸시
+        id: push-gitops
         run: |
           IMAGE_TAG=${{ steps.build-push.outputs.image_tag }}
           BRANCH=${GITHUB_REF#refs/heads/}
@@ -120,5 +155,94 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add url-shortener/url-shortener-chart/values.prod.yaml
+          if git diff --cached --quiet; then
+            echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
           git push origin ${BRANCH}
+
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Argo CD 동기화 및 사용자 경로 검증
+        id: verify-deployment
+        continue-on-error: true
+        env:
+          ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          GITOPS_COMMIT: ${{ steps.push-gitops.outputs.commit }}
+          SMOKE_TEST_BASE_URL: ${{ vars.SMOKE_TEST_BASE_URL }}
+        run: |
+          bash .github/scripts/verify-gitops-deployment.sh
+
+      # 검증을 통과한 이미지에만 별도 release 태그를 붙여 롤백 후보로 보존한다.
+      # ECR의 immutable tag 정책 때문에 같은 release 태그를 덮어쓰지 않는다.
+      - name: 검증된 롤백 이미지 보존
+        id: mark-release
+        if: steps.verify-deployment.outcome == 'success'
+        env:
+          IMAGE_TAG: ${{ steps.build-push.outputs.image_tag }}
+          RELEASE_TAG: release-${{ github.sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          SOURCE_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids "imageTag=${IMAGE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          test -n "${SOURCE_DIGEST}" && test "${SOURCE_DIGEST}" != "None"
+
+          if EXISTING_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids "imageTag=${RELEASE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null)"; then
+            test "${EXISTING_DIGEST}" = "${SOURCE_DIGEST}"
+            echo "Release tag already points to verified image: ${RELEASE_TAG}"
+            echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Buildx가 만든 단일 manifest 또는 image index 형식을 그대로 유지한다.
+          docker buildx imagetools create --prefer-index=false \
+            --tag "${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${RELEASE_TAG}" \
+            "${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+          RELEASE_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids "imageTag=${RELEASE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          test "${RELEASE_DIGEST}" = "${SOURCE_DIGEST}"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      # Argo CD self-heal과 충돌하지 않도록 kubectl rollback 대신 Git desired state를 되돌린다.
+      - name: 이전 이미지로 GitOps 롤백 및 복구 검증
+        if: steps.verify-deployment.outcome == 'failure'
+        env:
+          PREVIOUS_TAG: ${{ steps.previous-image.outputs.tag }}
+          ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          SMOKE_TEST_BASE_URL: ${{ vars.SMOKE_TEST_BASE_URL }}
+        run: |
+          test -n "${PREVIOUS_TAG}"
+
+          yq e ".api.image.tag = \"${PREVIOUS_TAG}\"" -i \
+            url-shortener/url-shortener-chart/values.prod.yaml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add url-shortener/url-shortener-chart/values.prod.yaml
+          if ! git diff --cached --quiet; then
+            git commit -m "rollback: restore image ${PREVIOUS_TAG} [skip ci]"
+            git push origin "${GITHUB_REF#refs/heads/}"
+          fi
+
+          export GITOPS_COMMIT="$(git rev-parse HEAD)"
+          bash .github/scripts/verify-gitops-deployment.sh
+
+      - name: 배포 실패 처리
+        if: steps.verify-deployment.outcome == 'failure'
+        run: |
+          echo "배포 검증에 실패해 이전 이미지로 복구했습니다."
+          exit 1

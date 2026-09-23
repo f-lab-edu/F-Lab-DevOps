@@ -3,10 +3,10 @@ kind: EC2NodeClass
 metadata:
   name: default
 spec:
-  # AMI 선택: Amazon Linux 2023 최신 버전 자동 선택
+  # AMI 선택: EKS 1.35용 AL2023 릴리스 1.35.8-20260917
   # al2023: Amazon Linux 2023 (권장), al2: Amazon Linux 2 (구 버전)
   amiSelectorTerms:
-    - alias: al2023@latest
+    - alias: al2023@v20260917
 
   # 노드에 부여할 IAM Instance Profile
   # Karpenter가 프로비저닝하는 노드용 Role (karpenter_node.tf에서 생성)

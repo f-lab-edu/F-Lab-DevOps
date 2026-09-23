@@ -57,29 +57,21 @@
 # ECR Repository — terraform-aws-modules/ecr/aws
 module "ecr" {
   source  = "terraform-aws-modules/ecr/aws"
-  version = "~> 3.0"
+  version = "3.2.0"
 
   repository_name                 = var.project_name
   repository_image_tag_mutability = "IMMUTABLE"
   repository_image_scan_on_push   = true
   repository_encryption_type      = "AES256"
-  repository_force_delete         = true
+  # 운영 저장소는 이미지가 남아 있으면 Terraform destroy를 중단한다.
+  repository_force_delete = var.environment != "production"
 
   repository_lifecycle_policy = jsonencode({
     rules = [
+      # 현재 배포본과 롤백 후보는 오래된 SHA여도 pull 가능해야 한다.
+      # 태그가 있는 이미지는 자동 만료하지 않고, 수동 정리 전에 배포 상태를 확인한다.
       {
         rulePriority = 1
-        description  = "최신 30개 이미지 유지"
-        selection = {
-          tagStatus     = "tagged"
-          tagPrefixList = ["sha-"]
-          countType     = "imageCountMoreThan"
-          countNumber   = 30
-        }
-        action = { type = "expire" }
-      },
-      {
-        rulePriority = 2
         description  = "untagged 이미지 1일 후 삭제"
         selection = {
           tagStatus   = "untagged"
@@ -94,6 +86,6 @@ module "ecr" {
 
   tags = {
     Name        = "${var.project_name}-ecr"
-    Environment = "production"
+    Environment = var.environment
   }
 }

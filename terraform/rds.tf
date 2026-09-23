@@ -32,8 +32,8 @@ resource "aws_iam_role" "rds_enhanced_monitoring" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = { Service = "monitoring.rds.amazonaws.com" }
     }]
   })
@@ -48,7 +48,7 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
 # terraform-aws-modules/rds: Subnet Group · Parameter Group · DB Instance 통합 생성
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "~>7.2.0"
+  version = "7.2.0"
 
   identifier = "${var.project_name}-postgres"
 
@@ -69,8 +69,8 @@ module "rds" {
   port     = 5432
   # Read Replica를 사용하기 위해 Secrets Manager 자동관리(ManageMasterUserPassword)는 비활성화
   manage_master_user_password = false
-  password_wo         = var.db_password
-  password_wo_version = 1 # 비밀번호 버전 1로 설정
+  password_wo                 = var.db_password
+  password_wo_version         = var.db_password_rotation_version
 
   iam_database_authentication_enabled = true # IAM 인증 -> 일반 계정 사용자를 위한 접근 방법
 
@@ -83,14 +83,14 @@ module "rds" {
 
   # Parameter Group
   # pg_stat_statements: 느린 쿼리 분석용
-  family = "postgres17"
+  family                 = "postgres17"
   create_db_option_group = false
 
   parameters = [
     {
       name         = "shared_preload_libraries"
       value        = "pg_stat_statements" # 
-      apply_method = "pending-reboot" # 파라미터 변경이 재부팅 후 적용되도록 설정
+      apply_method = "pending-reboot"     # 파라미터 변경이 재부팅 후 적용되도록 설정
     },
     {
       name         = "pg_stat_statements.track"
@@ -107,7 +107,7 @@ module "rds" {
   maintenance_window = "sun:18:00-sun:19:00"
 
   # Enhanced Monitoring: RDS 인스턴스가 올라가 있는 EC2 호스트의 메트릭 수집 / 대상: OS
-  monitoring_interval = 60                                         # 메트릭 수집 간격 설정
+  monitoring_interval = 60                                       # 메트릭 수집 간격 설정
   monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn # 메트릭 수집 대상
 
   # Performance insights: RDS에서 어떤 쿼리가 DB를 얼마나 점유하고 있는지 시각화 / 대상: DB 엔진 내부
@@ -117,44 +117,50 @@ module "rds" {
   # CloudWatch 로그 내보내기
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
-  # 자동 페일오버 설정
-  multi_az = false # 비용 때문에 false로 설정 -> 운영환경에서는 true로 설정
+  # Primary 장애 시 Standby로 자동 장애조치한다. Standby는 읽기 트래픽을 처리하지 않는다.
+  multi_az = true
 
-  # 삭제 보호 설정
-  deletion_protection = false # 비용 때문에 false로 설정 -> 운영환경에서는 true로 설정
+  # 운영 DB는 보호를 해제하고 별도 apply한 뒤에만 삭제할 수 있다.
+  deletion_protection = var.environment == "production"
 
-  # 삭제 시 백업 생성
-  skip_final_snapshot              = true # 비용 때문에 true로 설정 -> 운영환경에서는 false로 설정
+  # 운영 DB를 삭제할 때 final snapshot을 남긴다. 실습 환경은 정리할 수 있다.
+  # final_snapshot_identifier_prefix는 삭제마다 충돌하지 않는 식별자를 생성한다.
+  skip_final_snapshot              = var.environment != "production"
   final_snapshot_identifier_prefix = "${var.project_name}-postgres-final-snapshot"
 
   tags = { Name = "${var.project_name}-postgres-primary" }
 }
 
 # --- RDS Read Replica ---------------------
-# TODO: Failover 발생 시, replica가 primary로 승격되면 replica는 없어짐. -> 대책 필요!!
-#  1. CloudWatch Event가 failover를 감지하면 Lamda를 통해 Read Replica 생성 API 호출
-#  2. Aurora 사용: failover 시, 자동 승격 및 reader는 그래도 유지 가능(replica 복수 자동 운용 가능)
+# Read Replica는 읽기 확장용이며 Primary 장애 시 자동 승격되지 않는다.
+# Multi-AZ Standby가 write endpoint의 자동 장애조치를 담당한다.
+# Read Replica를 수동 승격하는 비상 복구에서는 DATABASE_URL 변경, Pod rollout,
+# 새 Read Replica 생성, Terraform state 정리가 필요하다.
 
 # replicate_source_db 한 줄이 Primary → Replica 복제를 설정
 module "rds_replica" {
-  source = "terraform-aws-modules/rds/aws"
-  version = "~> 7.2.0"
+  source  = "terraform-aws-modules/rds/aws"
+  version = "7.2.0"
 
   identifier = "${var.project_name}-postgres-replica"
 
   # Subnet group을 지정하는 경우, AWS 제약상 replicate_source_db는 identifier가 아니라 ARN이어야 함
   replicate_source_db = module.rds.db_instance_arn
-  
+
   instance_class = "db.t3.micro"
-  storage_type = "gp3"
+  storage_type   = "gp3"
 
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   # Replica도 동일 VPC(private subnet)에서 Subnet Group을 명시적으로 생성/사용
   create_db_subnet_group = true
   subnet_ids             = module.vpc.private_subnets
-  create_db_parameter_group = false # Primary에서 상속 여부 설정
-  create_db_option_group = false # Primary에서 상속 여부 설정
+  # Replica 전용 Parameter Group을 생성하지 않는다.
+  # 별도 parameter_group_name을 지정하지 않으면 AWS가 Source DB의 설정을 사용한다.
+  create_db_parameter_group = false
+
+  # PostgreSQL은 별도 Option Group이 필요하지 않으므로 생성하지 않는다.
+  create_db_option_group = false
 
   # 백업
   backup_retention_period = 0 # 비활성화

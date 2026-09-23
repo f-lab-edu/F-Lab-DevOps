@@ -4,7 +4,7 @@
 
 module "alb_controller_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "~> 6.0"
+  version = "6.4.0"
 
   name = "${var.project_name}-alb-controller-role"
 
@@ -14,7 +14,7 @@ module "alb_controller_irsa" {
   # 어떤 ServiceAccount가 이 Role을 사용할 수 있는지 정의
   oidc_providers = {
     main = {
-      provider_arn               = module.eks.oidc_provider_arn # "이 클러스터에서만 사용 가능" 제한 = 이 EKS 클러스터에서 발급된 토큰만 신뢰
+      provider_arn               = module.eks.oidc_provider_arn                 # "이 클러스터에서만 사용 가능" 제한 = 이 EKS 클러스터에서 발급된 토큰만 신뢰
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"] # 설치한 namespace 와 동일해야 함!
     }
   }

@@ -1,19 +1,16 @@
 {{- if .Values.ingress.enabled }}
 # values.yaml에서 ingress.enabled가 true일 때만 이 리소스를 생성
-# dev 환경에서 Ingress 없이 port-forward로 테스트하는 경우에 좋음
+# 별도 Traefik Ingress 대신 chart Ingress를 명시적으로 사용할 때만 생성
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ingress
-  {{- with .Values.ingress.annotations }} # values.yaml에 값이 존재한다면 아래를 실행
+  {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
-  {{- else }}
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: / # ingress-nginx가 요청 경로를 백엔드 서비스로 보내기 전에 다른 값으로 변경하여 전달하도록 하는 annotation
   {{- end }}
 spec:
-  ingressClassName: {{ .Values.ingress.className | default "nginx" }}
+  ingressClassName: {{ required "ingress.className is required when ingress.enabled=true" .Values.ingress.className | quote }}
   {{- if .Values.ingress.tls.enabled }}
   tls:
     - hosts:

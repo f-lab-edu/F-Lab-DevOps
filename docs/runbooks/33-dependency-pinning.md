@@ -13,7 +13,12 @@
 | Karpenter AMI | `url-shortener/k8s/karpenter/ec2nodeclass.yaml` | EKS 1.35용 AL2023 `v20260917` |
 | GitOps 외부 Helm chart | `cluster-addons/*/application.yaml` | chart 소스의 구체 `targetRevision` |
 
-Terraform 모듈 버전은 이번 작업 전 로컬 `.terraform/modules/modules.json`에 설치된 값을 기준으로 고정했다. Provider는 `.terraform.lock.hcl`에 버전과 해시가 이미 있으며, 일반 실행에서는 `terraform init -lockfile=readonly`를 사용한다. `terraform init -upgrade`는 의존성 갱신 PR에서만 사용하고 변경된 lock 파일을 검토한다.
+Terraform 모듈 버전은 이번 작업 전 로컬 `.terraform/modules/modules.json`에 설치된 값을 기준으로 고정했다. Provider는 `.terraform.lock.hcl`에 버전과 해시가 있으며, macOS/arm64 개발 환경과 CI Linux/amd64 양쪽의 해시를 아래 명령으로 기록한다. 일반 실행에서는 `terraform init -lockfile=readonly`를 사용한다. `terraform init -upgrade`는 의존성 갱신 PR에서만 사용하고 변경된 lock 파일을 검토한다.
+
+```bash
+cd terraform
+terraform providers lock -platform=darwin_arm64 -platform=linux_amd64
+```
 
 Karpenter AMI는 서울 리전의 공개 SSM 파라미터 `/aws/service/eks/optimized-ami/1.35/amazon-linux-2023/x86_64/standard/recommended`에서 확인한 `1.35.8-20260917`에 대응한다. EKS 버전을 바꿀 때 AMI alias와 Karpenter 호환성을 함께 검토한다.
 
@@ -38,7 +43,7 @@ PR 검증 작업은 같은 명령을 다시 실행하고 lock 파일의 Git diff
 Dependabot은 GitHub Actions, Docker, Terraform, Python 직접 의존성 및 CI 도구에 대해 매월 PR을 제안한다. `requirements.lock`, yq·Argo CD CLI checksum, AMI alias, GitOps Helm chart 버전은 담당자가 별도로 갱신한다. SHA만 변경되고 버전 주석이 남는 일이 없도록 두 값을 함께 수정한다. 로컬 실습 가이드 디렉터리는 Git에서 제외되어 있으므로 배포 기준은 추적되는 `cluster-addons` Application 파일이다.
 
 1. 공식 릴리스·보안 공지·지원 버전을 확인하고, 태그와 commit SHA, 바이너리 checksum, 이미지 digest를 공급자 배포 정보와 대조한다. 새 digest는 같은 이미지 태그의 대상 아키텍처를 가리켜야 한다.
-2. Python 직접 의존성 변경 시 lock을 다시 생성한다. Terraform module 또는 provider 변경 시 `terraform init -upgrade`로 module/provider 해석을 확인하고, provider lock 변경분과 예상 plan을 검토한다. chart 변경 시 values 키와 CRD 변경 사항을 확인한다.
+2. Python 직접 의존성 변경 시 lock을 다시 생성한다. Terraform module 또는 provider 변경 시 `terraform init -upgrade`로 module/provider 해석을 확인하고, 위 `terraform providers lock` 명령으로 양쪽 플랫폼의 해시를 기록한 뒤 provider lock 변경분과 예상 plan을 검토한다. chart 변경 시 values 키와 CRD 변경 사항을 확인한다.
 3. `.github/workflows/dependency-compatibility.yml`의 PR 작업에서 Terraform 구성, Python lock, Ruff, Linux/amd64 Docker 빌드, 로컬 Helm chart lint가 통과하는지 확인한다. 배포 경로 변경은 기존 GitOps 검증과 별도의 비운영 배포 점검을 거친다.
 4. AMI 변경은 노드 교체를 유발할 수 있다. EKS·Karpenter와의 호환성, 노드 준비, 워크로드 이동을 비운영에서 확인한다. 운영 반영 후에는 새 노드의 AMI와 Pod 상태를 관찰한다.
 

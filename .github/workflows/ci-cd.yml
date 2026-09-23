@@ -40,14 +40,14 @@ jobs:
     steps:
       # 1. 코드 체크아웃
       - name: 코드 체크아웃
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           # 커밋 후 push하려면 token이 필요 (기본 GITHUB_TOKEN 사용)
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # 2. AWS OIDC 인증 (IAM Access Key 없이 임시 자격증명 획득)
       - name: AWS OIDC 인증
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/urlshortener-github-actions-role
           aws-region: ${{ env.AWS_REGION }}

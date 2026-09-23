@@ -11,6 +11,7 @@ on:
       - 'url-shortener/app/**'
       - 'url-shortener/Dockerfile'
       - 'url-shortener/requirements.txt'
+      - 'url-shortener/requirements.lock'
 
 env:
   AWS_REGION: ap-northeast-2
@@ -30,7 +31,7 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # AWS 인증과 배포 태그 커밋에만 쓰기 권한을 부여한다.
     permissions:
       id-token: write
@@ -39,14 +40,14 @@ jobs:
     steps:
       # 1. 코드 체크아웃
       - name: 코드 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # 커밋 후 push하려면 token이 필요 (기본 GITHUB_TOKEN 사용)
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # 2. AWS OIDC 인증 (IAM Access Key 없이 임시 자격증명 획득)
       - name: AWS OIDC 인증
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/urlshortener-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
@@ -54,37 +55,45 @@ jobs:
       # 3. ECR 로그인
       - name: ECR 로그인
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
 
       # 배포 설정을 변경하기 전에 검증 도구를 준비한다.
       - name: Argo CD CLI 준비
         env:
-          ARGOCD_CLI_VERSION: ${{ vars.ARGOCD_CLI_VERSION }}
+          ARGOCD_CLI_VERSION: v3.5.3
+          ARGOCD_CLI_SHA256: b860f73f57cbddd993cd446f5236d797c1b1ac8554857b2683d2669f17e765b4
         run: |
-          test -n "${ARGOCD_CLI_VERSION}"
           curl --fail --silent --show-error --location \
             --output "${RUNNER_TEMP}/argocd" \
             "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_CLI_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_CLI_SHA256}  ${RUNNER_TEMP}/argocd" | sha256sum --check --status
           chmod +x "${RUNNER_TEMP}/argocd"
 
       # GitOps 값을 변경하기 전에 롤백할 이전 이미지 tag를 기록한다.
       - name: 이전 배포 이미지 기록
         id: previous-image
+        env:
+          YQ_VERSION: v4.53.6
+          YQ_SHA256: c5f056448f973ae7d39b5401949648a78f2dc1947d6a8eb65be60d5c504b9385
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/yq" \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_SHA256}  ${RUNNER_TEMP}/yq" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/yq"
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
-          previous_tag=$(yq e -r '.api.image.tag' url-shortener/url-shortener-chart/values.prod.yaml)
+          previous_tag=$("${RUNNER_TEMP}/yq" e -r '.api.image.tag' url-shortener/url-shortener-chart/values.prod.yaml)
           echo "tag=${previous_tag}" >> "$GITHUB_OUTPUT"
 
       # 4. 코드 체크 (Lint)
       #    빌드 전에 코드 품질을 검사해서 문제 있는 코드가 배포되는 것을 방지
-      #    ruff: Python 최신 고속 linter (flake8/isort/pyflakes 통합)
+      #    ruff: 고정 버전의 Python linter (flake8/isort/pyflakes 통합)
       #    lint 실패 시 이후 빌드/배포 단계가 실행되지 않음
       - name: 린트 검사 (ruff)
         working-directory: url-shortener
         run: |
-          pip install ruff --quiet
+          python3 -m pip install --require-hashes --only-binary=:all: -r ../.github/requirements-ci.txt --quiet
           ruff check app/
           echo "✅ Lint passed"
 
@@ -92,7 +101,7 @@ jobs:
       #    EKS 노드는 amd64 아키텍처이므로 반드시 명시
       #    Mac M1/M2에서 개발하면 기본 빌드가 arm64가 되어 EKS에서 실행 불가
       - name: Docker Buildx 설정
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       # 6. 이미지 빌드 및 ECR 푸시
       - name: 이미지 빌드 및 ECR 푸시

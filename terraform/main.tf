@@ -253,7 +253,7 @@
 # VPC — terraform-aws-modules/vpc/aws
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 6.0"
+  version = "6.6.1"
 
   name = "${var.project_name}-vpc"
   cidr = var.vpc_cidr
@@ -289,7 +289,7 @@ module "vpc" {
 # EKS — terraform-aws-modules/eks/aws
 module "eks" {
   source  = "terraform-aws-modules/eks/aws" # Terraform Registry에 있는 공식 EKS 모듈 다운로드
-  version = "~> 21.0"
+  version = "21.18.0"
 
   name               = var.project_name
   kubernetes_version = var.eks_cluster_version

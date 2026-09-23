@@ -9,7 +9,7 @@ spec:
     # Prometheus 스택을 설치할 외부 Helm 차트
     - repoURL: https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
-      targetRevision: 83.x.x
+      targetRevision: 83.7.0
       helm:
         valueFiles:
           - $values/cluster-addons/prometheus/values.yaml

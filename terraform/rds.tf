@@ -48,7 +48,7 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
 # terraform-aws-modules/rds: Subnet Group · Parameter Group · DB Instance 통합 생성
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "~>7.2.0"
+  version = "7.2.0"
 
   identifier = "${var.project_name}-postgres"
 
@@ -140,7 +140,7 @@ module "rds" {
 # replicate_source_db 한 줄이 Primary → Replica 복제를 설정
 module "rds_replica" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "~> 7.2.0"
+  version = "7.2.0"
 
   identifier = "${var.project_name}-postgres-replica"
 

@@ -4,7 +4,7 @@
 
 module "alb_controller_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "~> 6.0"
+  version = "6.4.0"
 
   name = "${var.project_name}-alb-controller-role"
 

@@ -1,0 +1,3 @@
+# Linux/amd64 wheels for ubuntu-24.04 CI jobs; hashes from PyPI release metadata.
+ruff==0.16.8 --hash=sha256:15e7d226246961db9235098333caa13063906d3851136b84c2900b82f5daa1df
+uv==0.12.18 --hash=sha256:fbe0489871e74ebfb70379a32526c62b9fb615acf13576b9f19bc09a142f62b0

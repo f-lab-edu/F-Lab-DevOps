@@ -1,0 +1,68 @@
+name: Dependency compatibility
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
+      - '.github/requirements-ci.txt'
+      - 'cluster-addons/**'
+      - 'terraform/**'
+      - 'url-shortener/Dockerfile'
+      - 'url-shortener/requirements.txt'
+      - 'url-shortener/requirements.lock'
+      - 'url-shortener/url-shortener-chart/**'
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.14.7
+      - name: Terraform format and configuration
+        working-directory: terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -lockfile=readonly -input=false
+          terraform validate
+
+  application:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install pinned Python tools
+        run: python3 -m pip install --require-hashes --only-binary=:all: -r .github/requirements-ci.txt
+      - name: Check Python dependency lock
+        working-directory: url-shortener
+        run: |
+          uv pip compile requirements.txt \
+            --python-version 3.11 \
+            --python-platform x86_64-manylinux_2_36 \
+            --only-binary :all: \
+            --generate-hashes \
+            --output-file requirements.lock \
+            --quiet
+          git diff --exit-code -- requirements.lock
+      - name: Python lint
+        working-directory: url-shortener
+        run: |
+          ruff check app/
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Build without publishing
+        working-directory: url-shortener
+        run: docker buildx build --platform linux/amd64 --output type=cacheonly .
+
+  helm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v3.19.5
+      - name: Helm chart lint
+        run: helm lint url-shortener/url-shortener-chart -f url-shortener/url-shortener-chart/values.prod.yaml

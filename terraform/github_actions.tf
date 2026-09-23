@@ -1,7 +1,7 @@
 # GitHub OIDC Provider 등록 (AWS가 GitHub Actions 토큰을 신뢰하게 됨)
 module "github_oidc_provider" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-oidc-provider"
-  version = "~> 6.0"
+  version = "6.4.0"
 
   url = "https://token.actions.githubusercontent.com" # ← 추가 (thumbprint 자동 계산)
 
@@ -13,7 +13,7 @@ module "github_oidc_provider" {
 # GitHub Actions가 assume할 IAM Role
 module "github_actions_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role" # GitHub Actions용 IAM Role을 생성하는 모듈
-  version = "~> 6.0"
+  version = "6.4.0"
 
   name            = "${var.project_name}-github-actions-role"
   use_name_prefix = false # 타임스탬프 suffix 방지

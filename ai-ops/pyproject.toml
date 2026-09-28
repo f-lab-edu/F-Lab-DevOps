@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "url-shortener-ai-ops"
+version = "0.1.0"
+description = "URL 단축 서비스의 AI 운영 장애 조사용 데이터 계약"
+requires-python = ">=3.11"
+dependencies = ["pydantic==2.13.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

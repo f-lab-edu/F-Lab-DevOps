@@ -6,6 +6,7 @@
 - [데이터 출처·보관 기준](docs/data-policy.md)
 - [런북 목록과 검증 메타데이터](runbooks/index.yaml)
 - [A1 계약·검증 범위](docs/A1-contracts.md)
+- [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
 - [경보·배포·롤백 런북](runbooks/deployment.md)

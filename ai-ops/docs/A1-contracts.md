@@ -16,6 +16,8 @@
 
 모든 최상위 자료와 evidence 항목은 `schema_version=1`이다. 허용되지 않은 추가 필드와 알 수 없는 version을 거부한다. 시간은 `Z` 또는 `+00:00`을 명시한 UTC ISO 8601로 표현한다. 최대 window는 24시간, 질문은 최대 1000자다. 설정 파일은 32KiB, 단일 available payload는 64KiB, bundle은 4MiB 상한이다. 상태가 available이면 내용/hash/관측 시각이 필요하고, 그 밖의 상태는 누락 사유를 적으며 내용/hash를 넣지 않는다. 숫자 0은 `{"value": 0}`처럼 실제 값으로 표현한다.
 
+현재 A1 계약은 `+09:00` 입력을 UTC로 변환하지 않고 거부하며, KST로 보여주는 출력도 없다. A2에서 원본 출처 시각을 UTC로 정규화하고 A3에서 사용자용 시각을 KST로 표시하도록 통합 구현 계획의 11·12·14절과 AI 작업 리스트에 기록했다.
+
 `source_ref`의 상대 POSIX 형식·상위 경로·절대 경로를 검사한다. 실제 파일이 bundle root 안에 있는지, symlink가 없는지, 파일 크기를 읽기 전에 제한하는 일은 A2의 loader가 담당한다. 현재 구조 검사는 입력 내용의 비밀값 제거를 보증하지 않는다. `question`·payload의 마스킹과 공개 적합성 확인도 A2 범위다.
 
 외부 요청과 bundle JSON은 `parse_incident_request_json`/`parse_evidence_bundle_json`으로 먼저 byte 크기를 제한한 뒤 Pydantic으로 파싱한다. Pydantic의 `model_copy(update=...)`는 update 값을 검증하지 않으므로, 외부 값으로 계약을 바꿀 때 사용하지 않는다. 구조를 통과한 `IncidentRequest`도 `validate_request_bundle`에서 대상 등록·bundle의 대상·window·hash를 다시 대조한다. ID 형식 검사는 발급 주체·재전송 멱등성·보고서의 증거 의미를 증명하지 않는다. 그 상태 관리와 보고서 근거 검증은 A3/A6에서 구현한다.

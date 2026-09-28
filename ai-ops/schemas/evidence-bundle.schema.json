@@ -1,0 +1,307 @@
+{
+  "$defs": {
+    "EvidenceItem": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "evidence_id": {
+          "pattern": "^ev-[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "workload_status",
+            "event",
+            "log",
+            "metric",
+            "deployment",
+            "config_summary",
+            "runbook"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observed At"
+        },
+        "collected_at": {
+          "format": "date-time",
+          "title": "Collected At",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "time_range": {
+          "$ref": "#/$defs/TimeWindow"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "missing",
+            "permission_denied",
+            "stale",
+            "invalid"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "missing_reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Reason"
+        },
+        "provenance": {
+          "$ref": "#/$defs/EvidenceProvenance"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Payload"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content Hash"
+        },
+        "redaction_summary": {
+          "$ref": "#/$defs/RedactionSummary"
+        }
+      },
+      "required": [
+        "schema_version",
+        "evidence_id",
+        "kind",
+        "source_ref",
+        "observed_at",
+        "collected_at",
+        "target",
+        "time_range",
+        "status",
+        "missing_reason",
+        "provenance",
+        "payload",
+        "content_hash",
+        "redaction_summary"
+      ],
+      "title": "EvidenceItem",
+      "type": "object"
+    },
+    "EvidenceProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "captured",
+            "synthetic"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "origin": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Origin",
+          "type": "string"
+        },
+        "fixture_version": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixture Version"
+        }
+      },
+      "required": [
+        "kind",
+        "origin"
+      ],
+      "title": "EvidenceProvenance",
+      "type": "object"
+    },
+    "RedactionSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "categories": {
+          "items": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Categories",
+          "type": "array"
+        },
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "count"
+      ],
+      "title": "RedactionSummary",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "cluster_id": {
+          "maxLength": 80,
+          "pattern": "^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$",
+          "title": "Cluster Id",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "workload": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "title": "Workload",
+          "type": "string"
+        },
+        "service": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "title": "Service",
+          "type": "string"
+        },
+        "environment": {
+          "enum": [
+            "practice",
+            "production"
+          ],
+          "title": "Environment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cluster_id",
+        "namespace",
+        "workload",
+        "service",
+        "environment"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "target": {
+      "$ref": "#/$defs/Target"
+    },
+    "window": {
+      "$ref": "#/$defs/TimeWindow"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceItem"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "bundle_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Bundle Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "target",
+    "window",
+    "created_at",
+    "evidence",
+    "bundle_hash"
+  ],
+  "title": "EvidenceBundle",
+  "type": "object"
+}

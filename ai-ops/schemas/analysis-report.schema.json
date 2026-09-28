@@ -1,0 +1,451 @@
+{
+  "$defs": {
+    "ExecutionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "rules",
+            "ai"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Engine"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "tool_version": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Version"
+        },
+        "runbook_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 50,
+          "title": "Runbook Versions",
+          "type": "object"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "tool_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Calls"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Usd"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ExecutionMetadata",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "statement": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "pattern": "^ev-[a-z0-9][a-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "statement",
+        "evidence_ids"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "Hypothesis": {
+      "additionalProperties": false,
+      "properties": {
+        "cause": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Cause",
+          "type": "string"
+        },
+        "supporting_evidence_ids": {
+          "items": {
+            "pattern": "^ev-[a-z0-9][a-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Supporting Evidence Ids",
+          "type": "array"
+        },
+        "contradicting_evidence_ids": {
+          "items": {
+            "pattern": "^ev-[a-z0-9][a-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Contradicting Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cause"
+      ],
+      "title": "Hypothesis",
+      "type": "object"
+    },
+    "MissingEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "reason"
+      ],
+      "title": "MissingEvidence",
+      "type": "object"
+    },
+    "SuggestedAction": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "execution_status": {
+          "const": "not_executed",
+          "title": "Execution Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "execution_status"
+      ],
+      "title": "SuggestedAction",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "cluster_id": {
+          "maxLength": 80,
+          "pattern": "^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$",
+          "title": "Cluster Id",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "workload": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "title": "Workload",
+          "type": "string"
+        },
+        "service": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "title": "Service",
+          "type": "string"
+        },
+        "environment": {
+          "enum": [
+            "practice",
+            "production"
+          ],
+          "title": "Environment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cluster_id",
+        "namespace",
+        "workload",
+        "service",
+        "environment"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "incident_id": {
+      "pattern": "^inc-[0-9a-f]{32}$",
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^run-[0-9a-f]{32}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/Target"
+    },
+    "window": {
+      "$ref": "#/$defs/TimeWindow"
+    },
+    "analysis_status": {
+      "enum": [
+        "complete",
+        "partial",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Analysis Status",
+      "type": "string"
+    },
+    "diagnosis_status": {
+      "enum": [
+        "suspected_cause",
+        "no_incident",
+        "insufficient_evidence"
+      ],
+      "title": "Diagnosis Status",
+      "type": "string"
+    },
+    "current_state": {
+      "enum": [
+        "affected",
+        "recovered",
+        "healthy",
+        "unknown"
+      ],
+      "title": "Current State",
+      "type": "string"
+    },
+    "facts": {
+      "items": {
+        "$ref": "#/$defs/Fact"
+      },
+      "maxItems": 100,
+      "title": "Facts",
+      "type": "array"
+    },
+    "hypotheses": {
+      "items": {
+        "$ref": "#/$defs/Hypothesis"
+      },
+      "maxItems": 3,
+      "title": "Hypotheses",
+      "type": "array"
+    },
+    "missing_evidence": {
+      "items": {
+        "$ref": "#/$defs/MissingEvidence"
+      },
+      "maxItems": 30,
+      "title": "Missing Evidence",
+      "type": "array"
+    },
+    "recommended_checks": {
+      "items": {
+        "maxLength": 1000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 30,
+      "title": "Recommended Checks",
+      "type": "array"
+    },
+    "suggested_actions": {
+      "items": {
+        "$ref": "#/$defs/SuggestedAction"
+      },
+      "maxItems": 30,
+      "title": "Suggested Actions",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 1000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 30,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "execution": {
+      "$ref": "#/$defs/ExecutionMetadata"
+    }
+  },
+  "required": [
+    "schema_version",
+    "incident_id",
+    "run_id",
+    "input_hash",
+    "target",
+    "window",
+    "analysis_status",
+    "diagnosis_status",
+    "current_state",
+    "execution"
+  ],
+  "title": "AnalysisReport",
+  "type": "object"
+}

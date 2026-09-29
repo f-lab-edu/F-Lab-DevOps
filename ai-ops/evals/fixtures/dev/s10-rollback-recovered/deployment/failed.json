@@ -1,0 +1,7 @@
+{
+  "image": "example.invalid/url-shortener:missing-tag",
+  "source_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "gitops_revision": "dddddddddddddddddddddddddddddddddddddddd",
+  "ci_run_id": "synthetic-100",
+  "status": "failed"
+}

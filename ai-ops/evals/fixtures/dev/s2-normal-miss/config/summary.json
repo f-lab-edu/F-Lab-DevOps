@@ -1,0 +1,6 @@
+{
+  "cache_intended_enabled": true,
+  "redis_url_configured": true,
+  "read_engine_role": "shared",
+  "redis_url": "redis://user:DEMO_SECRET_SENTINEL@example.invalid:6379"
+}

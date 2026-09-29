@@ -1,0 +1,6 @@
+{
+  "image": "example.invalid/url-shortener:missing-tag",
+  "source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "gitops_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "progressing"
+}

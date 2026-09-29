@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "target": {
+    "cluster_id": "practice-eks-example",
+    "namespace": "url-shortener",
+    "workload": "url-shortener-api",
+    "service": "url-shortener-svc",
+    "environment": "practice"
+  },
+  "window": {
+    "start": "2026-09-28T00:00:00Z",
+    "end": "2026-09-28T01:00:00Z"
+  },
+  "created_at": "2026-09-28T01:10:00Z",
+  "entries": [
+    {
+      "evidence_id": "ev-s1-metric",
+      "kind": "metric",
+      "source_ref": "metrics/cache.json",
+      "raw_sha256": "3b84945fc6222427364c7cc9bc403ca2148880d737e4585ca28891f4ce94a01d",
+      "observed_at": "2026-09-28T09:20:00+09:00",
+      "collected_at": "2026-09-28T09:21:00+09:00",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a2-dev-fixture",
+        "fixture_version": "1"
+      }
+    },
+    {
+      "evidence_id": "ev-s1-log",
+      "kind": "log",
+      "source_ref": "logs/cache.log",
+      "raw_sha256": "1e7cb26f7f524ba60ae1b7828da00990a095cdfb19e55cd8845ea94cd2b907c6",
+      "observed_at": "2026-09-28T00:20:05Z",
+      "collected_at": "2026-09-28T00:21:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a2-dev-fixture",
+        "fixture_version": "1"
+      }
+    },
+    {
+      "evidence_id": "ev-s1-event-missing",
+      "kind": "event",
+      "source_ref": "events/cache.json",
+      "raw_sha256": null,
+      "observed_at": null,
+      "collected_at": "2026-09-28T00:22:00Z",
+      "status": "permission_denied",
+      "missing_reason": "event read permission was denied",
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a2-dev-fixture",
+        "fixture_version": "1"
+      }
+    }
+  ]
+}

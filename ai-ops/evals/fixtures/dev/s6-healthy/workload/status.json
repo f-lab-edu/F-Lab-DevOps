@@ -1,0 +1,6 @@
+{
+  "image": "example.invalid/url-shortener:healthy",
+  "phase": "Running",
+  "ready": true,
+  "restarts": 0
+}

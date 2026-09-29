@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "target": {
+    "cluster_id": "practice-eks-example",
+    "namespace": "url-shortener",
+    "workload": "url-shortener-api",
+    "service": "url-shortener-svc",
+    "environment": "practice"
+  },
+  "window": {
+    "start": "2026-09-28T00:00:00Z",
+    "end": "2026-09-28T01:00:00Z"
+  },
+  "created_at": "2026-09-28T01:10:00Z",
+  "entries": [
+    {
+      "evidence_id": "ev-s10-failed",
+      "kind": "deployment",
+      "source_ref": "deployment/failed.json",
+      "raw_sha256": "f8fc19249fa734c80b2206f251630f136f53e5e00d975a839eb6ed772c51b9f2",
+      "observed_at": "2026-09-28T00:50:00Z",
+      "collected_at": "2026-09-28T00:51:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a2-dev-fixture",
+        "fixture_version": "1"
+      }
+    },
+    {
+      "evidence_id": "ev-s10-recovered",
+      "kind": "deployment",
+      "source_ref": "deployment/recovered.json",
+      "raw_sha256": "8829fbff9f591d012dd5f36e856759b239e61174c155fe231a44dc2c09ae3379",
+      "observed_at": "2026-09-28T00:55:00Z",
+      "collected_at": "2026-09-28T00:56:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a2-dev-fixture",
+        "fixture_version": "1"
+      }
+    }
+  ]
+}

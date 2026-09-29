@@ -25,8 +25,10 @@ jobs:
         run: |
           python3 -m venv /tmp/ai-ops-venv
           /tmp/ai-ops-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
-      - name: 데이터 계약과 생성된 스키마 검사
+      - name: 계약·증거 처리·fixture·생성 스키마 검사
         run: |
+          /tmp/ai-ops-venv/bin/python -m compileall -q ai-ops/src ai-ops/scripts ai-ops/tests
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m unittest discover -s ai-ops/tests -p 'test_*.py' -v
+          /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_dev_fixtures.py --check
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py
           git diff --exit-code -- ai-ops/schemas

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>AI 운영 조사 · 연속 구현 흐름</title>
+  <link rel="stylesheet" href="assets/flow.css">
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div><h1>AI 운영 조사: 연속 구현 흐름</h1><p class="subtitle">A0 기준선·런북 → A1 입력 계약 → A2 증거 처리</p></div>
+      <div class="date">2026-09-29 기준 · 로컬 사이트</div>
+    </header>
+    <div class="legend" role="group" aria-label="단계 상태">
+      <button class="clickable a0" data-detail="a0">A0 문서</button>
+      <button class="clickable a1" data-detail="a1">A1 구현</button>
+      <button class="clickable a2" data-detail="a2">A2 구현</button>
+      <button class="clickable future" data-detail="future">후속 미구현</button>
+    </div>
+    <main class="workspace">
+      <div class="flow" aria-label="AI 운영 조사 흐름도">
+        <section class="lane a0" id="a0-section" aria-label="A0 코드 기준선과 런북">
+          <div class="lane-heading"><span class="lane-tag">A0</span><button class="clickable lane-title" data-detail="a0">현재 코드 확인 → 사람이 검토한 운영 판단 기준</button></div>
+          <div class="lane-grid">
+            <article class="card"><button class="clickable card-title" data-detail="source">근거: 기존 프로젝트 코드</button><div class="files">
+              <button class="clickable file" data-detail="cache">url-shortener/app/core/cache.py</button>
+              <button class="clickable file" data-detail="database">url-shortener/app/core/database.py</button>
+              <button class="clickable file" data-detail="cicd">.github/workflows/ci-cd.yml</button>
+              <button class="clickable file" data-detail="alerts">url-shortener/url-shortener-chart/templates/prometheusrule.yaml</button>
+            </div></article>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <article class="card"><button class="clickable card-title" data-detail="baseline">코드 기준선 기록</button><div class="files"><button class="clickable file" data-detail="baseline">ai-ops/docs/A0-baseline.md</button></div><p>검증 Git SHA · 실제/합성 구분<br>캐시 · DB · 경보 · 롤백 의미 확인</p></article>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <article class="card"><button class="clickable card-title" data-detail="runbooks">AI 입력 후보 런북</button><div class="files">
+              <button class="clickable file" data-detail="runbook-cache">ai-ops/runbooks/cache.md</button>
+              <button class="clickable file" data-detail="runbook-db">ai-ops/runbooks/database.md</button>
+              <button class="clickable file" data-detail="runbook-deploy">ai-ops/runbooks/deployment.md</button>
+              <button class="clickable file" data-detail="runbook-index">ai-ops/runbooks/index.yaml</button>
+            </div><p>출처·해시 고정 · 자동 로딩은 후속</p></article>
+          </div>
+        </section>
+        <div class="stage-connector" aria-hidden="true">↓</div>
+        <section class="lane a1" id="a1-section" aria-label="A1 데이터 계약과 입력 검증">
+          <div class="lane-heading"><span class="lane-tag">A1</span><button class="clickable lane-title" data-detail="a1">등록 대상 + 요청 + 증거 → 계약 검사 → 검증된 자료</button></div>
+          <div class="lane-grid">
+            <div class="stack">
+              <article class="card"><button class="clickable card-title" data-detail="targets">등록 대상</button><div class="files"><button class="clickable file" data-detail="targets-file">ai-ops/config/targets.example.json</button></div></article>
+              <article class="card"><button class="clickable card-title" data-detail="bundle">증거 묶음 JSON · 형식만 정의</button><p>출처 · 시각 · 상태 · 내용 · 해시</p></article>
+              <article class="card"><button class="clickable card-title" data-detail="request">조사 요청 JSON</button><p>질문 · 대상 · 시각 · bundle_hash</p></article>
+            </div>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <article class="card"><button class="clickable card-title" data-detail="contracts">핵심 구현 파일</button><div class="files"><button class="clickable file" data-detail="contracts-file">ai-ops/src/ai_ops/contracts.py</button></div>
+              <div class="check-list">
+                <button class="clickable check" data-detail="check-target">1&nbsp; TargetRegistry 대상 허용 목록 확인</button>
+                <button class="clickable check" data-detail="check-bundle">2&nbsp; EvidenceBundle 구조·해시 검증</button>
+                <button class="clickable check" data-detail="check-request">3&nbsp; IncidentRequest ID·UTC 시간 검사</button>
+                <button class="clickable check" data-detail="check-cross">4&nbsp; 대상·시간·묶음 해시 일치 확인</button>
+              </div><div class="checks-note">UTC 내부 저장 · KST 표시는 아직 없음</div>
+            </article>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <div class="stack">
+              <article class="card"><button class="clickable card-title" data-detail="validated">검증 결과</button><button class="clickable result-name" data-detail="request">IncidentRequest</button><button class="clickable result-name" data-detail="bundle">EvidenceBundle</button><p>일치하지 않으면 조사 전 거부</p></article>
+              <article class="card future-card"><button class="clickable card-title" data-detail="report">AnalysisReport는 형식만 정의</button><p>AI 조사·보고서 생성은 아직 없음</p></article>
+            </div>
+          </div>
+        </section>
+        <div class="support" id="support-section" aria-label="A1 지원 파일">
+          <article class="card"><button class="clickable card-title" data-detail="package">패키지·의존성</button><div class="files"><button class="clickable file" data-detail="pyproject">ai-ops/pyproject.toml</button><button class="clickable file" data-detail="lock">ai-ops/requirements.lock</button></div><p>Pydantic 2.13.5 고정</p></article>
+          <article class="card"><button class="clickable card-title" data-detail="schema">스키마 생성</button><div class="files"><button class="clickable file" data-detail="schema-script">ai-ops/scripts/export_schemas.py</button><button class="clickable file" data-detail="schema-files">ai-ops/schemas/*.schema.json</button></div><p>계약 모델에서 JSON Schema 생성</p></article>
+          <article class="card"><button class="clickable card-title" data-detail="tests">테스트·CI</button><div class="files"><button class="clickable file" data-detail="tests-file">ai-ops/tests/test_input_contract.py</button><button class="clickable file" data-detail="ci-file">.github/workflows/ai-ops-ci.yml</button></div><p>로컬 14건 통과 · 원격 CI 결과 미확인</p></article>
+        </div>
+        <div class="stage-connector" aria-hidden="true">↓</div>
+        <section class="lane a2" id="a2-section" aria-label="A2 저장 증거 처리와 개발 사례">
+          <div class="lane-heading"><span class="lane-tag">A2</span><button class="clickable lane-title" data-detail="a2">저장된 원본 증거 → 안전한 읽기·정규화 → EvidenceBundle</button></div>
+          <div class="lane-grid">
+            <div class="stack">
+              <article class="card"><button class="clickable card-title" data-detail="a2-manifest">manifest와 등록 대상</button><div class="files"><button class="clickable file" data-detail="a2-manifest-file">ai-ops/evals/fixtures/dev/*/manifest.json</button></div><p>대상 · UTC window · 출처 · 원본 파일 hash</p></article>
+              <article class="card"><button class="clickable card-title" data-detail="a2-raw">원본 JSON·로그 파일</button><p>metric · event · log · deployment 등<br>항목별 available / missing / denied</p></article>
+            </div>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <article class="card"><button class="clickable card-title" data-detail="a2-loader">증거 로더와 정규화</button><div class="files"><button class="clickable file" data-detail="a2-loader-file">ai-ops/src/ai_ops/evidence.py</button></div>
+              <div class="check-list">
+                <button class="clickable check" data-detail="a2-path">1&nbsp; 대상·경로·symlink·크기 검사</button>
+                <button class="clickable check" data-detail="a2-hash">2&nbsp; 원본 파일 SHA-256 확인</button>
+                <button class="clickable check" data-detail="a2-time">3&nbsp; 원본 오프셋 → UTC 정규화</button>
+                <button class="clickable check" data-detail="a2-redaction">4&nbsp; 허용 필드 추출·비밀값 마스킹</button>
+              </div><div class="checks-note">원본 시각·오프셋 보존 · 사용자용 KST 표시는 A3</div>
+            </article>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <div class="stack">
+              <article class="card"><button class="clickable card-title" data-detail="a2-output">정규화된 EvidenceBundle</button><p>내용 hash · 묶음 hash<br>값 0과 누락 사유 분리</p></article>
+              <article class="card"><button class="clickable card-title" data-detail="a2-fixtures">개발용 합성 사례 8건</button><p>S1 · S2 · S3 · S4 · S5 · S6 · S9 · S10</p></article>
+            </div>
+          </div>
+          <div class="scenario-grid" aria-label="A2 합성 사례">
+            <button class="clickable scenario" data-detail="scenario-s1"><strong>S1</strong><span>캐시 오류</span></button>
+            <button class="clickable scenario" data-detail="scenario-s2"><strong>S2</strong><span>정상 miss</span></button>
+            <button class="clickable scenario" data-detail="scenario-s3"><strong>S3</strong><span>image tag 오류</span></button>
+            <button class="clickable scenario" data-detail="scenario-s4"><strong>S4</strong><span>DB 지연</span></button>
+            <button class="clickable scenario" data-detail="scenario-s5"><strong>S5</strong><span>정보 부족</span></button>
+            <button class="clickable scenario" data-detail="scenario-s6"><strong>S6</strong><span>정상 상태</span></button>
+            <button class="clickable scenario" data-detail="scenario-s9"><strong>S9</strong><span>정상 Primary</span></button>
+            <button class="clickable scenario" data-detail="scenario-s10"><strong>S10</strong><span>롤백 후 복구</span></button>
+          </div>
+        </section>
+        <div class="support a2-support" aria-label="A2 지원 파일">
+          <article class="card"><button class="clickable card-title" data-detail="a2-generator">합성 자료 생성</button><div class="files"><button class="clickable file" data-detail="a2-generator-file">ai-ops/scripts/build_dev_fixtures.py</button></div><p>8건을 결정적으로 재생성</p></article>
+          <article class="card"><button class="clickable card-title" data-detail="a2-tests">증거 처리 시험</button><div class="files"><button class="clickable file" data-detail="a2-tests-file">ai-ops/tests/test_evidence_processing.py</button></div><p>A1·A2 로컬 시험 총 23건 통과</p></article>
+          <article class="card"><button class="clickable card-title" data-detail="a2-doc">범위와 한계</button><div class="files"><button class="clickable file" data-detail="a2-doc-file">ai-ops/docs/A2-evidence.md</button></div><p>실클러스터·AI 진단은 아직 연결 전</p></article>
+        </div>
+        <div class="stage-connector" aria-hidden="true">↓</div>
+        <button class="clickable next" id="next-section" data-detail="future">다음 A3: 사건 저장·CLI·규칙 기반 보고서·사용자용 KST 표시 <span>/</span> 이후 A4~A7: 도구·AI 조사·평가</button>
+      </div>
+      <aside class="detail" id="detail" aria-live="polite" aria-atomic="true" aria-label="선택한 요소의 상세 설명">
+        <div class="detail-eyebrow">선택한 요소 설명</div>
+        <h2 id="detail-title">A0 → A2 전체 흐름</h2>
+        <span class="status a2" id="detail-status">현재 구현 범위</span>
+        <p id="detail-summary">왼쪽의 단계, 파일명, 검증 항목을 클릭하면 역할과 현재 구현 상태를 볼 수 있습니다.</p>
+        <h3>처리 내용</h3><ul id="detail-points"></ul>
+        <p class="limit" id="detail-limit"></p>
+        <h3 id="related-title">관련 파일</h3><div class="related" id="detail-related"></div>
+        <div class="hint">파일 링크를 누르면 저장소의 해당 파일을 엽니다. 화살표는 데이터·문서의 흐름을 뜻합니다.</div>
+      </aside>
+    </main>
+  </div>
+  <script src="assets/flow-data.js"></script>
+  <script src="assets/a2-data.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

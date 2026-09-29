@@ -18,8 +18,14 @@
       relatedEl.replaceChildren(...item.files.map(({ label, href }) => { const a = document.createElement("a"); a.href = href; a.textContent = label; return a; }));
       relatedTitleEl.hidden = item.files.length === 0;
       buttons.forEach(button => { button.classList.toggle("active", button === clicked); button.setAttribute("aria-pressed", button === clicked ? "true" : "false"); });
-      if (clicked) history.replaceState(null, "", "#" + encodeURIComponent(key));
+      if (clicked) {
+        history.replaceState(null, "", "#" + encodeURIComponent(key));
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          document.getElementById("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
     }
     buttons.forEach(button => button.addEventListener("click", () => select(button.dataset.detail, button)));
     const initial = decodeURIComponent(location.hash.slice(1));
-    select(initial && details[initial] ? initial : "overview", null);
+    const defaultDetail = document.body.dataset.defaultDetail || "overview";
+    select(initial && details[initial] ? initial : defaultDetail, null);

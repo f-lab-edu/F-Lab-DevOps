@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>A0 · 코드 기준선과 런북 · AI 운영 조사</title>
+  <link rel="stylesheet" href="assets/flow.css">
+</head>
+<body data-default-detail="a0">
+<div class="site-layout">
+  <nav class="site-nav" aria-label="작업 단계 페이지">
+    <a class="site-brand" href="index.html">AI 운영 조사<span>구현 기록</span></a>
+    <div class="nav-caption">페이지</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html"><strong>전체 요약</strong><span>A0 → A2</span></a>
+      <a class="nav-link current" href="a0.html" aria-current="page"><strong>A0 · 기준선</strong><span>코드·런북</span></a>
+      <a class="nav-link" href="a1.html"><strong>A1 · 입력 계약</strong><span>대상·요청·증거</span></a>
+      <a class="nav-link" href="a2.html"><strong>A2 · 증거 처리</strong><span>정규화·합성 사례</span></a>
+    </div>
+    <p class="nav-note">A0~A2는 문서·로컬 코드 단계입니다. 실클러스터 조사와 AI 분석은 아직 연결되지 않았습니다.</p>
+  </nav>
+  <div class="page">
+    <header class="top">
+      <div><h1>A0 · 코드 기준선과 런북</h1><p class="subtitle">현재 코드에서 확인한 운영 판단 기준과 사람이 검토한 런북</p></div>
+      <div class="date">2026-09-29 기준 · 로컬 사이트</div>
+    </header>
+    <main class="workspace">
+      <div class="flow" aria-label="A0 · 코드 기준선과 런북 흐름">
+        <section class="lane a0" id="a0-section" aria-label="A0 코드 기준선과 런북">
+          <div class="lane-heading"><span class="lane-tag">A0</span><button class="clickable lane-title" data-detail="a0">현재 코드 확인 → 사람이 검토한 운영 판단 기준</button></div>
+          <div class="lane-grid">
+            <article class="card"><button class="clickable card-title" data-detail="source">근거: 기존 프로젝트 코드</button><div class="files">
+              <button class="clickable file" data-detail="cache">url-shortener/app/core/cache.py</button>
+              <button class="clickable file" data-detail="database">url-shortener/app/core/database.py</button>
+              <button class="clickable file" data-detail="cicd">.github/workflows/ci-cd.yml</button>
+              <button class="clickable file" data-detail="alerts">url-shortener/url-shortener-chart/templates/prometheusrule.yaml</button>
+            </div></article>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <article class="card"><button class="clickable card-title" data-detail="baseline">코드 기준선 기록</button><div class="files"><button class="clickable file" data-detail="baseline">ai-ops/docs/A0-baseline.md</button></div><p>검증 Git SHA · 실제/합성 구분<br>캐시 · DB · 경보 · 롤백 의미 확인</p></article>
+            <span class="arrow" aria-hidden="true">➜</span>
+            <article class="card"><button class="clickable card-title" data-detail="runbooks">AI 입력 후보 런북</button><div class="files">
+              <button class="clickable file" data-detail="runbook-cache">ai-ops/runbooks/cache.md</button>
+              <button class="clickable file" data-detail="runbook-db">ai-ops/runbooks/database.md</button>
+              <button class="clickable file" data-detail="runbook-deploy">ai-ops/runbooks/deployment.md</button>
+              <button class="clickable file" data-detail="runbook-index">ai-ops/runbooks/index.yaml</button>
+            </div><p>출처·해시 고정 · 자동 로딩은 후속</p></article>
+          </div>
+          <div class="reminder-block" aria-labelledby="a0-reminder-title">
+            <h3 id="a0-reminder-title">A0 작업 리마인드 <span>구현 방식과 이유 · 클릭하면 근거 확인</span></h3>
+            <div class="reminder-grid">
+              <button class="clickable reminder-card" data-detail="reminder-a0-baseline"><strong>1. 코드 기준선 고정</strong><span><b>구현</b> 검토한 Git SHA와 코드 확인 결과를 기록</span><span><b>이유</b> 오래된 문서를 현재 동작으로 오인하지 않기 위해</span></button>
+              <button class="clickable reminder-card" data-detail="reminder-a0-cache-db"><strong>2. 캐시·DB 의미 대조</strong><span><b>구현</b> 예외 처리와 읽기·쓰기 경로를 코드에서 확인</span><span><b>이유</b> 지표·로그만으로 장애나 Replica 사용을 단정하지 않기 위해</span></button>
+              <button class="clickable reminder-card" data-detail="reminder-a0-alert-deploy"><strong>3. 경보·배포·롤백 대조</strong><span><b>구현</b> 경보 라벨과 배포 검증·복원 조건을 확인</span><span><b>이유</b> 알림 대상과 복구 상태를 잘못 판단하지 않기 위해</span></button>
+              <button class="clickable reminder-card" data-detail="reminder-a0-runbooks"><strong>4. 런북·자료 출처 정리</strong><span><b>구현</b> 런북 3개를 선별하고 출처·해시·자료 정책을 기록</span><span><b>이유</b> AI가 오래되거나 출처가 불분명한 근거를 쓰지 않도록</span></button>
+            </div>
+          </div>
+        </section>
+        <div class="page-steps"><a href="index.html">← 전체 요약</a><a href="a1.html">A1 입력 계약 →</a></div>
+      </div>
+      <aside class="detail" id="detail" aria-live="polite" aria-atomic="true" aria-label="선택한 요소의 상세 설명">
+        <div class="detail-eyebrow">선택한 요소 설명</div>
+        <h2 id="detail-title">A0 · 코드 기준선과 런북</h2>
+        <span class="status a0" id="detail-status">A0 문서</span>
+        <p id="detail-summary">이 단계의 작업·파일·검증 항목을 선택하면 구현 이유와 관련 근거를 볼 수 있습니다.</p>
+        <h3>처리 내용</h3><ul id="detail-points"></ul>
+        <p class="limit" id="detail-limit"></p>
+        <h3 id="related-title">관련 파일</h3><div class="related" id="detail-related"></div>
+        <div class="hint">파일 링크를 누르면 저장소의 해당 파일을 엽니다. 화살표는 데이터·문서의 흐름을 뜻합니다.</div>
+      </aside>
+    </main>
+  </div>
+</div>
+  <script src="assets/flow-data.js"></script>
+  <script src="assets/a0-a1-reminders.js"></script>
+  <script src="assets/a2-data.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

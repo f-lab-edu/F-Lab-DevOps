@@ -1,6 +1,6 @@
 # AI 운영 조사 기능
 
-현재 완료 범위는 **A0: 코드 기준선·런북 준비**, **A1: 조사 데이터 계약·입력 검증**, **A2: 로컬 증거 정규화·마스킹·합성 재현 자료**, **A3: 로컬 사건 조사·저장·표시**다. 모델 연결, 실클러스터 수집, 변경 실행은 후속 구현 범위다.
+현재 완료 범위는 **A0: 코드 기준선·런북 준비**, **A1: 조사 데이터 계약·입력 검증**, **A2: 로컬 증거 정규화·마스킹·합성 재현 자료**, **A3: 로컬 사건 조사·저장·표시**, **A4: 제한된 저장 증거 조회·감사 기록**이다. 모델 연결, 실클러스터 수집, 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -8,6 +8,7 @@
 - [A1 계약·검증 범위](docs/A1-contracts.md)
 - [A2 저장 증거 처리·합성 재현 자료](docs/A2-evidence.md)
 - [A3 로컬 사건 조사·CLI·보고서](docs/A3-local-investigation.md)
+- [A4 저장 증거 조회 도구·제한·감사 기록](docs/A4-replay-tools.md)
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
@@ -31,4 +32,4 @@ git diff --exit-code -- ai-ops/schemas
 
 저장 증거는 `python -m ai_ops validate-bundle`로 검사하고, `investigate --mode rules`로 사건 보고서를 만든 뒤 `show`로 다시 볼 수 있다. 명령별 `--bundle`, `--registry`, `--store` 예시와 저장 위치 기준은 [A3 문서](docs/A3-local-investigation.md)에 있다.
 
-다음 작업은 **A4: 검증된 묶음 내부의 제한된 증거 조회 도구와 실행 제한**이다.
+다음 작업은 **A5: 엔진 후보 검증·선정과 실제 AI 연결**이다. A4는 시험용 모델로만 추가 증거 선택을 검증했다.

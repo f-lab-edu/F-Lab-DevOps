@@ -25,6 +25,7 @@ from ai_ops.contracts import (
 )
 from ai_ops.evidence import create_sanitized_incident_request, load_evidence_bundle, sanitize_question
 from ai_ops.reports import render_markdown, validate_report
+from ai_ops.replay_runner import ReplayLimits, ReplayResult, SelectionModel, run_replay
 from ai_ops.rules import analyze_rules
 
 
@@ -208,6 +209,30 @@ class IncidentStore:
     def show(self, incident_id: str, run_id: str) -> RunRecord:
         with self._locked():
             return self._read_record(incident_id, run_id)
+
+    def replay(
+        self, incident_id: str, run_id: str, model: SelectionModel,
+        limits: ReplayLimits = ReplayLimits(),
+    ) -> ReplayResult:
+        """완료된 A3 입력을 읽어 도구 조회를 재생하고 개인 저장소에 감사를 남긴다."""
+        record = self.show(incident_id, run_id)
+        if record.request is None or record.bundle is None:
+            raise ValueError("replay requires a completed investigation")
+        audit_path = self._run_dir(incident_id, run_id) / "tool-audit.json"
+        if audit_path.exists() or audit_path.is_symlink():
+            raise ValueError("replay audit already exists for this run")
+        result = run_replay(
+            request=record.request, bundle=record.bundle, run_id=run_id,
+            model=model, limits=limits,
+        )
+        with self._locked():
+            latest = self._read_record(incident_id, run_id)
+            if latest.bundle is None or latest.bundle.bundle_hash != result.input_hash:
+                raise ValueError("stored replay input changed")
+            if audit_path.exists() or audit_path.is_symlink():
+                raise ValueError("replay audit already exists for this run")
+            _write_json(audit_path, result.as_dict())
+        return result
 
     def investigate(
         self, *, bundle_root: Path, registry: TargetRegistry, question: str,

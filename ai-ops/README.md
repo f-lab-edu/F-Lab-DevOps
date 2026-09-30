@@ -1,6 +1,6 @@
 # AI 운영 조사 기능
 
-현재 완료 범위는 **A0: 코드 기준선·런북 준비**, **A1: 조사 데이터 계약·입력 검증**, **A2: 로컬 증거 정규화·마스킹·합성 재현 자료**, **A3: 로컬 사건 조사·저장·표시**, **A4: 제한된 저장 증거 조회·감사 기록**이다. 모델 연결, 실클러스터 수집, 변경 실행은 후속 구현 범위다.
+현재 완료 범위는 **A0~A4**이다. **A5는 진행 중**으로, 합성 증거 전용 OpenAI Responses 어댑터와 모의 응답 검증까지 연결했다. 실제 유료 모델 호출·HolmesGPT 개발 입력 비교는 API 계정 준비 후 남아 있다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -9,6 +9,8 @@
 - [A2 저장 증거 처리·합성 재현 자료](docs/A2-evidence.md)
 - [A3 로컬 사건 조사·CLI·보고서](docs/A3-local-investigation.md)
 - [A4 저장 증거 조회 도구·제한·감사 기록](docs/A4-replay-tools.md)
+- [A5 엔진 결정·AI 연결·남은 실제 검증](docs/A5-engine-decision.md)
+- [A5 ChatGPT Plus 연동 가능성·필요 변경](docs/A5-plus-feasibility.md)
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
@@ -32,4 +34,4 @@ git diff --exit-code -- ai-ops/schemas
 
 저장 증거는 `python -m ai_ops validate-bundle`로 검사하고, `investigate --mode rules`로 사건 보고서를 만든 뒤 `show`로 다시 볼 수 있다. 명령별 `--bundle`, `--registry`, `--store` 예시와 저장 위치 기준은 [A3 문서](docs/A3-local-investigation.md)에 있다.
 
-다음 작업은 **A5: 엔진 후보 검증·선정과 실제 AI 연결**이다. A4는 시험용 모델로만 추가 증거 선택을 검증했다.
+`investigate --mode ai`는 현재 `practice` 합성 증거와 **별도 과금되는 API 키 경로**만 지원한다. 키와 계정 별칭, 비용·출처 제한 및 실행 예시는 [A5 문서](docs/A5-engine-decision.md)에 있다. API 키가 없는 현재 환경에서는 외부 호출 없이 모의 응답 시험만 수행했다. Plus 플랜 사용 경로는 [별도 검토](docs/A5-plus-feasibility.md) 단계이며 아직 실행되지 않는다.

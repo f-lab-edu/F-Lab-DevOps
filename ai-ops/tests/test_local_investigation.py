@@ -137,7 +137,7 @@ class LocalInvestigationTest(unittest.TestCase):
         result = self.store.show(failed.exception.incident_id, failed.exception.run_id)
         self.assertEqual(result.metadata["failure_reason"], "rules_error")
 
-    def test_cli_validate_investigate_show_and_ai_refusal(self):
+    def test_cli_validate_investigate_show_and_ai_requires_configuration(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             status = main(["validate-bundle", "--bundle", str(FIXTURES / "s1-cache-error"), "--registry", str(REGISTRY)])
@@ -168,7 +168,7 @@ class LocalInvestigationTest(unittest.TestCase):
                            "--registry", str(REGISTRY), "--store", str(self.store_root),
                            "--question", "조사해줘", "--request-id", "cli-ai", "--mode", "ai"])
         self.assertEqual(status, 2)
-        self.assertIn("A5", error.getvalue())
+        self.assertIn("--ai-account", error.getvalue())
 
     def test_store_inside_repository_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "outside the repository"):

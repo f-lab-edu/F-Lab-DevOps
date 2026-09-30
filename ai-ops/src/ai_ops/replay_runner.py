@@ -24,11 +24,17 @@ class ToolCall:
 
 @dataclass(frozen=True)
 class Stop:
-    """가짜 모델의 조회 종료 신호이며 보고서는 생성하지 않는다."""
+    """조회 종료 신호다. A5 모델은 검증 전 보고서 초안을 함께 돌려준다."""
+
+    final_output: dict[str, Any] | None = None
 
 
 class TransientModelError(Exception):
     """최대 한 번만 다시 시도할 수 있는 모델 오류다."""
+
+
+class ModelRejected(Exception):
+    """재시도할 수 없는 모델·예산·출력 계약 거부다."""
 
 
 class ReplayTimeout(Exception):
@@ -85,6 +91,8 @@ class ReplayResult:
     delivered_evidence_ids: list[str]
     delivered_runbook_ids: list[str]
     audit: list[dict[str, Any]]
+    delivered_runbook_versions: dict[str, str] | None = None
+    final_output: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -92,7 +100,8 @@ class ReplayResult:
             "status": self.status, "failure_reason": self.failure_reason,
             "tool_calls": self.tool_calls, "model_errors": self.model_errors,
             "delivered_evidence_ids": self.delivered_evidence_ids,
-            "delivered_runbook_ids": self.delivered_runbook_ids, "audit": self.audit,
+            "delivered_runbook_ids": self.delivered_runbook_ids,
+            "delivered_runbook_versions": self.delivered_runbook_versions or {}, "audit": self.audit,
         }
 
 
@@ -130,6 +139,7 @@ def run_replay(
     model_errors = 0
     status = "completed"
     reason: str | None = None
+    final_output: dict[str, Any] | None = None
 
     while True:
         remaining = limits.total_seconds - (clock() - started)
@@ -161,6 +171,9 @@ def run_replay(
                 status, reason = "failed", "model_retry_exhausted"
                 break
             continue
+        except ModelRejected as exc:
+            status, reason = "failed", str(exc)
+            break
         except KeyboardInterrupt:
             status, reason = "cancelled", "user_cancelled"
             break
@@ -171,6 +184,7 @@ def run_replay(
             status, reason = "limited", "total_timeout"
             break
         if isinstance(action, Stop):
+            final_output = action.final_output
             break
         if not isinstance(action, ToolCall):
             status, reason = "failed", "invalid_model_action"
@@ -236,6 +250,8 @@ def run_replay(
         run_id=run_id, input_hash=bundle.bundle_hash, status=status, failure_reason=reason,
         tool_calls=calls, model_errors=model_errors,
         delivered_evidence_ids=list(delivered), delivered_runbook_ids=list(runbooks), audit=audit,
+        delivered_runbook_versions={name: doc["version"] for name, doc in runbooks.items()},
+        final_output=final_output,
     )
 
 

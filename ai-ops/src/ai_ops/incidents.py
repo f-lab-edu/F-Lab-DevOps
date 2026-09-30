@@ -6,6 +6,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import stat
@@ -24,6 +25,7 @@ from ai_ops.contracts import (
     sha256_json,
 )
 from ai_ops.evidence import create_sanitized_incident_request, load_evidence_bundle, sanitize_question
+from ai_ops.openai_engine import AIAnalysisError, AIConfig, AIOutcome
 from ai_ops.reports import render_markdown, validate_report
 from ai_ops.replay_runner import ReplayLimits, ReplayResult, SelectionModel, run_replay
 from ai_ops.rules import analyze_rules
@@ -202,8 +204,16 @@ class IncidentStore:
         request = parse_incident_request_json(canonical_json_bytes(input_data["request"]))
         bundle = parse_evidence_bundle_json(canonical_json_bytes(input_data["bundle"]))
         report = AnalysisReport.model_validate(_read_json(run_dir / "report.json"))
-        validate_report(report, request, bundle, run_id)
-        markdown = render_markdown(report, request, bundle)
+        if report.execution.mode != metadata.get("mode"):
+            raise ValueError("stored report mode does not match run")
+        delivered = None
+        if report.execution.mode == "ai":
+            audit = _read_json(run_dir / "tool-audit.json")
+            if audit.get("run_id") != run_id or audit.get("input_hash") != bundle.bundle_hash:
+                raise ValueError("stored AI audit does not match report")
+            delivered = set(audit["delivered_evidence_ids"])
+        validate_report(report, request, bundle, run_id, delivered)
+        markdown = render_markdown(report, request, bundle, delivered)
         return RunRecord(metadata=metadata, request=request, bundle=bundle, report=report, markdown=markdown)
 
     def show(self, incident_id: str, run_id: str) -> RunRecord:
@@ -236,12 +246,18 @@ class IncidentStore:
 
     def investigate(
         self, *, bundle_root: Path, registry: TargetRegistry, question: str,
-        request_id: str, analyzer: Callable[[IncidentRequest, EvidenceBundle, str], AnalysisReport] = analyze_rules,
+        request_id: str, analyzer: Callable[[IncidentRequest, EvidenceBundle, str], AnalysisReport | AIOutcome] = analyze_rules,
+        mode: str = "rules", ai_config: AIConfig | None = None,
     ) -> RunRecord:
+        if mode not in ("rules", "ai") or (mode == "ai") != (ai_config is not None):
+            raise ValueError("invalid investigation mode or AI configuration")
         bundle = load_evidence_bundle(bundle_root, registry)
+        if mode == "ai" and (bundle.target.environment != "practice" or
+                             any(item.provenance.kind != "synthetic" for item in bundle.evidence)):
+            raise ValueError("AI mode accepts synthetic practice evidence only")
         cleaned_question, _ = sanitize_question(question)
         fingerprint = hmac.new(self._fingerprint_key, canonical_json_bytes({
-            "request_id": request_id, "mode": "rules", "question": question,
+            "request_id": request_id, "mode": mode, "question": question,
             "sanitized_question": cleaned_question,
             "target": bundle.target.model_dump(mode="json"),
             "window": bundle.window.model_dump(mode="json"), "bundle_hash": bundle.bundle_hash,
@@ -258,6 +274,8 @@ class IncidentStore:
                 request_id=request_id, target=bundle.target, question=question,
                 window=bundle.window, bundle=bundle, registry=registry, requested_at=_now(),
             )
+            if mode == "ai":
+                self._reserve_ai_budget(ai_config)
             run_id = "run-" + uuid.uuid4().hex
             run_dir = self._run_dir(request.incident_id, run_id)
             _private_directory(run_dir.parent)
@@ -266,7 +284,7 @@ class IncidentStore:
             metadata = {
                 "schema_version": 1, "incident_id": request.incident_id, "run_id": run_id,
                 "request_id": request_id, "fingerprint": fingerprint,
-                "input_hash": bundle.bundle_hash, "mode": "rules", "status": "accepted",
+                "input_hash": bundle.bundle_hash, "mode": mode, "status": "accepted",
                 "created_at": moment, "updated_at": moment, "failure_reason": None,
                 "history": [{"status": "accepted", "at": moment}],
             }
@@ -284,18 +302,43 @@ class IncidentStore:
                 self._transition(run_dir, metadata, "validating")
                 self._transition(run_dir, metadata, "analyzing")
                 started = time.perf_counter()
-                report = analyzer(request, bundle, run_id)
+                analysis = analyzer(request, bundle, run_id)
+                replay = analysis.replay if isinstance(analysis, AIOutcome) else None
+                report = analysis.report if isinstance(analysis, AIOutcome) else analysis
+                if (mode == "ai") != (replay is not None) or report.execution.mode != mode:
+                    raise ValueError("analyzer returned an incompatible report")
                 report.execution.duration_ms = int((time.perf_counter() - started) * 1000)
-                validate_report(report, request, bundle, run_id)
-                markdown = render_markdown(report, request, bundle)
+                delivered = set(replay.delivered_evidence_ids) if replay else None
+                validate_report(report, request, bundle, run_id, delivered)
+                markdown = render_markdown(report, request, bundle, delivered)
+                if replay:
+                    _write_json(run_dir / "tool-audit.json", replay.as_dict())
                 _write_json(run_dir / "report.json", report.model_dump(mode="json"))
                 _atomic_write(run_dir / "report.md", markdown.encode("utf-8"))
                 self._transition(run_dir, metadata, "completed")
             except KeyboardInterrupt:
                 self._transition(run_dir, metadata, "cancelled", "user_cancelled")
                 raise RunStopped(request.incident_id, run_id, "cancelled") from None
-            except Exception:
-                self._transition(run_dir, metadata, "failed", "rules_error")
-                raise RunStopped(request.incident_id, run_id, "failed") from None
+            except Exception as exc:
+                if isinstance(exc, AIAnalysisError) and exc.replay is not None:
+                    _write_json(run_dir / "tool-audit.json", exc.replay.as_dict())
+                stopped = "cancelled" if isinstance(exc, AIAnalysisError) and exc.replay and exc.replay.status == "cancelled" else "failed"
+                self._transition(run_dir, metadata, stopped, exc.reason if isinstance(exc, AIAnalysisError) else
+                                 "ai_error" if mode == "ai" else "rules_error")
+                raise RunStopped(request.incident_id, run_id, stopped) from None
             return RunRecord(metadata=metadata, request=request, bundle=bundle,
                              report=report, markdown=markdown)
+
+    def _reserve_ai_budget(self, config: AIConfig) -> None:
+        """저장소 잠금 안에서 건당 상한을 UTC 일일 한도에 보수적으로 선예약한다."""
+        path = self.root / "ai-budget.json"
+        ledger = _read_json(path) if path.exists() or path.is_symlink() else {"schema_version": 1, "days": {}}
+        if ledger.get("schema_version") != 1 or not isinstance(ledger.get("days"), dict):
+            raise ValueError("invalid AI budget ledger")
+        key = _now().date().isoformat()
+        spent = ledger["days"].get(key, 0)
+        if (type(spent) not in (int, float) or not math.isfinite(spent) or
+                spent < 0 or spent + config.per_case_usd > config.per_day_usd + 1e-9):
+            raise ValueError("daily AI budget limit")
+        ledger["days"][key] = round(spent + config.per_case_usd, 6)
+        _write_json(path, ledger)

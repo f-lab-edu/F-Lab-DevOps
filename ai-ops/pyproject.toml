@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "url-shortener-ai-ops"
 version = "0.1.0"
-description = "URL 단축 서비스의 로컬 운영 증거 검증과 규칙 기반 장애 조사"
+description = "URL 단축 서비스의 로컬 운영 증거 검증과 규칙·AI 장애 조사"
 requires-python = ">=3.11"
 dependencies = ["pydantic==2.13.5"]
 

@@ -14,22 +14,24 @@ from pydantic import ValidationError
 from ai_ops.contracts import load_target_registry
 from ai_ops.evidence import load_evidence_bundle, redact_text
 from ai_ops.incidents import IncidentStore, RunStopped
+from ai_ops.openai_engine import AIConfig, analyze_ai, api_key_from_environment
 from ai_ops.reports import DIAGNOSIS, format_kst
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="aiops", description="저장된 운영 증거의 로컬 규칙 조사")
+    parser = argparse.ArgumentParser(prog="aiops", description="저장된 운영 증거의 로컬 조사")
     commands = parser.add_subparsers(dest="command", required=True)
     validate = commands.add_parser("validate-bundle", help="manifest와 증거 파일을 검증한다")
     validate.add_argument("--bundle", type=Path, required=True)
     validate.add_argument("--registry", type=Path, required=True)
-    investigate = commands.add_parser("investigate", help="검증된 증거로 규칙 보고서를 만든다")
+    investigate = commands.add_parser("investigate", help="검증된 증거로 규칙 또는 AI 보고서를 만든다")
     investigate.add_argument("--bundle", type=Path, required=True)
     investigate.add_argument("--registry", type=Path, required=True)
     investigate.add_argument("--store", type=Path, required=True)
     investigate.add_argument("--mode", choices=("rules", "ai"), default="rules")
     investigate.add_argument("--question", required=True)
     investigate.add_argument("--request-id", required=True)
+    investigate.add_argument("--ai-account", help="AI 예산을 묶을 계정 별칭이다. 실제 키는 환경변수에서 읽는다")
     show = commands.add_parser("show", help="저장된 실행 결과를 다시 보여준다")
     show.add_argument("--store", type=Path, required=True)
     show.add_argument("--incident", required=True)
@@ -51,20 +53,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"- {item.evidence_id}: {item.status}, 관측 {format_kst(item.observed_at)}, 수집 {format_kst(item.collected_at)}")
             return 0
         if args.command == "investigate":
+            ai_config = None
+            analyzer = None
             if args.mode == "ai":
-                raise ValueError("AI 모드는 A5에서 구현한다. 현재는 --mode rules만 사용할 수 있다")
+                if not args.ai_account:
+                    raise ValueError("AI 모드에는 --ai-account가 필요합니다")
+                api_key = api_key_from_environment()
+                if not api_key:
+                    raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다")
+                ai_config = AIConfig(account_label=args.ai_account)
+                analyzer = lambda request, bundle, run_id: analyze_ai(
+                    request, bundle, run_id, ai_config, api_key)
             store = IncidentStore(args.store)
-            record = store.investigate(
-                bundle_root=args.bundle, registry=load_target_registry(args.registry),
-                question=args.question, request_id=args.request_id,
-            )
+            options = {"analyzer": analyzer, "mode": "ai", "ai_config": ai_config} if analyzer else {}
+            record = store.investigate(bundle_root=args.bundle, registry=load_target_registry(args.registry),
+                                       question=args.question, request_id=args.request_id, **options)
             print(f"상태: {record.metadata['status']}")
             print(f"사건 ID: {record.incident_id}")
             print(f"실행 ID: {record.run_id}")
             if record.request is not None:
                 print(f"요청 시각: {format_kst(record.request.requested_at)}")
             if record.report is not None:
-                print(f"규칙 진단: {DIAGNOSIS[record.report.diagnosis_status]}")
+                print(f"진단: {DIAGNOSIS[record.report.diagnosis_status]}")
             else:
                 print("기존 실행은 완료되지 않았다. 새 조사는 다른 request ID로 시작한다.")
             return 0 if record.metadata["status"] == "completed" else 1

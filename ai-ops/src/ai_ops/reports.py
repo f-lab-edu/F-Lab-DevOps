@@ -39,16 +39,28 @@ def _safe_markdown(value: str) -> str:
 
 
 def validate_report(
-    report: AnalysisReport, request: IncidentRequest, bundle: EvidenceBundle, run_id: str
+    report: AnalysisReport, request: IncidentRequest, bundle: EvidenceBundle, run_id: str,
+    delivered_evidence_ids: set[str] | None = None,
 ) -> None:
     """저장 전 보고서가 해당 사건·실행·제공된 증거에 속하는지 확인한다."""
     if report.incident_id != request.incident_id or report.run_id != run_id:
         raise ValueError("report incident or run does not match request")
     if report.input_hash != bundle.bundle_hash or report.target != request.target or report.window != request.window:
         raise ValueError("report input does not match evidence bundle")
-    if report.execution.mode != "rules":
-        raise ValueError("A3 accepts rules reports only")
     available_ids = {item.evidence_id for item in bundle.evidence if item.status == "available"}
+    if report.execution.mode == "ai":
+        if delivered_evidence_ids is None:
+            raise ValueError("AI report requires delivered evidence IDs")
+        available_ids &= delivered_evidence_ids
+        if report.analysis_status not in ("complete", "partial"):
+            raise ValueError("completed AI run cannot contain failed report")
+        if any(not item.supporting_evidence_ids for item in report.hypotheses):
+            raise ValueError("AI hypothesis requires delivered supporting evidence")
+        if not all((report.execution.engine, report.execution.model, report.execution.prompt_version,
+                    report.execution.tool_version, report.execution.input_tokens is not None,
+                    report.execution.output_tokens is not None, report.execution.cost_usd is not None,
+                    report.execution.account_label, report.execution.price_date)):
+            raise ValueError("AI execution metadata is incomplete")
     cited = [evidence_id for fact in report.facts for evidence_id in fact.evidence_ids]
     cited += [evidence_id for hypothesis in report.hypotheses for evidence_id in
               hypothesis.supporting_evidence_ids + hypothesis.contradicting_evidence_ids]
@@ -57,16 +69,20 @@ def validate_report(
 
 
 def render_markdown(
-    report: AnalysisReport, request: IncidentRequest, bundle: EvidenceBundle
+    report: AnalysisReport, request: IncidentRequest, bundle: EvidenceBundle,
+    delivered_evidence_ids: set[str] | None = None,
 ) -> str:
     """UTC JSON 보고서에서만 Markdown을 만들고 표시 시각만 KST로 변환한다."""
     if request.target != bundle.target or request.window != bundle.window or request.bundle_hash != bundle.bundle_hash:
         raise ValueError("request does not match evidence bundle")
-    validate_report(report, request, bundle, report.run_id)
+    validate_report(report, request, bundle, report.run_id, delivered_evidence_ids)
+    notice = ("AI가 합성 저장 증거를 읽고 작성한 조사 초안입니다. 실시간 클러스터 확인·변경 실행은 하지 않았습니다."
+              if report.execution.mode == "ai" else
+              "규칙 기반 로컬 조사 결과입니다. AI 분석·실시간 클러스터 확인·변경 실행은 하지 않았습니다.")
     lines = [
         "# 운영 조사 보고서",
         "",
-        "> 규칙 기반 로컬 조사 결과입니다. AI 분석·실시간 클러스터 확인·변경 실행은 하지 않았습니다.",
+        f"> {notice}",
         "",
         f"- 사건 ID: `{report.incident_id}`",
         f"- 실행 ID: `{report.run_id}`",
@@ -104,5 +120,11 @@ def render_markdown(
         )
     lines += ["", "## 한계와 실행 정보", ""]
     lines += [f"- {_safe_markdown(item)}" for item in report.limitations]
-    lines += [f"- 실행 방식: 규칙 (`{report.execution.engine}`), 도구 호출 {report.execution.tool_calls or 0}회", ""]
+    mode = "AI" if report.execution.mode == "ai" else "규칙"
+    lines += [f"- 실행 방식: {mode} (`{report.execution.engine}`), 도구 호출 {report.execution.tool_calls or 0}회"]
+    if report.execution.mode == "ai":
+        lines += [f"- 모델: `{report.execution.model}` · 프롬프트: `{report.execution.prompt_version}`",
+                  f"- 사용량: 입력 {report.execution.input_tokens} / 출력 {report.execution.output_tokens} 토큰",
+                  f"- 추정 비용: ${report.execution.cost_usd:.6f} (표준 단가 기준)"]
+    lines.append("")
     return "\n".join(lines)

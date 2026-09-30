@@ -341,6 +341,8 @@ class ExecutionMetadata(StrictModel):
     input_tokens: StrictInt | None = Field(default=None, ge=0)
     output_tokens: StrictInt | None = Field(default=None, ge=0)
     cost_usd: Annotated[float, Field(ge=0, allow_inf_nan=False)] | None = None
+    account_label: Annotated[StrictStr, Field(min_length=1, max_length=80)] | None = None
+    price_date: Annotated[StrictStr, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")] | None = None
 
 
 class AnalysisReport(StrictModel):

@@ -1,4 +1,4 @@
-name: AI 운영 조사 데이터 계약 검사
+name: AI 운영 조사 로컬 검사
 
 on:
   pull_request:
@@ -25,9 +25,10 @@ jobs:
         run: |
           python3 -m venv /tmp/ai-ops-venv
           /tmp/ai-ops-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
-      - name: 계약·증거 처리·fixture·생성 스키마 검사
+      - name: 계약·증거 처리·로컬 조사·fixture 검사
         run: |
           /tmp/ai-ops-venv/bin/python -m compileall -q ai-ops/src ai-ops/scripts ai-ops/tests
+          PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m ai_ops --help
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m unittest discover -s ai-ops/tests -p 'test_*.py' -v
           /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_dev_fixtures.py --check
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py

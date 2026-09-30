@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>AI 폴더 구조 · AI 운영 조사</title>
+  <link rel="stylesheet" href="assets/flow.css">
+</head>
+<body>
+<div class="site-layout">
+  <nav class="site-nav" aria-label="작업 단계 페이지">
+    <a class="site-brand" href="index.html">AI 운영 조사<span>구현 기록</span></a>
+    <div class="nav-caption">페이지</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html"><strong>전체 요약</strong><span>A0 → A2</span></a>
+      <a class="nav-link" href="a0.html"><strong>A0 · 기준선</strong><span>코드·런북</span></a>
+      <a class="nav-link" href="a1.html"><strong>A1 · 입력 계약</strong><span>대상·요청·증거</span></a>
+      <a class="nav-link" href="a2.html"><strong>A2 · 증거 처리</strong><span>정규화·합성 사례</span></a>
+    </div>
+    <div class="nav-caption nav-section">프로젝트 자료</div>
+    <div class="nav-links nav-links-structure">
+      <a class="nav-link current" href="structure.html" aria-current="page"><strong>AI 폴더 구조</strong><span>폴더·파일 역할</span></a>
+      <a class="nav-link" href="cli.html"><strong>CLI 명령어</strong><span>사용법·옵션</span></a>
+    </div>
+    <p class="nav-note">A0~A2 단계 그림과 별도로 현재 AI 관련 파일의 위치를 정리한 페이지입니다.</p>
+  </nav>
+  <div class="page">
+    <header class="top">
+      <div><h1>AI 폴더 구조</h1><p class="subtitle">폴더를 펼쳐 하위 파일과 핵심 역할을 확인하세요</p></div>
+      <div class="date">2026-09-30 기준 · 로컬 파일 구조</div>
+    </header>
+    <main>
+      <div class="structure-intro">
+        <p>AI 관련 자료는 <strong>구현 코드·검증 자료</strong>인 <code>ai-ops/</code>, <strong>기획·작업 순서 문서</strong>인 <code>실습 가이드 문서 모음/AI/</code>, <strong>자동 검사</strong>인 <code>.github/workflows/ai-ops-ci.yml</code>에 나뉘어 있습니다. 파일 이름을 누르면 원본을 엽니다.</p>
+        <p>A3 파일도 현재 작업 디렉터리 기준으로 포함했습니다. 단계별 시각화 페이지는 아직 A2까지이며, 실제 AI 모델 연결·실클러스터 수집·조치 실행은 이 파일 구조에 포함된 구현 범위가 아닙니다.</p>
+      </div>
+      <div class="structure-list">
+        <section class="structure-root" aria-labelledby="implementation-title">
+          <h2 id="implementation-title"><code>ai-ops/</code> · 구현 및 검증</h2>
+          <p>A0~A3의 로컬 구현, 문서, 런북, 합성 증거, 이 설명 사이트를 모은 폴더입니다.</p>
+          <ul class="tree-files">
+            <li><a href="../.gitignore">.gitignore</a><span>AI 패키지의 로컬 생성물 제외 규칙.</span></li>
+            <li><a href="../README.md">README.md</a><span>구현 범위, 검증 방법, 다음 작업의 진입점.</span></li>
+            <li><a href="../pyproject.toml">pyproject.toml</a><span>Python 패키지 정보, 의존성, CLI 진입점.</span></li>
+            <li><a href="../requirements.lock">requirements.lock</a><span>재현 가능한 설치를 위한 고정 의존성·해시.</span></li>
+          </ul>
+
+          <details class="tree-folder" open>
+            <summary><code>config/</code><span>조사 허용 대상 설정</span></summary>
+            <ul class="tree-files"><li><a href="../config/targets.example.json">targets.example.json</a><span>허용할 클러스터·네임스페이스·워크로드의 예제 등록부.</span></li></ul>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>docs/</code><span>단계별 설계 근거와 사용 설명</span></summary>
+            <ul class="tree-files">
+              <li><a href="../docs/A0-baseline.md">A0-baseline.md</a><span>현재 앱 코드와 경보·배포 의미를 확인한 기준선.</span></li>
+              <li><a href="../docs/A1-contracts.md">A1-contracts.md</a><span>조사 요청·증거·보고서 계약과 검증 범위.</span></li>
+              <li><a href="../docs/A2-evidence.md">A2-evidence.md</a><span>저장 증거의 검증·정규화·마스킹 규칙.</span></li>
+              <li><a href="../docs/A3-local-investigation.md">A3-local-investigation.md</a><span>로컬 CLI, 규칙 조사, 사건 저장과 KST 표시 사용법.</span></li>
+              <li><a href="../docs/data-policy.md">data-policy.md</a><span>증거 출처, 저장, 민감 정보 처리 기준.</span></li>
+              <li><a href="../docs/ai-ops-a0-a1-flow.html">ai-ops-a0-a1-flow.html</a><span>A0·A1 파일별 처리 흐름의 독립 HTML 그림.</span></li>
+            </ul>
+            <details class="tree-folder"><summary><code>assets/</code><span>문서에 쓰는 이미지</span></summary>
+              <ul class="tree-files"><li><a href="../docs/assets/ai-ops-a0-a1-flow.png">ai-ops-a0-a1-flow.png</a><span>A0·A1 처리 흐름 이미지.</span></li></ul>
+            </details>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>runbooks/</code><span>사람이 검토한 운영 판단 절차</span></summary>
+            <ul class="tree-files">
+              <li><a href="../runbooks/cache.md">cache.md</a><span>캐시 오류·정상 miss·일관성 문제 구분.</span></li>
+              <li><a href="../runbooks/database.md">database.md</a><span>DB 지연과 연결 문제의 확인 순서.</span></li>
+              <li><a href="../runbooks/deployment.md">deployment.md</a><span>배포 경보, image 오류, 롤백 판단 기준.</span></li>
+              <li><a href="../runbooks/index.yaml">index.yaml</a><span>AI 입력 후보 런북의 출처·해시 등록 목록.</span></li>
+            </ul>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>src/</code><span>실제 Python 패키지의 상위 폴더</span></summary>
+            <details class="tree-folder" open><summary><code>ai_ops/</code><span>입력 검증부터 보고서 표시까지의 구현</span></summary>
+              <ul class="tree-files">
+                <li><a href="../src/ai_ops/__init__.py">__init__.py</a><span>패키지 초기화.</span></li>
+                <li><a href="../src/ai_ops/__main__.py">__main__.py</a><span><code>python -m ai_ops</code> 실행 진입점.</span></li>
+                <li><a href="../src/ai_ops/cli.py">cli.py</a><span>묶음 검증·규칙 조사·저장 보고서 조회 명령.</span></li>
+                <li><a href="../src/ai_ops/contracts.py">contracts.py</a><span>대상·요청·증거·보고서의 데이터 계약.</span></li>
+                <li><a href="../src/ai_ops/evidence.py">evidence.py</a><span>원본 파일 검증, 시각 정규화, 민감 정보 마스킹.</span></li>
+                <li><a href="../src/ai_ops/incidents.py">incidents.py</a><span>사건·실행 상태와 개인 로컬 저장소 관리.</span></li>
+                <li><a href="../src/ai_ops/reports.py">reports.py</a><span>보고서 검증과 사람이 읽는 KST Markdown 렌더링.</span></li>
+                <li><a href="../src/ai_ops/rules.py">rules.py</a><span>검증된 증거를 비교하는 규칙 기반 분석.</span></li>
+              </ul>
+            </details>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>schemas/</code><span>데이터 계약에서 생성한 JSON Schema</span></summary>
+            <ul class="tree-files">
+              <li><a href="../schemas/incident-request.schema.json">incident-request.schema.json</a><span>조사 요청의 JSON 구조.</span></li>
+              <li><a href="../schemas/evidence-bundle.schema.json">evidence-bundle.schema.json</a><span>정규화된 증거 묶음의 JSON 구조.</span></li>
+              <li><a href="../schemas/analysis-report.schema.json">analysis-report.schema.json</a><span>분석 보고서의 JSON 구조.</span></li>
+            </ul>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>scripts/</code><span>개발 자료와 스키마 생성</span></summary>
+            <ul class="tree-files">
+              <li><a href="../scripts/build_dev_fixtures.py">build_dev_fixtures.py</a><span>합성 증거 사례 8건을 결정적으로 생성·검사.</span></li>
+              <li><a href="../scripts/export_schemas.py">export_schemas.py</a><span>Python 계약 모델에서 JSON Schema를 생성.</span></li>
+            </ul>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>tests/</code><span>로컬 자동 시험</span></summary>
+            <ul class="tree-files">
+              <li><a href="../tests/test_input_contract.py">test_input_contract.py</a><span>대상·요청·증거 입력 계약 검사.</span></li>
+              <li><a href="../tests/test_evidence_processing.py">test_evidence_processing.py</a><span>경로·해시·시간·마스킹·정규화 검사.</span></li>
+              <li><a href="../tests/test_local_investigation.py">test_local_investigation.py</a><span>CLI·사건 저장·규칙 보고서의 전체 흐름 검사.</span></li>
+            </ul>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>evals/</code><span>합성 개발 입력과 별도 해석 기준</span></summary>
+            <details class="tree-folder" open><summary><code>fixtures/</code><span>재생 가능한 증거 파일</span></summary>
+              <details class="tree-folder" open><summary><code>dev/</code><span>8개 개발 시나리오</span></summary>
+                <details class="tree-folder"><summary><code>s1-cache-error/</code><span>캐시 오류</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s1-cache-error/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>logs/</code><span>캐시 동작 로그</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s1-cache-error/logs/cache.log">cache.log</a><span>캐시 오류 로그.</span></li></ul></details>
+                  <details class="tree-folder"><summary><code>metrics/</code><span>캐시 관측 지표</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s1-cache-error/metrics/cache.json">cache.json</a><span>캐시 관련 지표.</span></li></ul></details>
+                </details>
+                <details class="tree-folder"><summary><code>s2-normal-miss/</code><span>정상적인 캐시 miss</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s2-normal-miss/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>config/</code><span>캐시 설정 자료</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s2-normal-miss/config/summary.json">summary.json</a><span>캐시 설정 요약.</span></li></ul></details>
+                  <details class="tree-folder"><summary><code>metrics/</code><span>캐시 관측 지표</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s2-normal-miss/metrics/cache.json">cache.json</a><span>정상 miss 판단용 지표.</span></li></ul></details>
+                </details>
+                <details class="tree-folder"><summary><code>s3-image-tag/</code><span>image tag 오류</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s3-image-tag/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>deployment/</code><span>배포 변경 자료</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s3-image-tag/deployment/change.json">change.json</a><span>배포 변경 정보.</span></li></ul></details>
+                  <details class="tree-folder"><summary><code>events/</code><span>Kubernetes 이벤트</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s3-image-tag/events/pull.json">pull.json</a><span>이미지 가져오기 실패 이벤트.</span></li></ul></details>
+                </details>
+                <details class="tree-folder"><summary><code>s4-db-latency/</code><span>DB 지연</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s4-db-latency/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>logs/</code><span>DB 동작 로그</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s4-db-latency/logs/db.log">db.log</a><span>DB 처리 지연 로그.</span></li></ul></details>
+                  <details class="tree-folder"><summary><code>metrics/</code><span>DB 관측 지표</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s4-db-latency/metrics/db.json">db.json</a><span>DB 지연 지표.</span></li></ul></details>
+                </details>
+                <details class="tree-folder"><summary><code>s5-insufficient-data/</code><span>증거 부족</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s5-insufficient-data/manifest.json">manifest.json</a><span>증거 누락 상태를 명시한 목록.</span></li></ul>
+                </details>
+                <details class="tree-folder"><summary><code>s6-healthy/</code><span>정상 상태</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s6-healthy/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>metrics/</code><span>HTTP 관측 지표</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s6-healthy/metrics/http.json">http.json</a><span>HTTP 상태 지표.</span></li></ul></details>
+                  <details class="tree-folder"><summary><code>workload/</code><span>워크로드 상태 자료</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s6-healthy/workload/status.json">status.json</a><span>워크로드 상태.</span></li></ul></details>
+                </details>
+                <details class="tree-folder"><summary><code>s9-primary-consistency/</code><span>정상 Primary 조회</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s9-primary-consistency/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>logs/</code><span>조회 경로 로그</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s9-primary-consistency/logs/route.log">route.log</a><span>조회 경로 로그.</span></li></ul></details>
+                  <details class="tree-folder"><summary><code>metrics/</code><span>캐시 관측 지표</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s9-primary-consistency/metrics/cache.json">cache.json</a><span>캐시 일관성 관련 지표.</span></li></ul></details>
+                </details>
+                <details class="tree-folder"><summary><code>s10-rollback-recovered/</code><span>롤백 후 복구</span></summary>
+                  <ul class="tree-files"><li><a href="../evals/fixtures/dev/s10-rollback-recovered/manifest.json">manifest.json</a><span>대상·시간·원본 해시 목록.</span></li></ul>
+                  <details class="tree-folder"><summary><code>deployment/</code><span>실패·복구 비교 자료</span></summary><ul class="tree-files"><li><a href="../evals/fixtures/dev/s10-rollback-recovered/deployment/failed.json">failed.json</a><span>실패한 배포 상태.</span></li><li><a href="../evals/fixtures/dev/s10-rollback-recovered/deployment/recovered.json">recovered.json</a><span>롤백 후 관측된 상태.</span></li></ul></details>
+                </details>
+              </details>
+            </details>
+            <details class="tree-folder"><summary><code>rubrics/</code><span>개발 입력과 분리한 판정 기준</span></summary>
+              <details class="tree-folder"><summary><code>dev/</code><span>개발 시나리오 해석</span></summary>
+                <ul class="tree-files"><li><a href="../evals/rubrics/dev/scenarios.md">scenarios.md</a><span>각 합성 사례에서 기대하는 판단과 유보 기준.</span></li></ul>
+              </details>
+            </details>
+          </details>
+
+          <details class="tree-folder" open>
+            <summary><code>site/</code><span>이 로컬 구현 기록 웹 사이트</span></summary>
+            <ul class="tree-files">
+              <li><a href="README.md">README.md</a><span>사이트 목적과 로컬 실행 방법.</span></li>
+              <li><a href="index.html">index.html</a><span>A0~A2 구현 현황 요약.</span></li>
+              <li><a href="a0.html">a0.html</a><span>코드 기준선·런북의 처리 흐름.</span></li>
+              <li><a href="a1.html">a1.html</a><span>데이터 계약·입력 검증의 처리 흐름.</span></li>
+              <li><a href="a2.html">a2.html</a><span>저장 증거 처리의 흐름과 합성 사례.</span></li>
+              <li><a href="structure.html">structure.html</a><span>AI 관련 폴더·파일 구조와 역할(현재 페이지).</span></li>
+              <li><a href="cli.html">cli.html</a><span>A3 CLI 명령어와 옵션 사용법.</span></li>
+            </ul>
+            <details class="tree-folder"><summary><code>assets/</code><span>사이트 디자인과 설명 데이터</span></summary>
+              <ul class="tree-files">
+                <li><a href="assets/flow.css">flow.css</a><span>페이지 레이아웃과 반응형 스타일.</span></li>
+                <li><a href="assets/flow-data.js">flow-data.js</a><span>A0·A1 상세 설명 데이터.</span></li>
+                <li><a href="assets/a0-a1-reminders.js">a0-a1-reminders.js</a><span>A0·A1 작업 리마인드 내용.</span></li>
+                <li><a href="assets/a2-data.js">a2-data.js</a><span>A2 상세 설명과 사례 데이터.</span></li>
+                <li><a href="assets/app.js">app.js</a><span>요소 선택 시 설명 패널을 갱신하는 코드.</span></li>
+              </ul>
+            </details>
+          </details>
+        </section>
+
+        <section class="structure-root" aria-labelledby="planning-title">
+          <h2 id="planning-title"><code>실습 가이드 문서 모음/AI/</code> · 기획 문서</h2>
+          <p>아직 확정 전인 포트폴리오 방향과 EKS AI 운영 에이전트 적용 계획을 관리합니다.</p>
+          <ul class="tree-files">
+            <li><a href="../../실습 가이드 문서 모음/AI/AI_활용_역량_포트폴리오_검토_초안.md">AI_활용_역량_포트폴리오_검토_초안.md</a><span>직무의 AI 활용 사례와 포트폴리오 표현 방향 초안.</span></li>
+            <li><a href="../../실습 가이드 문서 모음/AI/EKS_AI_운영_에이전트_프로젝트_적용_계획안.md">EKS_AI_운영_에이전트_프로젝트_적용_계획안.md</a><span>현재 EKS 프로젝트에 적용할 조사·승인·조치 구상.</span></li>
+          </ul>
+          <details class="tree-folder" open><summary><code>구현계획/</code><span>단계별 설계와 실행 순서</span></summary>
+            <ul class="tree-files">
+              <li><a href="../../실습 가이드 문서 모음/AI/구현계획/AI_운영_에이전트_통합_구현_계획.md">AI_운영_에이전트_통합_구현_계획.md</a><span>전체 범위·설계·단계별 구현 기준.</span></li>
+              <li><a href="../../실습 가이드 문서 모음/AI/구현계획/AI 작업 리스트.md">AI 작업 리스트.md</a><span>A0 이후의 작업 순서, 의존성, 완료 조건.</span></li>
+            </ul>
+          </details>
+        </section>
+
+        <section class="structure-root" aria-labelledby="automation-title">
+          <h2 id="automation-title"><code>.github/workflows/</code> · AI 전용 CI</h2>
+          <p>AI 패키지 변경을 자동으로 검사하는 GitHub Actions 설정입니다.</p>
+          <ul class="tree-files"><li><a href="../../.github/workflows/ai-ops-ci.yml">ai-ops-ci.yml</a><span>의존성 설치와 계약·증거·로컬 조사 시험을 실행하는 워크플로.</span></li></ul>
+        </section>
+      </div>
+      <p class="structure-note">표시 범위는 현재 작업 파일 중 사람이 관리하는 AI 관련 자료입니다. <code>build/</code>, <code>*.egg-info/</code>, <code>__pycache__/</code>, <code>.DS_Store</code>처럼 자동 생성되는 항목은 목록에서 제외했습니다. 이 목록은 파일 변경에 따라 수동으로 갱신합니다.</p>
+    </main>
+  </div>
+</div>
+</body>
+</html>

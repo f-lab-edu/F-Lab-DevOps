@@ -1,12 +1,13 @@
 # AI 운영 조사 기능
 
-현재 완료 범위는 **A0: 코드 기준선·런북 준비**, **A1: 조사 데이터 계약·입력 검증**, **A2: 로컬 증거 정규화·마스킹·합성 재현 자료**다. 조사 CLI, 모델 연결, 실클러스터 수집, 변경 실행은 후속 구현 범위다.
+현재 완료 범위는 **A0: 코드 기준선·런북 준비**, **A1: 조사 데이터 계약·입력 검증**, **A2: 로컬 증거 정규화·마스킹·합성 재현 자료**, **A3: 로컬 사건 조사·저장·표시**다. 모델 연결, 실클러스터 수집, 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
 - [런북 목록과 검증 메타데이터](runbooks/index.yaml)
 - [A1 계약·검증 범위](docs/A1-contracts.md)
 - [A2 저장 증거 처리·합성 재현 자료](docs/A2-evidence.md)
+- [A3 로컬 사건 조사·CLI·보고서](docs/A3-local-investigation.md)
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
@@ -28,4 +29,6 @@ git diff --exit-code -- ai-ops/schemas
 
 `requirements.lock`은 현재 애플리케이션 잠금 파일의 동일한 Pydantic 2.13.5 계열 해시를 독립적으로 복사했다. 개발 중 계약을 바꾸면 schema를 다시 생성하고 함께 검토한다. JSON Schema는 필드 구조를 공유하지만 대상 등록·hash 비교·시간 관계 같은 교차 검증은 Python 코드에서 수행한다.
 
-다음 작업은 **A3: 사건 저장·CLI·규칙 기반 보고서와 사용자용 KST 표시**다.
+저장 증거는 `python -m ai_ops validate-bundle`로 검사하고, `investigate --mode rules`로 사건 보고서를 만든 뒤 `show`로 다시 볼 수 있다. 명령별 `--bundle`, `--registry`, `--store` 예시와 저장 위치 기준은 [A3 문서](docs/A3-local-investigation.md)에 있다.
+
+다음 작업은 **A4: 검증된 묶음 내부의 제한된 증거 조회 도구와 실행 제한**이다.

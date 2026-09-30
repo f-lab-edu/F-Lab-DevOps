@@ -12,7 +12,7 @@
 
 원본 시각은 `Z` 또는 `±HH:MM` 오프셋이 명시된 ISO 8601만 허용한다. `+09:00`과 `Z`가 같은 순간이면 동일한 UTC `observed_at` 및 metric sample 시각으로 정규화한다. payload의 `source_time`과 sample의 `source_at`·`source_offset`에 원본 문자열·오프셋을 남긴다. 관측 시각과 수집 시각을 구분하며, 누락된 시간대를 현재 시각으로 채우지 않는다. A1 `IncidentRequest`의 UTC 입력 제한은 그대로다. 사용자에게 KST로 표시하는 기능은 A3 범위다.
 
-문자열의 알려진 credential URL, Bearer/JWT, 키·토큰·비밀번호 할당, AWS 키, private key 블록을 마스킹하고 범주·건수를 `redaction_summary`에 기록한다. `sanitize_question`과 `create_sanitized_incident_request`는 질문을 요청 계약에 넣기 전에 같은 규칙을 적용한다. 향후 도구 출력에도 `redact_text`를 적용한다. **패턴 마스킹은 완전한 비밀정보 탐지가 아니다.** 실제 캡처 자료를 저장하거나 외부 모델에 보내기 전에는 사람이 공개 적합성을 별도로 검토해야 한다. 원시 자료의 저장 위치·보존 기간은 A3에서 결정한다.
+문자열의 알려진 credential URL, Bearer/JWT, 키·토큰·비밀번호 할당, AWS 키, private key 블록을 마스킹하고 범주·건수를 `redaction_summary`에 기록한다. `sanitize_question`과 `create_sanitized_incident_request`는 질문을 요청 계약에 넣기 전에 같은 규칙을 적용한다. 향후 도구 출력에도 `redact_text`를 적용한다. **패턴 마스킹은 완전한 비밀정보 탐지가 아니다.** 실제 캡처 자료를 저장하거나 외부 모델에 보내기 전에는 사람이 공개 적합성을 별도로 검토해야 한다. A3는 정제된 입력의 개인 저장소 위치를 정했으며, 원시 캡처 자료의 보관 기간·삭제 정책은 실데이터 도입 전에 정해야 한다.
 
 ## 합성 사례와 검증
 

@@ -1,6 +1,9 @@
 실습 가이드 문서 모음
 실습 가이드 문서 모음/
 
+# 로컬 설명 웹사이트
+ai-ops/site/
+
 # Terraform
 *.tfstate
 *.tfstate.backup

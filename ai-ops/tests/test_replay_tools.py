@@ -98,6 +98,8 @@ class ReplayToolTest(unittest.TestCase):
         self.assertEqual(result.tool_calls, 2)
         self.assertEqual(result.delivered_evidence_ids, ["ev-s1-metric", "ev-s1-log"])
         self.assertEqual(model.views[0]["provided_evidence"], [])
+        self.assertEqual(next(item["query_id"] for item in model.views[0]["catalog"] if item["kind"] == "metric"),
+                         "cache_outcomes")
         self.assertEqual([item["evidence_id"] for item in model.views[1]["provided_evidence"]], ["ev-s1-metric"])
         self.assertNotIn("DEMO_SECRET_SENTINEL", json.dumps(model.views, ensure_ascii=False))
         audit_path = self.store.root / record.incident_id / record.run_id / "tool-audit.json"
@@ -156,6 +158,11 @@ class ReplayToolTest(unittest.TestCase):
             model=ScriptedModel([TransientModelError(), TransientModelError()]),
         )
         self.assertEqual((failed.status, failed.failure_reason), ("failed", "model_retry_exhausted"))
+        limited = run_replay(
+            request=record.request, bundle=record.bundle, run_id=record.run_id,
+            model=ScriptedModel([TransientModelError("model_rate_limited"), TransientModelError("model_rate_limited")]),
+        )
+        self.assertEqual(limited.failure_reason, "model_rate_limited")
 
     def test_tool_and_total_deadlines_discard_late_results(self):
         record = self.record()

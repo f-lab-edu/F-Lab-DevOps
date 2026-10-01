@@ -9,6 +9,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from unittest.mock import patch
 
 from ai_ops.cli import main
 from ai_ops.contracts import load_target_registry
@@ -104,6 +105,16 @@ class LocalInvestigationTest(unittest.TestCase):
         self.assertNotIn("https://example.invalid", rendered)
         self.assertIn("외부 링크 생략", rendered)
 
+    def test_markdown_converts_explicit_utc_times_in_narrative_to_kst(self):
+        record = self.investigate()
+        report = record.report.model_copy(deep=True)
+        report.facts[0].statement = "2026-09-28 00:20 UTC와 2026-09-28T00:20:05Z에 오류가 관측됐다."
+        report.limitations.append("00:20 UTC 부근의 저장된 관측이다.")
+        rendered = render_markdown(report, record.request, record.bundle)
+        self.assertIn("2026-09-28 09:20:00 KST", rendered)
+        self.assertIn("2026-09-28 09:20:05 KST", rendered)
+        self.assertNotIn("00:20 UTC", rendered)
+
     def test_interrupted_run_becomes_failed_and_keeps_input(self):
         record = self.investigate()
         run_dir = self.store_root / record.incident_id / record.run_id
@@ -163,12 +174,12 @@ class LocalInvestigationTest(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertIn(expected, output.getvalue())
         error = io.StringIO()
-        with contextlib.redirect_stderr(error):
+        with contextlib.redirect_stderr(error), patch("ai_ops.cli.api_key_from_environment", return_value=""):
             status = main(["investigate", "--bundle", str(FIXTURES / "s1-cache-error"),
                            "--registry", str(REGISTRY), "--store", str(self.store_root),
                            "--question", "조사해줘", "--request-id", "cli-ai", "--mode", "ai"])
         self.assertEqual(status, 2)
-        self.assertIn("--ai-account", error.getvalue())
+        self.assertIn("configure-api-key", error.getvalue())
 
     def test_store_inside_repository_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "outside the repository"):

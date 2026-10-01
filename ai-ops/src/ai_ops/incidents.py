@@ -100,11 +100,12 @@ class RunRecord:
 
 
 class RunStopped(Exception):
-    def __init__(self, incident_id: str, run_id: str, status: str):
+    def __init__(self, incident_id: str, run_id: str, status: str, reason: str | None = None):
         super().__init__(f"{status}: {incident_id}/{run_id}")
         self.incident_id = incident_id
         self.run_id = run_id
         self.status = status
+        self.reason = reason
 
 
 class IncidentStore:
@@ -137,6 +138,48 @@ class IncidentStore:
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
+
+    def load_api_key(self) -> str:
+        """개인 저장소의 API 키를 권한 검사 후 읽는다. 키 값은 출력하지 않는다."""
+        path = self.root / ".openai-api-key"
+        with self._locked():
+            if not path.exists() and not path.is_symlink():
+                return ""
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                info = os.fstat(fd)
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                        stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > 512):
+                    raise ValueError("API 키 파일은 사용자 소유의 일반 파일(0600)이어야 합니다")
+                try:
+                    key = os.read(fd, 513).decode("ascii")
+                except UnicodeDecodeError:
+                    raise ValueError("API 키 파일의 내용이 올바르지 않습니다") from None
+                self._validate_api_key(key)
+                return key
+            finally:
+                os.close(fd)
+
+    @staticmethod
+    def _validate_api_key(key: str) -> None:
+        if not isinstance(key, str) or not 20 <= len(key) <= 512 or any(
+                not 33 <= ord(character) <= 126 for character in key):
+            raise ValueError("API 키 형식을 확인해 주세요. 공백 없이 한 줄로 입력해야 합니다")
+
+    def save_api_key(self, key: str) -> None:
+        """키를 저장소 밖 개인 경로의 0600 파일에 원자적으로 저장한다."""
+        self._validate_api_key(key)
+        path = self.root / ".openai-api-key"
+        with self._locked():
+            if path.exists() or path.is_symlink():
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                try:
+                    info = os.fstat(fd)
+                    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+                        raise ValueError("기존 API 키 파일의 권한이 안전하지 않습니다")
+                finally:
+                    os.close(fd)
+            _atomic_write(path, key.encode("ascii"))
 
     @contextmanager
     def _locked(self) -> Iterator[None]:
@@ -318,14 +361,19 @@ class IncidentStore:
                 self._transition(run_dir, metadata, "completed")
             except KeyboardInterrupt:
                 self._transition(run_dir, metadata, "cancelled", "user_cancelled")
-                raise RunStopped(request.incident_id, run_id, "cancelled") from None
+                raise RunStopped(request.incident_id, run_id, "cancelled", "user_cancelled") from None
             except Exception as exc:
                 if isinstance(exc, AIAnalysisError) and exc.replay is not None:
                     _write_json(run_dir / "tool-audit.json", exc.replay.as_dict())
+                if isinstance(exc, AIAnalysisError):
+                    if exc.usage is not None:
+                        metadata["model_usage"] = exc.usage
+                    if exc.diagnostics:
+                        metadata["validation_diagnostics"] = exc.diagnostics
                 stopped = "cancelled" if isinstance(exc, AIAnalysisError) and exc.replay and exc.replay.status == "cancelled" else "failed"
-                self._transition(run_dir, metadata, stopped, exc.reason if isinstance(exc, AIAnalysisError) else
-                                 "ai_error" if mode == "ai" else "rules_error")
-                raise RunStopped(request.incident_id, run_id, stopped) from None
+                reason = exc.reason if isinstance(exc, AIAnalysisError) else "ai_error" if mode == "ai" else "rules_error"
+                self._transition(run_dir, metadata, stopped, reason)
+                raise RunStopped(request.incident_id, run_id, stopped, reason) from None
             return RunRecord(metadata=metadata, request=request, bundle=bundle,
                              report=report, markdown=markdown)
 

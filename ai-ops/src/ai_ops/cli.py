@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import sys
 from datetime import datetime
@@ -18,6 +19,9 @@ from ai_ops.openai_engine import AIConfig, analyze_ai, api_key_from_environment
 from ai_ops.reports import DIAGNOSIS, format_kst
 
 
+DEFAULT_STORE = Path.home() / ".local/share/url-shortener-ai-ops"
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aiops", description="저장된 운영 증거의 로컬 조사")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -27,16 +31,20 @@ def _parser() -> argparse.ArgumentParser:
     investigate = commands.add_parser("investigate", help="검증된 증거로 규칙 또는 AI 보고서를 만든다")
     investigate.add_argument("--bundle", type=Path, required=True)
     investigate.add_argument("--registry", type=Path, required=True)
-    investigate.add_argument("--store", type=Path, required=True)
+    investigate.add_argument("--store", type=Path, default=DEFAULT_STORE)
     investigate.add_argument("--mode", choices=("rules", "ai"), default="rules")
     investigate.add_argument("--question", required=True)
     investigate.add_argument("--request-id", required=True)
-    investigate.add_argument("--ai-account", help="AI 예산을 묶을 계정 별칭이다. 실제 키는 환경변수에서 읽는다")
+    investigate.add_argument("--ai-account", default="personal-openai", help="AI 예산을 묶을 계정 별칭이다")
     show = commands.add_parser("show", help="저장된 실행 결과를 다시 보여준다")
-    show.add_argument("--store", type=Path, required=True)
+    show.add_argument("--store", type=Path, default=DEFAULT_STORE)
     show.add_argument("--incident", required=True)
     show.add_argument("--run", required=True)
     show.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    configure = commands.add_parser("configure-api-key", help="API 키를 화면에 표시하지 않고 개인 저장소에 보관한다")
+    configure.add_argument("--store", type=Path, default=DEFAULT_STORE)
+    status = commands.add_parser("api-key-status", help="키 값을 표시하지 않고 설정 상태만 확인한다")
+    status.add_argument("--store", type=Path, default=DEFAULT_STORE)
     return parser
 
 
@@ -52,19 +60,32 @@ def main(argv: Sequence[str] | None = None) -> int:
             for item in bundle.evidence:
                 print(f"- {item.evidence_id}: {item.status}, 관측 {format_kst(item.observed_at)}, 수집 {format_kst(item.collected_at)}")
             return 0
+        if args.command == "configure-api-key":
+            if not sys.stdin.isatty():
+                raise ValueError("키는 터미널에서 직접 입력해야 합니다")
+            store = IncidentStore(args.store)
+            key = getpass.getpass("OpenAI API 키: ")
+            store.save_api_key(key)
+            print("API 키를 개인 저장소에 보관했습니다. 외부 API 호출은 하지 않았습니다.")
+            print(f"저장소: {store.root}")
+            return 0
+        if args.command == "api-key-status":
+            store = IncidentStore(args.store)
+            source = "환경변수" if api_key_from_environment() else "개인 저장소" if store.load_api_key() else "미설정"
+            print(f"API 키 상태: {source}")
+            print(f"저장소: {store.root}")
+            return 0
         if args.command == "investigate":
+            store = IncidentStore(args.store)
             ai_config = None
             analyzer = None
             if args.mode == "ai":
-                if not args.ai_account:
-                    raise ValueError("AI 모드에는 --ai-account가 필요합니다")
-                api_key = api_key_from_environment()
+                api_key = api_key_from_environment() or store.load_api_key()
                 if not api_key:
-                    raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다")
+                    raise ValueError("API 키가 없습니다. configure-api-key 명령으로 입력해 주세요")
                 ai_config = AIConfig(account_label=args.ai_account)
                 analyzer = lambda request, bundle, run_id: analyze_ai(
                     request, bundle, run_id, ai_config, api_key)
-            store = IncidentStore(args.store)
             options = {"analyzer": analyzer, "mode": "ai", "ai_config": ai_config} if analyzer else {}
             record = store.investigate(bundle_root=args.bundle, registry=load_target_registry(args.registry),
                                        question=args.question, request_id=args.request_id, **options)
@@ -96,11 +117,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     except RunStopped as exc:
         print(f"실행 {exc.status}: 사건 {exc.incident_id}, 실행 {exc.run_id}", file=sys.stderr)
+        if exc.reason:
+            safe_reason, _ = redact_text(exc.reason)
+            print(f"사유: {safe_reason}", file=sys.stderr)
         return 130 if exc.status == "cancelled" else 1
     except ValidationError:
         print("입력 계약 검증에 실패했습니다.", file=sys.stderr)
         return 2
-    except (ValueError, OSError, KeyError) as exc:
+    except (ValueError, OSError, KeyError, EOFError) as exc:
         safe_error, _ = redact_text(str(exc))
         print(f"오류: {safe_error}", file=sys.stderr)
         return 2

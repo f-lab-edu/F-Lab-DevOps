@@ -32,6 +32,10 @@ class Stop:
 class TransientModelError(Exception):
     """최대 한 번만 다시 시도할 수 있는 모델 오류다."""
 
+    def __init__(self, reason: str = "model_retry_exhausted"):
+        super().__init__(reason)
+        self.reason = reason
+
 
 class ModelRejected(Exception):
     """재시도할 수 없는 모델·예산·출력 계약 거부다."""
@@ -154,6 +158,7 @@ def run_replay(
             "catalog": [{
                 "evidence_id": item.evidence_id, "kind": item.kind,
                 "status": item.status, "observed_at": item.observed_at.isoformat() if item.observed_at else None,
+                "query_id": item.payload.get("query_id") if item.kind == "metric" and item.payload else None,
             } for item in bundle.evidence],
             "provided_evidence": list(delivered.values()),
             "provided_runbooks": list(runbooks.values()),
@@ -165,10 +170,10 @@ def run_replay(
         except ReplayTimeout:
             status, reason = "limited", "total_timeout"
             break
-        except TransientModelError:
+        except TransientModelError as exc:
             model_errors += 1
             if model_errors > limits.model_retries:
-                status, reason = "failed", "model_retry_exhausted"
+                status, reason = "failed", exc.reason
                 break
             continue
         except ModelRejected as exc:

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from ai_ops.contracts import AnalysisReport, EvidenceBundle, IncidentRequest
+from ai_ops.contracts import AnalysisReport, EvidenceBundle, IncidentRequest, TimeWindow
 
 
 KST = ZoneInfo("Asia/Seoul")
@@ -36,6 +36,37 @@ def _safe_markdown(value: str) -> str:
     value = re.sub(r"[\x00-\x1f\x7f]", " ", value)
     value = re.sub(r"(?i)https?://[^\s]+", "[외부 링크 생략]", value)
     return re.sub(r"([\\`*_{}\[\]()<>#+!|~])", r"\\\1", value)
+
+
+_UTC_ABSOLUTE = re.compile(
+    r"(?<!\d)(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(?:\s+UTC(?![+-])|Z\b|\+00:00)"
+)
+_UTC_CLOCK = re.compile(r"(?<![\d:])(\d{2}:\d{2}(?::\d{2})?)\s+UTC(?![+-])")
+
+
+def _display_utc_times(value: str, window: TimeWindow) -> str:
+    """명시된 UTC 시각만 KST로 바꾼다. 날짜가 모호한 시각은 추정하지 않는다."""
+    def absolute(match: re.Match[str]) -> str:
+        try:
+            moment = datetime.fromisoformat(f"{match.group(1)}T{match.group(2)}+00:00")
+        except ValueError:
+            return match.group(0)
+        return format_kst(moment)
+
+    converted = _UTC_ABSOLUTE.sub(absolute, value)
+    start_date = window.start.astimezone(timezone.utc).date()
+    end_date = window.end.astimezone(timezone.utc).date()
+    if start_date != end_date:
+        return converted
+
+    def clock(match: re.Match[str]) -> str:
+        try:
+            moment = datetime.fromisoformat(f"{start_date.isoformat()}T{match.group(1)}+00:00")
+        except ValueError:
+            return match.group(0)
+        return format_kst(moment) if window.start <= moment <= window.end else match.group(0)
+
+    return _UTC_CLOCK.sub(clock, converted)
 
 
 def validate_report(
@@ -76,6 +107,9 @@ def render_markdown(
     if request.target != bundle.target or request.window != bundle.window or request.bundle_hash != bundle.bundle_hash:
         raise ValueError("request does not match evidence bundle")
     validate_report(report, request, bundle, report.run_id, delivered_evidence_ids)
+    def display(value: str) -> str:
+        return _safe_markdown(_display_utc_times(value, report.window))
+
     notice = ("AI가 합성 저장 증거를 읽고 작성한 조사 초안입니다. 실시간 클러스터 확인·변경 실행은 하지 않았습니다."
               if report.execution.mode == "ai" else
               "규칙 기반 로컬 조사 결과입니다. AI 분석·실시간 클러스터 확인·변경 실행은 하지 않았습니다.")
@@ -96,30 +130,30 @@ def render_markdown(
         "",
     ]
     if report.facts:
-        lines += [f"- {_safe_markdown(fact.statement)} (근거: {', '.join(fact.evidence_ids)})" for fact in report.facts]
+        lines += [f"- {display(fact.statement)} (근거: {', '.join(fact.evidence_ids)})" for fact in report.facts]
     else:
         lines.append("- 확인 가능한 관측 사실이 부족합니다.")
     lines += ["", "## 원인 후보와 반대 근거", ""]
     if report.hypotheses:
         for hypothesis in report.hypotheses:
-            lines.append(f"- {_safe_markdown(hypothesis.cause)}")
+            lines.append(f"- {display(hypothesis.cause)}")
             lines.append(f"  - 지지 증거: {', '.join(hypothesis.supporting_evidence_ids) or '없음'}")
             lines.append(f"  - 반대 증거: {', '.join(hypothesis.contradicting_evidence_ids) or '없음'}")
     else:
         lines.append("- 제시할 원인 후보가 없습니다.")
     lines += ["", "## 부족한 증거", ""]
-    lines += [f"- {_safe_markdown(item.source)}: {_safe_markdown(item.reason)}" for item in report.missing_evidence] or ["- 명시된 누락 항목이 없습니다."]
+    lines += [f"- {display(item.source)}: {display(item.reason)}" for item in report.missing_evidence] or ["- 명시된 누락 항목이 없습니다."]
     lines += ["", "## 추가 확인", ""]
-    lines += [f"- {_safe_markdown(item)}" for item in report.recommended_checks] or ["- 없음"]
+    lines += [f"- {display(item)}" for item in report.recommended_checks] or ["- 없음"]
     lines += ["", "## 대응 제안", ""]
-    lines += [f"- {_safe_markdown(item.description)} (미실행)" for item in report.suggested_actions] or ["- 실행한 변경이나 대응 제안이 없습니다."]
+    lines += [f"- {display(item.description)} (미실행)" for item in report.suggested_actions] or ["- 실행한 변경이나 대응 제안이 없습니다."]
     lines += ["", "## 증거 시각", "", "| 증거 ID | 상태 | 관측 시각 | 수집 시각 |", "|---|---|---|---|"]
     for item in bundle.evidence:
         lines.append(
             f"| `{item.evidence_id}` | {item.status} | {format_kst(item.observed_at)} | {format_kst(item.collected_at)} |"
         )
     lines += ["", "## 한계와 실행 정보", ""]
-    lines += [f"- {_safe_markdown(item)}" for item in report.limitations]
+    lines += [f"- {display(item)}" for item in report.limitations]
     mode = "AI" if report.execution.mode == "ai" else "규칙"
     lines += [f"- 실행 방식: {mode} (`{report.execution.engine}`), 도구 호출 {report.execution.tool_calls or 0}회"]
     if report.execution.mode == "ai":

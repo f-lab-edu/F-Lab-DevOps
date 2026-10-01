@@ -6,7 +6,7 @@
 
 ## 사용 방법
 
-저장소 루트에서 잠금 의존성을 설치한 Python을 사용한다. `--store`는 사용자가 정한 **저장소 밖의 개인 디렉터리**여야 하며 새로 만들 때 `0700`, 저장 파일은 `0600`으로 둔다. 아래 경로와 요청 ID는 예시다.
+저장소 루트에서 잠금 의존성을 설치한 Python을 사용한다. `--store`는 **저장소 밖의 개인 디렉터리**여야 하며 생략하면 `~/.local/share/url-shortener-ai-ops`를 사용한다. 새로 만들 때 `0700`, 저장 파일은 `0600`으로 둔다. 아래 경로와 요청 ID는 예시다.
 
 ```sh
 PYTHONPATH=ai-ops/src python3 -m ai_ops validate-bundle \
@@ -26,7 +26,7 @@ PYTHONPATH=ai-ops/src python3 -m ai_ops show \
   --run '<위 명령이 출력한 실행 ID>' --format markdown
 ```
 
-`--format json`은 원본 보고서 계약의 UTC JSON을 보여준다. 기본 Markdown 및 사람이 읽는 CLI 시각은 `Asia/Seoul`로 변환하고 `KST (UTC+09:00)`를 붙인다. JSON 저장·해시·시간 비교는 UTC를 유지한다. `aiops` 콘솔 명령도 `pyproject.toml`에 등록했다. `--mode ai`는 A5 이전에 명시적으로 거부한다.
+`--format json`은 원본 보고서 계약의 UTC JSON을 보여준다. 기본 Markdown 및 사람이 읽는 CLI 시각은 `Asia/Seoul`로 변환하고 `KST (UTC+09:00)`를 붙인다. JSON 저장·해시·시간 비교는 UTC를 유지한다. `aiops` 콘솔 명령도 `pyproject.toml`에 등록했다. A5의 `--mode ai`는 합성 실습 증거와 별도 API 키 설정에서만 사용할 수 있다.
 
 ## 한 요청의 처리
 

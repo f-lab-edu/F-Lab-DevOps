@@ -1,6 +1,6 @@
 # AI 운영 조사 기능
 
-현재 완료 범위는 **A0~A4**이다. **A5는 진행 중**으로, 합성 증거 전용 OpenAI Responses 어댑터와 모의 응답 검증까지 연결했다. 실제 유료 모델 호출·HolmesGPT 개발 입력 비교는 API 계정 준비 후 남아 있다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
+현재 완료 범위는 **A0~A5**이다. A5는 합성 증거 전용 OpenAI Responses 어댑터로 실제 AI 보고서 생성·근거 인용·감사 기록을 확인하고 엔진을 선정했다. 실패 실행의 알려진 부분 사용량·안전한 계약 오류 기록과 S2 정상 캐시 miss 재검증도 마쳤다. HolmesGPT 0.42.0은 도구 격리를 확인했으나 현재 `gpt-6-sol`·추론 설정과 동일한 조건의 4~6건 품질 비교는 API 경로 차이로 수행하지 않았다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6의 폭넓은 실패·보안 검증, 실클러스터 수집, 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -10,7 +10,7 @@
 - [A3 로컬 사건 조사·CLI·보고서](docs/A3-local-investigation.md)
 - [A4 저장 증거 조회 도구·제한·감사 기록](docs/A4-replay-tools.md)
 - [A5 엔진 결정·AI 연결·남은 실제 검증](docs/A5-engine-decision.md)
-- [A5 ChatGPT Plus 연동 가능성·필요 변경](docs/A5-plus-feasibility.md)
+- [A5 ChatGPT Plus 비채택 검토 기록](docs/A5-plus-feasibility.md)
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
@@ -34,4 +34,11 @@ git diff --exit-code -- ai-ops/schemas
 
 저장 증거는 `python -m ai_ops validate-bundle`로 검사하고, `investigate --mode rules`로 사건 보고서를 만든 뒤 `show`로 다시 볼 수 있다. 명령별 `--bundle`, `--registry`, `--store` 예시와 저장 위치 기준은 [A3 문서](docs/A3-local-investigation.md)에 있다.
 
-`investigate --mode ai`는 현재 `practice` 합성 증거와 **별도 과금되는 API 키 경로**만 지원한다. 키와 계정 별칭, 비용·출처 제한 및 실행 예시는 [A5 문서](docs/A5-engine-decision.md)에 있다. API 키가 없는 현재 환경에서는 외부 호출 없이 모의 응답 시험만 수행했다. Plus 플랜 사용 경로는 [별도 검토](docs/A5-plus-feasibility.md) 단계이며 아직 실행되지 않는다.
+`investigate --mode ai`는 현재 `practice` 합성 증거와 **별도 과금되는 API 키 경로**만 지원한다. 키를 처음 등록하거나 교체할 때는 저장소 루트에서 아래 명령을 실행하고 `OpenAI API 키:` 입력창에 붙여넣으면 된다. 입력 문자는 화면에 표시되지 않는다. 이 설정 명령은 API를 호출하거나 비용을 발생시키지 않는다.
+
+```sh
+./ai-ops/scripts/aiops-local configure-api-key
+./ai-ops/scripts/aiops-local api-key-status
+```
+
+키는 Git 저장소 밖 `~/.local/share/url-shortener-ai-ops/.openai-api-key`에 사용자 전용 권한(0600)으로 보관된다. 기본 저장소를 바꾸려면 설정·조사 명령에 같은 `--store` 경로를 지정한다. 기존 `OPENAI_API_KEY` 환경변수가 설정되어 있으면 저장된 키보다 우선한다. 키 값은 채팅·명령행 인자·프로젝트 파일에 입력하지 않는다. 이 컴퓨터의 Python 실행 환경은 `aiops-local`이 자동으로 찾는다. 다른 환경에서는 Python 3.11 이상에 `requirements.lock` 의존성을 설치하고 `AI_OPS_PYTHON`으로 경로를 지정하면 된다. 비용·출처 제한, 실행 예시 및 실제 점검 결과는 [A5 문서](docs/A5-engine-decision.md)에 있다. Plus 플랜 사용 경로는 선택하지 않았으며 [검토 기록](docs/A5-plus-feasibility.md)만 보관한다.

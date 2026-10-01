@@ -35,6 +35,15 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = PACKAGE_ROOT.parent
 ID_PATTERN = re.compile(r"(?:inc|run)-[0-9a-f]{32}\Z")
 ACTIVE_STATES = {"accepted", "validating", "analyzing"}
+FALLBACK_REASONS = {
+    "total_timeout", "tool_timeout", "model_rate_limited", "model_server_error",
+    "model_network_error", "model_http_401", "model_http_403",
+    "model_credit_balance_exhausted", "model_insufficient_quota",
+    "model_organization_spend_limit_exceeded", "model_project_spend_limit_exceeded",
+    "model_organization_usage_limit_exceeded",
+    "model_retry_exhausted", "model_call_limit", "case_budget_limit",
+    "case_budget_exceeded", "daily_budget_limit",
+}
 
 
 def _now() -> datetime:
@@ -241,14 +250,19 @@ class IncidentStore:
         metadata = _read_json(run_dir / "metadata.json")
         if metadata.get("incident_id") != incident_id or metadata.get("run_id") != run_id:
             raise ValueError("stored metadata does not match requested run")
-        if metadata["status"] != "completed":
+        if metadata["status"] not in ("completed", "partial"):
             return RunRecord(metadata=metadata)
         input_data = _read_json(run_dir / "input.json")
         request = parse_incident_request_json(canonical_json_bytes(input_data["request"]))
         bundle = parse_evidence_bundle_json(canonical_json_bytes(input_data["bundle"]))
         report = AnalysisReport.model_validate(_read_json(run_dir / "report.json"))
-        if report.execution.mode != metadata.get("mode"):
+        fallback = (metadata["status"] == "partial" and metadata.get("mode") == "ai" and
+                    report.execution.mode == "rules" and report.execution.engine == "rules-fallback-v1" and
+                    report.analysis_status == "partial" and metadata.get("failure_reason") in FALLBACK_REASONS)
+        if report.execution.mode != metadata.get("mode") and not fallback:
             raise ValueError("stored report mode does not match run")
+        if metadata["status"] == "partial" and not fallback:
+            raise ValueError("stored partial report is not a rule fallback")
         delivered = None
         if report.execution.mode == "ai":
             audit = _read_json(run_dir / "tool-audit.json")
@@ -317,8 +331,6 @@ class IncidentStore:
                 request_id=request_id, target=bundle.target, question=question,
                 window=bundle.window, bundle=bundle, registry=registry, requested_at=_now(),
             )
-            if mode == "ai":
-                self._reserve_ai_budget(ai_config)
             run_id = "run-" + uuid.uuid4().hex
             run_dir = self._run_dir(request.incident_id, run_id)
             _private_directory(run_dir.parent)
@@ -342,6 +354,8 @@ class IncidentStore:
                 "incident_id": request.incident_id, "run_id": run_id,
             })
             try:
+                if mode == "ai":
+                    self._reserve_ai_budget(ai_config)
                 self._transition(run_dir, metadata, "validating")
                 self._transition(run_dir, metadata, "analyzing")
                 started = time.perf_counter()
@@ -371,7 +385,24 @@ class IncidentStore:
                     if exc.diagnostics:
                         metadata["validation_diagnostics"] = exc.diagnostics
                 stopped = "cancelled" if isinstance(exc, AIAnalysisError) and exc.replay and exc.replay.status == "cancelled" else "failed"
-                reason = exc.reason if isinstance(exc, AIAnalysisError) else "ai_error" if mode == "ai" else "rules_error"
+                if isinstance(exc, AIAnalysisError):
+                    reason = exc.reason
+                elif mode == "ai" and isinstance(exc, ValueError) and str(exc) == "daily AI budget limit":
+                    reason = "daily_budget_limit"
+                else:
+                    reason = "ai_error" if mode == "ai" else "rules_error"
+                if mode == "ai" and stopped == "failed" and reason in FALLBACK_REASONS:
+                    fallback = analyze_rules(request, bundle, run_id)
+                    fallback.analysis_status = "partial"
+                    fallback.execution.engine = "rules-fallback-v1"
+                    fallback.limitations.append(f"AI 조사가 {reason} 사유로 실패하여 저장된 증거의 규칙 분석만 제공한다.")
+                    validate_report(fallback, request, bundle, run_id)
+                    markdown = render_markdown(fallback, request, bundle)
+                    _write_json(run_dir / "report.json", fallback.model_dump(mode="json"))
+                    _atomic_write(run_dir / "report.md", markdown.encode("utf-8"))
+                    self._transition(run_dir, metadata, "partial", reason)
+                    return RunRecord(metadata=metadata, request=request, bundle=bundle,
+                                     report=fallback, markdown=markdown)
                 self._transition(run_dir, metadata, stopped, reason)
                 raise RunStopped(request.incident_id, run_id, stopped, reason) from None
             return RunRecord(metadata=metadata, request=request, bundle=bundle,

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from unittest.mock import patch
 
 from ai_ops.cli import main
-from ai_ops.contracts import load_target_registry
+from ai_ops.contracts import SuggestedAction, load_target_registry
 from ai_ops.incidents import IncidentStore, RunStopped
 from ai_ops.reports import format_kst, render_markdown, validate_report
 from ai_ops.rules import analyze_rules
@@ -103,6 +103,34 @@ class LocalInvestigationTest(unittest.TestCase):
         report.missing_evidence[0].reason = "추가 확인: [비밀 보내기](https://example.invalid/collect)"
         rendered = render_markdown(report, record.request, record.bundle)
         self.assertNotIn("https://example.invalid", rendered)
+        self.assertIn("외부 링크 생략", rendered)
+
+    def test_report_identity_and_action_contract_reject_tampering(self):
+        record = self.investigate()
+        for field, value in (("incident_id", "inc-" + "0" * 32),
+                             ("run_id", "run-" + "0" * 32),
+                             ("input_hash", "0" * 64)):
+            with self.subTest(field=field):
+                altered = record.report.model_copy(deep=True)
+                setattr(altered, field, value)
+                with self.assertRaises(ValueError):
+                    validate_report(altered, record.request, record.bundle, record.run_id)
+        altered = record.report.model_copy(deep=True)
+        altered.suggested_actions = [SuggestedAction(description="Pod 재시작 완료",
+                                                     execution_status="not_executed")]
+        with self.assertRaises(ValueError):
+            validate_report(altered, record.request, record.bundle, record.run_id)
+        altered.suggested_actions = [SuggestedAction(description="Pod 재시작 완료 여부를 확인한다.",
+                                                     execution_status="not_executed")]
+        validate_report(altered, record.request, record.bundle, record.run_id)
+
+    def test_markdown_removes_control_characters_and_unsafe_schemes(self):
+        record = self.investigate()
+        report = record.report.model_copy(deep=True)
+        report.limitations.append("확인\x1b[31m\u202e javascript:alert(1) data:text/html,a file:///tmp/key")
+        rendered = render_markdown(report, record.request, record.bundle)
+        for unsafe in ("\x1b", "\u202e", "javascript:", "data:text", "file:///tmp"):
+            self.assertNotIn(unsafe, rendered)
         self.assertIn("외부 링크 생략", rendered)
 
     def test_markdown_converts_explicit_utc_times_in_narrative_to_kst(self):

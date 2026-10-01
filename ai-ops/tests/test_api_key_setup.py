@@ -71,8 +71,18 @@ class APIKeySetupTest(unittest.TestCase):
             self.assertEqual(main(arguments), 1)
         self.assertEqual(received, [fake_key])
         self.assertNotIn(fake_key, output.getvalue())
-        self.assertIn("model_credit_balance_exhausted", error.getvalue())
+        self.assertIn("model_credit_balance_exhausted", output.getvalue())
+        self.assertIn("partial", output.getvalue())
         self.assertNotIn(fake_key, error.getvalue())
+        lines = output.getvalue().splitlines()
+        incident_id = next(line.split(": ", 1)[1] for line in lines if line.startswith("사건 ID:"))
+        run_id = next(line.split(": ", 1)[1] for line in lines if line.startswith("실행 ID:"))
+        shown = io.StringIO()
+        with contextlib.redirect_stdout(shown):
+            self.assertEqual(main(["show", "--store", str(self.root), "--incident", incident_id,
+                                   "--run", run_id, "--format", "json"]), 1)
+        self.assertIn('"failure_reason": "model_credit_balance_exhausted"', shown.getvalue())
+        self.assertIn('"analysis_status": "partial"', shown.getvalue())
 
     def test_noninteractive_input_is_rejected_and_unsafe_file_is_not_read(self):
         error = io.StringIO()

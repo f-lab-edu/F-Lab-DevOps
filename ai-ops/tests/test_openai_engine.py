@@ -196,7 +196,7 @@ class OpenAIEngineTest(unittest.TestCase):
         self.assertEqual(record.metadata["validation_diagnostics"][0]["code"], "value_error")
         self.assertFalse((self.store.root / record.incident_id / record.run_id / "report.json").exists())
 
-    def test_failed_second_request_keeps_known_usage_without_calling_it_total_cost(self):
+    def test_failed_second_request_keeps_known_usage_and_returns_partial_rules(self):
         calls = []
 
         def transport(body, _key, _timeout):
@@ -209,10 +209,15 @@ class OpenAIEngineTest(unittest.TestCase):
                                 usage={"input_tokens": 321, "output_tokens": 45})
             raise AIAnalysisError("model_http_401")
 
-        with self.assertRaises(RunStopped) as failed:
-            self.analyze(transport, "partial-usage")
-        record = self.store.show(failed.exception.incident_id, failed.exception.run_id)
+        result = self.analyze(transport, "partial-usage")
+        record = self.store.show(result.incident_id, result.run_id)
+        self.assertEqual(record.metadata["status"], "partial")
         self.assertEqual(record.metadata["failure_reason"], "model_http_401")
+        self.assertEqual(record.report.analysis_status, "partial")
+        self.assertEqual(record.report.execution.engine, "rules-fallback-v1")
+        self.assertIn("AI 조사에 실패", record.markdown)
+        self.assertEqual(json.loads((self.store.root / record.incident_id / record.run_id /
+                                     "tool-audit.json").read_text())["delivered_evidence_ids"], ["ev-s1-log"])
         self.assertEqual(record.metadata["model_usage"], {
             "request_attempts": 2, "usage_responses": 1, "input_tokens": 321,
             "output_tokens": 45, "estimated_known_cost_usd": 0.001092,
@@ -247,16 +252,112 @@ class OpenAIEngineTest(unittest.TestCase):
     def test_daily_and_call_budget_refuse_before_request(self):
         calls = []
         config = AIConfig(account_label="other", per_case_usd=0.001, per_day_usd=1)
-        with self.assertRaises(RunStopped):
-            self.analyze(lambda *args: calls.append(args) or {}, "low-budget", config)
+        low_budget = self.analyze(lambda *args: calls.append(args) or {}, "low-budget", config)
+        self.assertEqual((low_budget.metadata["status"], low_budget.metadata["failure_reason"]),
+                         ("partial", "case_budget_limit"))
         self.assertEqual(calls, [])
         for number in range(9):
             with self.assertRaises(RunStopped):
                 self.analyze(lambda *_: response([{"type": "message", "content": [{"type": "output_text",
                                                                                "text": json.dumps(draft())}]}]),
                              f"budget-{number}")
-        with self.assertRaisesRegex(ValueError, "daily AI budget limit"):
-            self.analyze(lambda *_: {}, "budget-over")
+        limited = self.analyze(lambda *_: {}, "budget-over")
+        self.assertEqual((limited.metadata["status"], limited.metadata["failure_reason"]),
+                         ("partial", "daily_budget_limit"))
+        self.assertEqual(limited.report.execution.engine, "rules-fallback-v1")
+        self.assertEqual(len(calls), 0)
+
+    def test_timeout_fallback_keeps_evidence_and_never_claims_ai_success(self):
+        calls = []
+
+        def transport(body, _key, _timeout):
+            calls.append(body)
+            if len(calls) == 1:
+                view = json.loads(body["input"][0]["content"])
+                return response([{"type": "function_call", "call_id": "call-timeout", "name": "get_pod_logs",
+                                  "arguments": json.dumps({"target": view["target"], "window": view["window"],
+                                                           "container": "all"})}])
+            raise TransientModelError("model_network_error")
+
+        result = self.analyze(transport, "timeout-fallback")
+        saved = self.store.show(result.incident_id, result.run_id)
+        self.assertEqual((saved.metadata["status"], saved.metadata["failure_reason"]),
+                         ("partial", "model_network_error"))
+        self.assertEqual(saved.report.execution.mode, "rules")
+        self.assertEqual(saved.report.analysis_status, "partial")
+        self.assertIn("규칙 분석한 부분 결과", saved.markdown)
+        self.assertEqual(json.loads((self.store.root / saved.incident_id / saved.run_id /
+                                     "tool-audit.json").read_text())["delivered_evidence_ids"], ["ev-s1-log"])
+
+    def test_total_timeout_falls_back_but_user_cancel_does_not(self):
+        partial = self.store.investigate(
+            bundle_root=FIXTURE, registry=self.registry, question="캐시 오류를 조사해줘",
+            request_id="a6-total-timeout", mode="ai", ai_config=self.config,
+            analyzer=lambda *_: (_ for _ in ()).throw(AIAnalysisError("total_timeout")),
+        )
+        self.assertEqual((partial.metadata["status"], partial.metadata["failure_reason"]),
+                         ("partial", "total_timeout"))
+        self.assertEqual(self.store.show(partial.incident_id, partial.run_id).report, partial.report)
+        with self.assertRaises(RunStopped) as cancelled:
+            self.analyze(lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()), "a6-cancel")
+        saved = self.store.show(cancelled.exception.incident_id, cancelled.exception.run_id)
+        self.assertEqual((saved.metadata["status"], saved.metadata["failure_reason"]),
+                         ("cancelled", "user_cancelled"))
+        self.assertIsNone(saved.report)
+
+    def test_unsafe_model_drafts_fail_without_fallback_or_raw_text(self):
+        cases = (
+            ("secret", lambda item: item["facts"][0].update(
+                statement="token=PRIVATE_A6_SENTINEL"), "sensitive_report_text"),
+            ("control", lambda item: item["facts"][0].update(
+                statement="오류\x1b[31m강조"), "unsafe_report_control_character"),
+            ("execution", lambda item: item["suggested_actions"][0].update(
+                description="Pod 재시작 완료"), "invalid_ai_report_execution_claim"),
+        )
+        for label, mutate, reason in cases:
+            with self.subTest(label=label):
+                calls = []
+                def transport(body, _key, _timeout):
+                    calls.append(body)
+                    if len(calls) == 1:
+                        view = json.loads(body["input"][0]["content"])
+                        return response([{"type": "function_call", "call_id": "call-safety",
+                                          "name": "get_pod_logs", "arguments": json.dumps({
+                                              "target": view["target"], "window": view["window"],
+                                              "container": "all"})}])
+                    item = draft()
+                    mutate(item)
+                    return response([{"type": "message", "content": [{
+                        "type": "output_text", "text": json.dumps(item)}]}])
+                with self.assertRaises(RunStopped) as failed:
+                    self.analyze(transport, "unsafe-" + label)
+                saved = self.store.show(failed.exception.incident_id, failed.exception.run_id)
+                self.assertEqual((saved.metadata["status"], saved.metadata["failure_reason"]),
+                                 ("failed", reason))
+                run_dir = self.store.root / saved.incident_id / saved.run_id
+                self.assertFalse((run_dir / "report.json").exists())
+                self.assertNotIn("PRIVATE_A6_SENTINEL", (run_dir / "metadata.json").read_text())
+
+    def test_model_requested_forbidden_shell_is_denied_and_audited(self):
+        calls = []
+        def transport(body, _key, _timeout):
+            calls.append(body)
+            view = json.loads(body["input"][0]["content"])
+            if len(calls) == 1:
+                return response([{"type": "function_call", "call_id": "call-log", "name": "get_pod_logs",
+                                  "arguments": json.dumps({"target": view["target"], "window": view["window"],
+                                                           "container": "all"})}])
+            if len(calls) == 2:
+                return response([{"type": "function_call", "call_id": "call-shell", "name": "shell",
+                                  "arguments": json.dumps({"command": "cat /etc/passwd"})}])
+            return response([{"type": "message", "content": [{"type": "output_text",
+                                                               "text": json.dumps(draft())}]}])
+        result = self.analyze(transport, "forbidden-shell")
+        audit = json.loads((self.store.root / result.incident_id / result.run_id /
+                            "tool-audit.json").read_text())
+        self.assertEqual(audit["audit"][1]["tool_name"], "rejected_tool")
+        self.assertNotIn("/etc/passwd", json.dumps(audit))
+        self.assertEqual(result.metadata["status"], "completed")
 
 
 if __name__ == "__main__":

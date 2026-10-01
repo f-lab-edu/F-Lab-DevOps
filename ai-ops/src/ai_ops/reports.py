@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -33,8 +34,9 @@ def format_kst(value: datetime | None) -> str:
 
 
 def _safe_markdown(value: str) -> str:
-    value = re.sub(r"[\x00-\x1f\x7f]", " ", value)
-    value = re.sub(r"(?i)https?://[^\s]+", "[외부 링크 생략]", value)
+    value = "".join(" " if unicodedata.category(character) in ("Cc", "Cf") else character for character in value)
+    value = re.sub(r"(?i)\b(?:[a-z][a-z0-9+.-]*://|(?:javascript|data|mailto):)[^\s]+",
+                   "[외부 링크 생략]", value)
     return re.sub(r"([\\`*_{}\[\]()<>#+!|~])", r"\\\1", value)
 
 
@@ -42,6 +44,10 @@ _UTC_ABSOLUTE = re.compile(
     r"(?<!\d)(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(?:\s+UTC(?![+-])|Z\b|\+00:00)"
 )
 _UTC_CLOCK = re.compile(r"(?<![\d:])(\d{2}:\d{2}(?::\d{2})?)\s+UTC(?![+-])")
+_EXECUTION_CLAIM = re.compile(
+    r"(?i)(?:실행|적용|재시작|롤백|복구|수정|변경|배포).{0,12}(?:완료|성공|했습니다|하였다|됨)(?!\s*여부)"
+    r"|\b(?:executed|applied|restarted|rolled back|deployed)\s+successfully\b"
+)
 
 
 def _display_utc_times(value: str, window: TimeWindow) -> str:
@@ -97,6 +103,8 @@ def validate_report(
               hypothesis.supporting_evidence_ids + hypothesis.contradicting_evidence_ids]
     if any(evidence_id not in available_ids for evidence_id in cited):
         raise ValueError("report cites unavailable or unknown evidence")
+    if any(_EXECUTION_CLAIM.search(action.description) for action in report.suggested_actions):
+        raise ValueError("suggested action claims execution")
 
 
 def render_markdown(
@@ -110,7 +118,9 @@ def render_markdown(
     def display(value: str) -> str:
         return _safe_markdown(_display_utc_times(value, report.window))
 
-    notice = ("AI가 합성 저장 증거를 읽고 작성한 조사 초안입니다. 실시간 클러스터 확인·변경 실행은 하지 않았습니다."
+    notice = ("AI 조사에 실패해 저장된 증거로 규칙 분석한 부분 결과입니다. AI 진단·실시간 클러스터 확인·변경 실행은 하지 않았습니다."
+              if report.execution.engine == "rules-fallback-v1" else
+              "AI가 합성 저장 증거를 읽고 작성한 조사 초안입니다. 실시간 클러스터 확인·변경 실행은 하지 않았습니다."
               if report.execution.mode == "ai" else
               "규칙 기반 로컬 조사 결과입니다. AI 분석·실시간 클러스터 확인·변경 실행은 하지 않았습니다.")
     lines = [
@@ -120,6 +130,7 @@ def render_markdown(
         "",
         f"- 사건 ID: `{report.incident_id}`",
         f"- 실행 ID: `{report.run_id}`",
+        f"- 보고서 상태: {report.analysis_status}",
         f"- 요청 시각: {format_kst(request.requested_at)}",
         f"- 조사 범위: {format_kst(report.window.start)} ~ {format_kst(report.window.end)}",
         f"- 진단: {DIAGNOSIS[report.diagnosis_status]}",

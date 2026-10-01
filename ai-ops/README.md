@@ -1,6 +1,6 @@
 # AI 운영 조사 기능
 
-현재 완료 범위는 **A0~A4**이다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량·안전한 계약 오류 기록과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6의 폭넓은 실패·보안 검증은 현재 어댑터를 대상으로 병행 착수할 수 있다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
+현재 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -11,6 +11,7 @@
 - [A4 저장 증거 조회 도구·제한·감사 기록](docs/A4-replay-tools.md)
 - [A5 엔진 결정·AI 연결·남은 실제 검증](docs/A5-engine-decision.md)
 - [A5 ChatGPT Plus 비채택 검토 기록](docs/A5-plus-feasibility.md)
+- [A6 보고서·실패·보안 검증](docs/A6-report-failure-validation.md)
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
@@ -42,3 +43,5 @@ git diff --exit-code -- ai-ops/schemas
 ```
 
 키는 Git 저장소 밖 `~/.local/share/url-shortener-ai-ops/.openai-api-key`에 사용자 전용 권한(0600)으로 보관된다. 기본 저장소를 바꾸려면 설정·조사 명령에 같은 `--store` 경로를 지정한다. 기존 `OPENAI_API_KEY` 환경변수가 설정되어 있으면 저장된 키보다 우선한다. 키 값은 채팅·명령행 인자·프로젝트 파일에 입력하지 않는다. 이 컴퓨터의 Python 실행 환경은 `aiops-local`이 자동으로 찾는다. 다른 환경에서는 Python 3.11 이상에 `requirements.lock` 의존성을 설치하고 `AI_OPS_PYTHON`으로 경로를 지정하면 된다. 비용·출처 제한, 실행 예시 및 실제 점검 결과는 [A5 문서](docs/A5-engine-decision.md)에 있다. Plus 플랜 사용 경로는 선택하지 않았으며 [검토 기록](docs/A5-plus-feasibility.md)만 보관한다.
+
+AI 호출이 인증·네트워크·시간·예산 문제로 실패하면 검증된 저장 증거의 규칙 분석을 `partial`로 저장한다. CLI는 실패 이유를 보여주고 종료 코드 1을 반환한다. 보고서 형식·근거·보안 검증을 통과하지 못한 모델 초안은 부분 결과로 위장하지 않고 실패 상태로 남긴다. 자세한 조건은 [A6 검증 기록](docs/A6-report-failure-validation.md)을 참고한다.

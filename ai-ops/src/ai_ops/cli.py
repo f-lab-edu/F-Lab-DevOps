@@ -92,11 +92,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"상태: {record.metadata['status']}")
             print(f"사건 ID: {record.incident_id}")
             print(f"실행 ID: {record.run_id}")
+            if record.metadata["status"] == "partial":
+                print(f"AI 실패 사유: {record.metadata['failure_reason']} · 규칙 분석 부분 결과")
             if record.request is not None:
                 print(f"요청 시각: {format_kst(record.request.requested_at)}")
             if record.report is not None:
                 print(f"진단: {DIAGNOSIS[record.report.diagnosis_status]}")
-            else:
+            elif record.metadata["status"] != "partial":
                 print("기존 실행은 완료되지 않았다. 새 조사는 다른 request ID로 시작한다.")
             return 0 if record.metadata["status"] == "completed" else 1
         store = IncidentStore(args.store)
@@ -111,10 +113,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"사유: {record.metadata.get('failure_reason') or '없음'}")
             return 1
         if args.format == "json":
-            print(record.report.model_dump_json(indent=2))
+            if record.metadata["status"] == "partial":
+                print(json.dumps({"status": "partial", "failure_reason": record.metadata["failure_reason"],
+                                  "report": record.report.model_dump(mode="json")}, ensure_ascii=False, indent=2))
+            else:
+                print(record.report.model_dump_json(indent=2))
         else:
             print(record.markdown, end="")
-        return 0
+        return 0 if record.metadata["status"] == "completed" else 1
     except RunStopped as exc:
         print(f"실행 {exc.status}: 사건 {exc.incident_id}, 실행 {exc.run_id}", file=sys.stderr)
         if exc.reason:

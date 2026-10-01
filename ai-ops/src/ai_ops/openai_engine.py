@@ -9,6 +9,7 @@ import re
 import copy
 import urllib.error
 import urllib.request
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -322,6 +323,8 @@ def analyze_ai(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, co
         reject("invalid_report_fields")
     def inspect(value: Any) -> None:
         if isinstance(value, str):
+            if any(unicodedata.category(character) in ("Cc", "Cf") for character in value):
+                reject("unsafe_report_control_character")
             if redact_text(value)[0] != value:
                 reject("sensitive_report_text")
         elif isinstance(value, list):
@@ -369,6 +372,7 @@ def analyze_ai(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, co
         reason = {
             "report cites unavailable or unknown evidence": "invalid_ai_report_citation",
             "AI hypothesis requires delivered supporting evidence": "invalid_ai_report_support",
+            "suggested action claims execution": "invalid_ai_report_execution_claim",
         }.get(str(exc), "invalid_ai_report")
         reject(reason, [{"code": reason, "path": ""}])
     except Exception:

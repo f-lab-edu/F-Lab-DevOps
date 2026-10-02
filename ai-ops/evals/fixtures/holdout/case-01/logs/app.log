@@ -1,0 +1,2 @@
+RedisError: connection reset during cache lookup
+request continued through primary database read

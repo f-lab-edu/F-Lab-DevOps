@@ -5,6 +5,8 @@ on:
     paths:
       - 'ai-ops/**'
       - '.github/workflows/ai-ops-ci.yml'
+      - 'url-shortener/app/**'
+      - 'url-shortener/url-shortener-chart/**'
   push:
     branches:
       - main
@@ -12,6 +14,8 @@ on:
     paths:
       - 'ai-ops/**'
       - '.github/workflows/ai-ops-ci.yml'
+      - 'url-shortener/app/**'
+      - 'url-shortener/url-shortener-chart/**'
 
 permissions:
   contents: read
@@ -31,5 +35,6 @@ jobs:
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m ai_ops --help
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m unittest discover -s ai-ops/tests -p 'test_*.py' -v
           /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_dev_fixtures.py --check
+          PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_holdout_fixtures.py --check
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py
           git diff --exit-code -- ai-ops/schemas

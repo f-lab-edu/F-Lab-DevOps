@@ -1,0 +1,6 @@
+{
+  "reason": "ImagePullBackOff",
+  "message": "registry returned 401 for image pull",
+  "type": "Warning",
+  "involved_uid": "pod-h04"
+}

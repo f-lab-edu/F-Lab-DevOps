@@ -1,0 +1,7 @@
+{
+  "image": "registry.example.invalid/url-shortener:v4-healthfail",
+  "source_sha": "0000000000000000000000000000000000000008",
+  "gitops_revision": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "ci_run_id": "holdout-08",
+  "status": "failed"
+}

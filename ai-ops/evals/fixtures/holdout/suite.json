@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "suite_id": "a7-holdout-v1",
+  "cases": [
+    {
+      "case_id": "case-01",
+      "bundle": "case-01",
+      "input_hash": "d3433216f852c26b2230f59277476ebef53d7d3b544a97ab040acc164daeaa85",
+      "manifest_sha256": "98d7dbe8eb90b464c5d78959d69c11497f682aff47220d8fa864d264080dc22c"
+    },
+    {
+      "case_id": "case-02",
+      "bundle": "case-02",
+      "input_hash": "c0db0f073ec7194dba3dba50d258cb2d7932d659dd0b86a2f40bf5cd4e7c891e",
+      "manifest_sha256": "fdf1204cf072936199fbc218a992dddc37ed132008c656433b39a54619e36f03"
+    },
+    {
+      "case_id": "case-03",
+      "bundle": "case-03",
+      "input_hash": "c526f96aa5ab53722b3460beee8c00211a21b7f1e56da6a39753b87254db5321",
+      "manifest_sha256": "93a1dff207d946c652a0e986156c5454f197085180be90e0c88199ce4be71f37"
+    },
+    {
+      "case_id": "case-04",
+      "bundle": "case-04",
+      "input_hash": "20facff78748f0ed71569879411140f99807d08c378d61507b7b9bb5af9f78cd",
+      "manifest_sha256": "d83e08b4ac17ec6308dc53918a52733d3149faad3401326e3fe26e8e8929ef0f"
+    },
+    {
+      "case_id": "case-05",
+      "bundle": "case-05",
+      "input_hash": "38a1ff2ceb20ff20d4f17c55db91004ea98757e0de518fbb6479d79da3d489d2",
+      "manifest_sha256": "28ffde69a566a89ab7d20b862436e48124b4aac9530b52e7e64b53de0d7e9437"
+    },
+    {
+      "case_id": "case-06",
+      "bundle": "case-06",
+      "input_hash": "3b11d0dee1393ac288e3c1ff98f5dc0b74ab3788e96141414a5f278be0820123",
+      "manifest_sha256": "1e24c0dd0a5daff503f3b8f8d8c5bb09738cecf4df9026159355a54b9e2faf29"
+    },
+    {
+      "case_id": "case-07",
+      "bundle": "case-07",
+      "input_hash": "e8986f1cda5135d515faf6b1b13799e7420c98beca2822c1292dbd6896e67373",
+      "manifest_sha256": "dfe7953044839e0e34e7f61bfbcfcf34c446de5bf833eee01873e215cb7d0782"
+    },
+    {
+      "case_id": "case-08",
+      "bundle": "case-08",
+      "input_hash": "4ac07813c6ec688deee9058a023d2e67525a90b05e176dd5ec256fcfc40aae75",
+      "manifest_sha256": "3fd3fc6e5578d08d1e933f39628fdaafc44f020c6446548dfa50cf0e989ebb30"
+    },
+    {
+      "case_id": "case-09",
+      "bundle": "case-09",
+      "input_hash": "1726119ef0973d37c8bd9c7e657f2251ba8c2e5184debd3613a541b1e1dce6c1",
+      "manifest_sha256": "79704dfd08aed2392aae55756e2e35fa32104087835d5e3d23201492c8ed468f"
+    },
+    {
+      "case_id": "case-10",
+      "bundle": "case-10",
+      "input_hash": "987025f1a8163d9b2669d3b37c190ba86266428462bd9cb046cde66846eaba1c",
+      "manifest_sha256": "f23f7b913f8c460065c1efd57715565f51fe007e74bd92b7d5e1bbf627698a29"
+    },
+    {
+      "case_id": "case-11",
+      "bundle": "case-11",
+      "input_hash": "e7fd34e7eafc96499df8be0c00d9ef4b2339f33f3aacf30231b2b6981b41b288",
+      "manifest_sha256": "f1d4169742f2d5c4d605c6bd296997d8e7018a519aab046474ae4dafd58009bd"
+    },
+    {
+      "case_id": "case-12",
+      "bundle": "case-12",
+      "input_hash": "7a31ec7d3f21fe7070f7d744d775a884ef2ef38c9c64000cdb5f38b278256309",
+      "manifest_sha256": "96bbe1393099991cf937298dd3335920c4b79d6f31605e997b37b36875f60758"
+    },
+    {
+      "case_id": "case-13",
+      "bundle": "case-13",
+      "input_hash": "8a30f64c318f2e2ff99b08ef6b0f14ce96e9f8f63f0861552ce5e87faf71e5f3",
+      "manifest_sha256": "8c1af715bd8468e0d6530c01f8f04b3900643faa0c08ed5e2c1e10faf3f61464"
+    },
+    {
+      "case_id": "case-14",
+      "bundle": "case-14",
+      "input_hash": "abf3e6ceaa908e4a59c1d3cb9dd1f01595ec0df0b28ba376071cf712661ddebe",
+      "manifest_sha256": "120a5d3389bb2a198e5abe1bbe52baffb5e47b3238292e7284cd65a24a866928"
+    },
+    {
+      "case_id": "case-15",
+      "bundle": "case-15",
+      "input_hash": "21494d3f7fb2c1caf317ee23a6d6e9767014f98fc94911dfa7fb8c553a960b5c",
+      "manifest_sha256": "ca86182a26096a2e95da10b95696e3436b17e965f87c4e97e9d1bf4e792015e8"
+    },
+    {
+      "case_id": "case-16",
+      "bundle": "case-16",
+      "input_hash": "a4e7363f831df51b99b115876e5a9512b32c51c5188a748800c1178fb2a7d6e4",
+      "manifest_sha256": "091c99922cc17f5857c8d7fe0f2d2ca6aaa8221e3f05c88ede078f865b02712f"
+    }
+  ],
+  "suite_hash": "83c5ff59a4014ceaa98cda3260752544d7d371b2a01d0f8c1d2418e47913de24"
+}

@@ -1,0 +1,16 @@
+{
+  "query_id": "http_error_ratio",
+  "unit": "ratio",
+  "samples": [
+    {
+      "at": "2026-08-11T00:21:00Z",
+      "outcome": "ratio",
+      "value": 0
+    },
+    {
+      "at": "2026-08-11T00:21:00Z",
+      "outcome": "requests",
+      "value": 300
+    }
+  ]
+}

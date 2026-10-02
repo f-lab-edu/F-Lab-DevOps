@@ -1,6 +1,6 @@
 # AI 운영 조사 기능
 
-현재 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
+현재 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. **A7은 합성 holdout 16건과 규칙 비교군을 준비했으며 실제 AI 반복 평가가 남아 진행 중**이다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -12,6 +12,7 @@
 - [A5 엔진 결정·AI 연결·남은 실제 검증](docs/A5-engine-decision.md)
 - [A5 ChatGPT Plus 비채택 검토 기록](docs/A5-plus-feasibility.md)
 - [A6 보고서·실패·보안 검증](docs/A6-report-failure-validation.md)
+- [A7 고정 평가 진행 기록](docs/A7-fixed-evaluation.md)
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)
@@ -27,6 +28,7 @@ Python 3.11 이상과 `requirements.lock`의 고정 의존성을 사용한다. �
 python3 -m venv /tmp/ai-ops-venv
 /tmp/ai-ops-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
 PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m unittest discover -s ai-ops/tests -p 'test_*.py' -v
+PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_holdout_fixtures.py --check
 PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py
 git diff --exit-code -- ai-ops/schemas
 ```

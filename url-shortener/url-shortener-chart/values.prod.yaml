@@ -1,5 +1,6 @@
 api:
   replicas: 2 # prod는 고가용성을 위해 2개
+  secretRevision: 1 # 운영 Secret 변경 후 증가시켜 Pod rollout
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
     tag: sha-c3071c9
@@ -9,6 +10,20 @@ api:
     debug: 'false' # prod는 디버그 비활성화
     enableFaultInjection: false # Week 12 DB 지연 실습 때만 GitOps로 true 전환
     maxFaultDelayMs: 2000
+  # HPA 최대 10개와 롤링 업데이트 surge를 고려한 DB 연결 예산.
+  # db.t3.micro 기준 Primary 최대 39개, Replica 최대 52개 연결을 사용한다.
+  databasePool:
+    write:
+      size: 2
+      maxOverflow: 1
+    read:
+      size: 3
+      maxOverflow: 1
+    timeoutSeconds: 10
+  cacheConsistency:
+    # 생성·삭제 직후 Replica의 오래된 결과를 현재 세대 캐시에 저장하지 않도록 한다.
+    # 실제 RDS ReplicaLag의 p99/p999 관측값으로 조정한다.
+    replicaWindowSeconds: 60
   topologySpread:
     enabled: true
     whenUnsatisfiable: ScheduleAnyway
@@ -30,7 +45,7 @@ pdb:
 postgres:
   enabled: false # 운영 환경
   database: urldb
-  # 민감정보는 values.prod-secret.yaml로 분리해서 사용하세요 (Git ignore 권장)
+  # 민감정보는 values.prod-secret.yaml로 분리해서 사용하기 (Git ignore 권장)
   password: ""
   databaseUrl: ""
   storage: 10Gi # prod는 스토리지 넉넉하게
@@ -43,3 +58,12 @@ redis:
 # --- ServiceMonitor 설정 ────────────────────────────────────────
 serviceMonitor:
   enabled: true
+
+# API Pod는 Traefik·Prometheus와 필요한 데이터 저장소에만 통신을 허용
+# RDS와 Redis는 현재 같은 VPC(private subnet)에 있으므로 VPC CIDR을 사용
+# 외부 Redis로 이전하면 해당 서비스의 CIDR을 추가하거나 Security Groups for Pods로 경계를 좁힌다.
+networkPolicy:
+  enabled: true
+  externalEgress:
+    cidrs:
+      - 10.0.0.0/16

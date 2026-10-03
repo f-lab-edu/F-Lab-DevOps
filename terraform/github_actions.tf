@@ -1,7 +1,7 @@
 # GitHub OIDC Provider 등록 (AWS가 GitHub Actions 토큰을 신뢰하게 됨)
 module "github_oidc_provider" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-oidc-provider"
-  version = "~> 6.0"
+  version = "6.4.0"
 
   url = "https://token.actions.githubusercontent.com" # ← 추가 (thumbprint 자동 계산)
 
@@ -13,20 +13,17 @@ module "github_oidc_provider" {
 # GitHub Actions가 assume할 IAM Role
 module "github_actions_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role" # GitHub Actions용 IAM Role을 생성하는 모듈
-  version = "~> 6.0"
+  version = "6.4.0"
 
   name            = "${var.project_name}-github-actions-role"
   use_name_prefix = false # 타임스탬프 suffix 방지
 
   enable_github_oidc = true # ← 추가 (GitHub OIDC 신뢰 관계 자동 구성)
 
-  # 보안: 특정 레포지토리의 main 브랜치만 허용
-  # pull_request 이벤트까지 허용하려면 "repo:org/repo:*"으로 변경
-  # TODO: dev, prod 환경 구분하기
-  # 현재 저장소의 모든 브랜치와 pull_request 이벤트 허용
-  oidc_wildcard_subjects = [
-    "repo:f-lab-edu/F-Lab-DevOps:ref:refs/heads/*",
-    "repo:f-lab-edu/F-Lab-DevOps:pull_request"
+  # 운영 배포 Role은 main 브랜치의 push 실행만 허용한다.
+  # PR과 기능 브랜치는 이 Role을 맡을 수 없다.
+  oidc_subjects = [
+    "repo:f-lab-edu/F-Lab-DevOps:ref:refs/heads/main"
   ]
 
   policies = {

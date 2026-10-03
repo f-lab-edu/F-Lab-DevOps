@@ -1,6 +1,7 @@
 # ── API 설정 ──────────────────────────────────────────────
 api:
   replicas: 2
+  secretRevision: 1 # 외부 Secret 변경 후 증가시켜 새 Pod에 환경변수를 주입
   port: 8000
   image:
     repository: url-shortener-api
@@ -11,6 +12,17 @@ api:
     debug: 'false'
     enableFaultInjection: false
     maxFaultDelayMs: 2000
+  databasePool:
+    write:
+      size: 2
+      maxOverflow: 1
+    read:
+      size: 3
+      maxOverflow: 1
+    timeoutSeconds: 10
+  cacheConsistency:
+    # 실제 RDS ReplicaLag의 p99/p999를 관측한 뒤 조정한다.
+    replicaWindowSeconds: 60
   topologySpread:
     enabled: false
     whenUnsatisfiable: ScheduleAnyway
@@ -46,11 +58,11 @@ postgres:
 
 # ── Ingress 설정 ───────────────────────────────────────────
 ingress:
-  enabled: true
-  className: nginx
+  enabled: false # 기본 배포는 별도 url-shortener/k8s/traefik/ingress.yaml 사용
+  className: traefik # chart Ingress를 명시적으로 켤 때 사용할 컨트롤러
   host: url-shortener.local
   pathType: Prefix
-  annotations: {}
+  annotations: {} # 필요한 annotation만 명시; API 경로는 재작성하지 않음
   tls:
     enabled: false
     secretName: ""
@@ -98,3 +110,26 @@ redis:
 serviceMonitor:
   enabled: false
   interval: 30s
+
+# ── NetworkPolicy 설정 ─────────────────────────────────────────
+# 외부 시스템의 주소는 환경별 values에서 CIDR로 제공한다.
+networkPolicy:
+  enabled: false
+  traefik:
+    namespace: traefik
+    podSelector:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/instance: traefik-traefik
+  prometheus:
+    namespace: monitoring
+    podSelector:
+      app.kubernetes.io/name: prometheus
+  dns:
+    namespace: kube-system
+    podSelector:
+      k8s-app: kube-dns
+  externalEgress:
+    # RDS와 Redis가 있는 VPC 또는 subnet CIDR만 환경별 values에서 허용한다.
+    cidrs: []
+    postgresPort: 5432
+    redisPort: 6379

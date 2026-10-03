@@ -1,30 +1,26 @@
 # ── 베이스 이미지 ────────────────────────────────────
 # ---- stage 1: 빌드 단계 -------------------------------------------------------
-# python:3.11-slim : Python 3.11 이 설치된 경량(slim) Linux 이미지
-# slim 을 쓰는 이유: 불필요한 패키지가 없어 이미지 크기가 작고 보안에 유리하다고 함
-FROM python:3.11 AS builder
+# Python 3.11.16 builder/runtime 이미지를 tag와 digest로 고정한다.
+# runtime은 불필요한 패키지가 적은 slim 변형을 사용한다.
+FROM python:3.11.16@sha256:70e8e937c1da72df1688e883a2108b0feff03381187fa78eca6d9b10df411320 AS builder
 
 # ── 작업 디렉토리 설정 ──────────────────────────────
 # 이후 모든 명령(COPY, RUN, CMD)이 /build 경로에서 실행됨.
 WORKDIR /build
 
 # ── 패키지 목록 먼저 복사 (레이어 캐시 최적화) ──────
-# 코드보다 requirements.txt 를 먼저 복사하는 이유:
+# 코드보다 requirements.lock 을 먼저 복사하는 이유:
 # Docker 는 변경된 레이어부터 다시 빌드함.
 # 코드는 자주 바뀌지만 패키지 목록은 잘 안 바뀌므로,
-# requirements.txt 가 그대로면 pip install 단계를 건너뛰어 빌드가 빠름.
-COPY requirements.txt .
+# requirements.lock 이 그대로면 pip install 단계를 건너뛰어 빌드가 빠름.
+COPY requirements.lock .
 
 # ── 패키지 설치 ──────────────────────────────────────
 # --no-cache-dir: pip 캐시를 저장하지 않아 이미지 크기를 줄임.
-# RUN pip install --no-cache-dir -r requirements.txt # 현재 Python 환경(site-packages)에 직접 설치
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt # 패키지를 /install 디렉토리에 따로 설치
-# 개선:
-# RUN --mount=type=cache,target=/root/.cache/pip \
-#          pip install --no-cache-dir --target=/install -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes --prefix=/install -r requirements.lock # 잠긴 패키지를 /install 디렉토리에 따로 설치
 
 # ---- stage 2: 실행 단계 -------------------------------------------------------
-FROM python:3.11-slim
+FROM python:3.11.16-slim@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9
 WORKDIR /app
 # ── 애플리케이션 코드 복사 ──────────────────────────
 COPY --from=builder /install /usr/local

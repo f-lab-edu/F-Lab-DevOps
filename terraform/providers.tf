@@ -24,7 +24,8 @@
 
 ## --- 모듈 사용 ver.-------------------------
 terraform {
-  required_version = ">= 1.5.0"
+  # RDS 모듈·S3 native lockfile 요구 버전을 충족하며 .terraform-version과 일치시킨다.
+  required_version = "= 1.14.7"
 
   required_providers {
     aws = {

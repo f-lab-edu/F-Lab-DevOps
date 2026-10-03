@@ -14,6 +14,21 @@ on:
       - 'url-shortener/requirements.txt'
       - 'url-shortener/requirements.lock'
       - 'url-shortener/url-shortener-chart/**'
+  push:
+    branches:
+      - codex/ai-incident-copilot
+    paths:
+      - '.github/workflows/dependency-compatibility.yml'
+      - '.github/dependabot.yml'
+      - '.github/requirements-ci.txt'
+      - 'cluster-addons/**'
+      - 'terraform/**'
+      - 'url-shortener/Dockerfile'
+      - 'url-shortener/app/**'
+      - 'url-shortener/tests/**'
+      - 'url-shortener/requirements.txt'
+      - 'url-shortener/requirements.lock'
+      - 'url-shortener/url-shortener-chart/**'
 
 permissions:
   contents: read

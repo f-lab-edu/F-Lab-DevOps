@@ -58,6 +58,22 @@ class CacheConsistencyTest(unittest.TestCase):
 
         self.assertTrue(requires_primary_read(cache, marker_key))
 
+    def test_advance_generations_also_clears_legacy_cache_keys(self):
+        cache = FakeRedis()
+        cache.setex("item:42", 300, "old")
+        cache.setex("item:43", 300, "old")
+
+        advance_generations(
+            cache,
+            ("item:42:version", "item:43:version"),
+            ("item:42", "item:43"),
+        )
+
+        self.assertEqual(current_generation(cache, "item:42:version"), "1")
+        self.assertEqual(current_generation(cache, "item:43:version"), "1")
+        self.assertIsNone(cache.get("item:42"))
+        self.assertIsNone(cache.get("item:43"))
+
 
 if __name__ == "__main__":
     unittest.main()

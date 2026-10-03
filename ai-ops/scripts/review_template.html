@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>A7 · 독립 의미 검토</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; color: #203348; background: #f3f7fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { background: #17324d; color: #fff; padding: 26px max(24px, calc((100vw - 1360px) / 2)); }
+    h1 { margin: 0 0 8px; font-size: 1.9rem; }
+    h2 { margin: 0 0 12px; font-size: 1.2rem; }
+    h3 { margin: 0 0 8px; font-size: 1rem; }
+    p { line-height: 1.6; }
+    header p { margin: 0; color: #d9e9f6; }
+    main { max-width: 1408px; margin: auto; padding: 22px 24px 56px; }
+    .panel { background: #fff; border: 1px solid #d7e2ee; border-radius: 14px; padding: 20px; margin-bottom: 18px; box-shadow: 0 4px 14px #1930470a; }
+    .intro { border-left: 5px solid #087d84; }
+    .muted { color: #5b7187; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    .toolbar label { display: grid; gap: 5px; font-weight: 650; }
+    input[type="text"], select, textarea { font: inherit; color: inherit; border: 1px solid #a9bed2; border-radius: 8px; padding: 9px 11px; background: #fff; }
+    input[type="text"] { min-width: 220px; }
+    textarea { width: 100%; min-height: 84px; resize: vertical; }
+    button { font: inherit; border: 1px solid #2a618b; border-radius: 8px; background: #fff; color: #15507c; padding: 9px 13px; cursor: pointer; font-weight: 650; }
+    button:hover, button:focus-visible { background: #e8f4fd; }
+    button.primary { background: #0a7980; color: #fff; border-color: #0a7980; }
+    button.primary:hover, button.primary:focus-visible { background: #08676d; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .case-nav { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+    .case-nav select { min-width: 145px; }
+    .criteria { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .criterion { padding: 14px; background: #f1f7fb; border-radius: 10px; white-space: pre-wrap; line-height: 1.55; }
+    .evidence-list { display: grid; gap: 8px; max-height: 410px; overflow: auto; }
+    details { border: 1px solid #d4e0eb; border-radius: 9px; padding: 8px 12px; background: #fbfdff; }
+    summary { cursor: pointer; font-weight: 650; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0; font-size: .83rem; line-height: 1.5; }
+    .reports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .report { border-top: 5px solid #4d73b6; }
+    .report:nth-child(2) { border-top-color: #0e8583; }
+    .report-body { display: grid; gap: 12px; }
+    .report-section { border-top: 1px solid #e0e8f0; padding-top: 10px; }
+    .field-grid { display: grid; gap: 12px; margin-top: 18px; }
+    .field-grid label { display: grid; gap: 6px; font-weight: 620; }
+    .field-grid select { width: 100%; }
+    .attest { display: flex; gap: 9px; align-items: flex-start; margin: 12px 0; line-height: 1.5; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .status { min-height: 24px; color: #075d63; font-weight: 650; }
+    .warning { color: #9c392e; }
+    @media (max-width: 860px) { .reports, .criteria { grid-template-columns: 1fr; } }
+    @media print { header { background: #fff; color: #203348; } .toolbar, .case-nav, .actions { display: none; } .panel { box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>A7 독립 의미 검토</h1>
+    <p>합성 사건 16건 × 익명 보고서 A/B · 첫 반복만 검토</p>
+  </header>
+  <main>
+    <section class="panel intro" aria-label="검토 안내">
+      <h2>검토 방법</h2>
+      <p>각 사건의 증거와 고정된 판정 기준을 읽고 A·B 보고서를 각각 판단해 주세요. A/B 순서는 사건마다 섞여 있으며 방식 대응표와 기존 예비 판정은 이 화면에 없습니다. 보고서의 인용 ID가 존재하는지만 보지 말고, 인용한 내용이 해당 문장을 실제로 뒷받침하는지 확인해 주세요.</p>
+      <p class="muted">증거 부족 사건에서는 없는 값을 만들어내지 않고 판단을 유보했는지 평가합니다. 이 자료는 합성 저장 증거이며 실제 클러스터 상태를 뜻하지 않습니다. 검토 중에는 기존 A7 결과 화면이나 자체 검토 점수를 참고하지 않는 편이 좋습니다.</p>
+    </section>
+
+    <section class="panel" aria-label="검토자와 진행 상태">
+      <div class="toolbar">
+        <label>검토자 이름 또는 식별자 <input id="reviewer" type="text" autocomplete="name" placeholder="예: reviewer-01"></label>
+        <label>사건 이동 <select id="case-select"></select></label>
+        <strong id="progress" aria-live="polite"></strong>
+      </div>
+      <label class="attest"><input id="attestation" type="checkbox"> <span>저는 이 평가 자료와 보고서를 작성하지 않았으며, 원본 증거를 직접 대조해 판정했습니다.</span></label>
+      <div class="actions">
+        <button id="export-final" class="primary" type="button">완료 판정 JSON 저장</button>
+        <button id="export-draft" type="button">현재 초안 JSON 저장</button>
+        <label>초안 다시 열기 <input id="load-draft" type="file" accept="application/json,.json"></label>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </section>
+
+    <section class="panel" aria-label="사건 기준과 증거">
+      <div class="case-nav"><h2 id="case-title"></h2><div><button id="previous" type="button">이전 사건</button> <button id="next" type="button">다음 사건</button></div></div>
+      <div class="criteria" id="criteria"></div>
+      <h3 style="margin-top:18px">검증된 합성 증거</h3>
+      <div class="evidence-list" id="evidence"></div>
+    </section>
+
+    <div class="reports" id="reports" aria-label="익명 보고서 A와 B"></div>
+  </main>
+  <script type="application/json" id="review-data">__A7_REVIEW_DATA__</script>
+  <script>
+    "use strict";
+    const packet = JSON.parse(document.getElementById("review-data").textContent);
+    const storageKey = "a7-review:" + packet.package_id;
+    const state = {reviewer: "", independent_attestation: false, reviews: {}};
+    const byId = id => document.getElementById(id);
+    let index = 0;
+
+    function itemKey(caseId, alias) { return caseId + ":" + alias; }
+    function saveDraft() {
+      try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch (_) { /* 파일 브라우저에서 저장이 차단될 수 있다. */ }
+      updateProgress();
+    }
+    function completed(caseData, alias) {
+      const value = state.reviews[itemKey(caseData.case_id, alias)];
+      return !!value && (caseData.class !== "incident" || typeof value.top1_correct === "boolean") &&
+        typeof value.evidence_semantically_supported === "boolean" &&
+        typeof value.forbidden_claim_present === "boolean" &&
+        typeof value.note === "string" && value.note.trim().length > 0;
+    }
+    function updateProgress() {
+      const count = packet.cases.reduce((total, item) =>
+        total + ["A", "B"].filter(alias => completed(item, alias)).length, 0);
+      byId("progress").textContent = "완료 " + count + "/32";
+      byId("export-final").disabled = count !== 32 || !state.reviewer.trim() || !state.independent_attestation;
+    }
+    function node(tag, text, className) {
+      const element = document.createElement(tag);
+      if (text !== undefined) element.textContent = text;
+      if (className) element.className = className;
+      return element;
+    }
+    function pretty(value) { return JSON.stringify(value, null, 2); }
+    function criterion(title, body) {
+      const card = node("div", undefined, "criterion");
+      card.append(node("h3", title), node("div", body));
+      return card;
+    }
+    function choose(labelText, options, current, onChange) {
+      const label = node("label", labelText);
+      const select = node("select");
+      for (const [value, text] of options) {
+        const option = node("option", text);
+        option.value = value;
+        select.append(option);
+      }
+      select.value = current === null || current === undefined ? "" : String(current);
+      select.addEventListener("change", () => onChange(select.value === "" ? null : select.value === "true"));
+      label.append(select);
+      return label;
+    }
+    function reportSection(title, value) {
+      const section = node("section", undefined, "report-section");
+      section.append(node("h3", title), node("pre", pretty(value)));
+      return section;
+    }
+    function renderReport(caseData, report) {
+      const alias = report.alias;
+      const key = itemKey(caseData.case_id, alias);
+      const answer = state.reviews[key] || {top1_correct: null, evidence_semantically_supported: null,
+        forbidden_claim_present: null, note: ""};
+      const card = node("article", undefined, "panel report");
+      card.append(node("h2", "보고서 " + alias));
+      const body = node("div", undefined, "report-body");
+      body.append(reportSection("판단 상태", {diagnosis_status: report.diagnosis_status, current_state: report.current_state}));
+      body.append(reportSection("관측 사실", report.facts));
+      body.append(reportSection("원인 가설", report.hypotheses));
+      body.append(reportSection("부족한 증거", report.missing_evidence));
+      body.append(reportSection("추가 확인", report.recommended_checks));
+      body.append(reportSection("제안 조치와 한계", {suggested_actions: report.suggested_actions, limitations: report.limitations}));
+      card.append(body);
+      const form = node("div", undefined, "field-grid");
+      function set(field, value) {
+        state.reviews[key] = {...answer, ...state.reviews[key], [field]: value};
+        saveDraft();
+      }
+      if (caseData.class === "incident") {
+        form.append(choose("첫 원인 후보가 세부 기준에 맞나요?", [["", "판정 선택"], ["true", "맞음"], ["false", "틀림"]],
+          answer.top1_correct, value => set("top1_correct", value)));
+      } else {
+        set("top1_correct", null);
+        form.append(node("p", "Top-1 원인 점수: 적용 안 됨 (정상 또는 증거 부족)", "muted"));
+      }
+      form.append(choose("인용 문장 또는 판단 유보가 증거와 의미상 맞나요?", [["", "판정 선택"], ["true", "맞음"], ["false", "맞지 않음"]],
+        answer.evidence_semantically_supported, value => set("evidence_semantically_supported", value)));
+      form.append(choose("금지 주장이 보고서에 있나요?", [["", "판정 선택"], ["false", "없음"], ["true", "있음"]],
+        answer.forbidden_claim_present, value => set("forbidden_claim_present", value)));
+      const noteLabel = node("label", "원본 증거 ID와 해당 문장을 포함한 판정 이유");
+      const note = node("textarea");
+      note.value = answer.note || "";
+      note.placeholder = "예: 로그 e-01의 오류와 메트릭 e-02의 시각이 일치하지만 첫 가설은 다른 원인을 주장함";
+      note.addEventListener("input", () => set("note", note.value));
+      noteLabel.append(note);
+      form.append(noteLabel);
+      card.append(form);
+      return card;
+    }
+    function renderCase() {
+      const caseData = packet.cases[index];
+      byId("case-select").value = caseData.case_id;
+      byId("case-title").textContent = caseData.case_id + " · " + (index + 1) + "/16";
+      byId("previous").disabled = index === 0;
+      byId("next").disabled = index === packet.cases.length - 1;
+      const criteria = byId("criteria");
+      criteria.replaceChildren(
+        criterion("검토 유형", {incident: "장애", normal: "정상", insufficient: "증거 부족"}[caseData.class] || caseData.class),
+        criterion("첫 원인 후보 기준", caseData.class === "incident" ? caseData.top1_criterion : "적용 안 됨"),
+        criterion("금지 주장", caseData.forbidden_claim),
+        criterion("필수 증거 ID", caseData.required_evidence_ids.join(", ") || "없음"),
+      );
+      const evidence = byId("evidence");
+      evidence.replaceChildren();
+      for (const item of caseData.evidence) {
+        const details = node("details");
+        details.append(node("summary", item.evidence_id + " · " + item.status), node("pre", pretty(item)));
+        evidence.append(details);
+      }
+      byId("reports").replaceChildren(...caseData.reports.map(report => renderReport(caseData, report)));
+      updateProgress();
+    }
+    function exportData(final) {
+      if (final && byId("export-final").disabled) return;
+      const rows = [];
+      for (const item of packet.cases) for (const alias of ["A", "B"]) {
+        if (completed(item, alias)) rows.push({case_id: item.case_id, alias, ...state.reviews[itemKey(item.case_id, alias)]});
+      }
+      const output = {schema_version: 1, package_id: packet.package_id, suite_hash: packet.suite_hash,
+        reviewer: state.reviewer.trim(), independent_attestation: state.independent_attestation,
+        reviews: rows};
+      const url = URL.createObjectURL(new Blob([JSON.stringify(output, null, 2) + "\n"], {type: "application/json"}));
+      const link = node("a");
+      link.href = url;
+      link.download = "a7-v3-" + (final ? "review" : "draft") + "-" + packet.package_id + ".json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      byId("status").textContent = final ? "완료 판정 JSON을 저장했습니다. 검토자에게 전달해 채점에 사용하세요." : "현재 초안을 저장했습니다.";
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (saved && typeof saved === "object") Object.assign(state, saved);
+    } catch (_) { /* 저장소가 없는 파일 브라우저에서도 화면을 연다. */ }
+    byId("reviewer").value = state.reviewer || "";
+    byId("attestation").checked = !!state.independent_attestation;
+    for (const item of packet.cases) {
+      const option = node("option", item.case_id);
+      option.value = item.case_id;
+      byId("case-select").append(option);
+    }
+    byId("reviewer").addEventListener("input", event => { state.reviewer = event.target.value; saveDraft(); });
+    byId("attestation").addEventListener("change", event => { state.independent_attestation = event.target.checked; saveDraft(); });
+    byId("case-select").addEventListener("change", event => { index = packet.cases.findIndex(item => item.case_id === event.target.value); renderCase(); });
+    byId("previous").addEventListener("click", () => { index--; renderCase(); });
+    byId("next").addEventListener("click", () => { index++; renderCase(); });
+    byId("export-final").addEventListener("click", () => exportData(true));
+    byId("export-draft").addEventListener("click", () => exportData(false));
+    byId("load-draft").addEventListener("change", async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const draft = JSON.parse(await file.text());
+        if (draft.package_id !== packet.package_id || draft.suite_hash !== packet.suite_hash || !Array.isArray(draft.reviews)) {
+          throw new Error("다른 검토 패킷의 초안입니다");
+        }
+        state.reviewer = String(draft.reviewer || "");
+        state.independent_attestation = draft.independent_attestation === true;
+        state.reviews = {};
+        for (const row of draft.reviews) {
+          if (!packet.cases.some(item => item.case_id === row.case_id) || !["A", "B"].includes(row.alias)) continue;
+          state.reviews[itemKey(row.case_id, row.alias)] = row;
+        }
+        byId("reviewer").value = state.reviewer;
+        byId("attestation").checked = state.independent_attestation;
+        saveDraft();
+        renderCase();
+        byId("status").textContent = "초안을 불러왔습니다.";
+      } catch (error) {
+        byId("status").textContent = error.message;
+        byId("status").classList.add("warning");
+      }
+    });
+    renderCase();
+  </script>
+</body>
+</html>

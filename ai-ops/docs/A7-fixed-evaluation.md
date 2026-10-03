@@ -147,6 +147,10 @@ Python 3.14의 **새 잠금 의존성 환경(Pydantic 2.13.5)**에서도 로컬 
 
 사건별 판단 근거는 개인 저장소의 `a7-v3-fixed-self-review.json`, `a7-v3-ai-self-review.json`에 기록했고, 채점기를 적용한 `a7-v3-fixed-self-score.json`, `a7-v3-ai-self-score.json`에는 `non_independent_preliminary` 표기를 남겼다. 채점기에는 두 방식 모두 첫 반복 **16/48회 검토 진행**, 예비 Top-1 8/8로 표시되지만, 전체 48회 의미 정확도·금지 주장 합계는 여전히 **수동 검토 대기**다. 독립 검토자는 별도 빈 판정표로 같은 원본을 다시 판단해야 한다. 결과가 달라지면 차이를 기록하고 완료 기준을 재판정한다.
 
+### 독립 검토자에게 넘길 화면
+
+[`prepare_blind_review.py`](../scripts/prepare_blind_review.py)로 기존 두 검토 패킷을 대조해 첫 반복 **16사건 × 익명 A/B 보고서 2건**을 로컬 `ai-ops/site/a7-review.html`에 묶었다. 사건마다 A/B 순서를 섞었고, 방식 대응표는 저장소 밖 개인 경로의 `a7-v3-blind-review-map.json`에 권한 `0600`으로 분리했다. 화면에는 고정된 Top-1 기준과 금지 주장, 합성 증거, 보고서가 있으며 기존 자체 검토 점수는 없다. 검토 결과 JSON은 대응표·빈 검토표와 검증해 기존 [`score_holdout.py`](../scripts/score_holdout.py)의 방식별 `--review` 입력으로 변환할 수 있다. 실제 판정은 아직 받지 않았고, 이 도구 검증에 쓴 모의 판정은 파일로 저장하거나 성능 점수로 사용하지 않았다. [독립 검토 인계 안내](A7-independent-review.md)에 검토 절차·블라인드 범위·변환 명령을 적었다.
+
 ### 2026-10-03 원격 CI 확인
 
 현재 작업 브랜치 `codex/ai-incident-copilot`의 커밋 `caeba63`을 push한 뒤 [AI 전용 GitHub Actions 실행](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37116993482)의 `contracts` 작업이 **성공**했다. 이 실행에서 잠금 의존성 설치, Python 문법·CLI·자동 시험, 개발·v1·v2·v3 fixture 해시와 스키마 재생성 무변경 검사가 통과했다. 원격 CI는 실제 API 키나 라이브 EKS를 사용하지 않는다.

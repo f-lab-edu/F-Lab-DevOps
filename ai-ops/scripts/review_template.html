@@ -19,6 +19,14 @@
     .panel { background: #fff; border: 1px solid #d7e2ee; border-radius: 14px; padding: 20px; margin-bottom: 18px; box-shadow: 0 4px 14px #1930470a; }
     .intro { border-left: 5px solid #087d84; }
     .muted { color: #5b7187; }
+    .steps { margin: 12px 0 0; padding-left: 24px; line-height: 1.7; }
+    .steps li { padding-left: 4px; margin: 8px 0; }
+    .glossary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 22px; }
+    .glossary div { border-top: 1px solid #e0e8f0; padding-top: 9px; }
+    .glossary dt { font-weight: 700; }
+    .glossary dd { margin: 5px 0 0; line-height: 1.55; color: #425b72; }
+    .help { color: #50677e; font-size: .92rem; line-height: 1.55; margin: 5px 0 9px; }
+    .example { background: #eef7f5; border-radius: 9px; padding: 12px 14px; line-height: 1.55; }
     .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
     .toolbar label { display: grid; gap: 5px; font-weight: 650; }
     input[type="text"], select, textarea { font: inherit; color: inherit; border: 1px solid #a9bed2; border-radius: 8px; padding: 9px 11px; background: #fff; }
@@ -42,6 +50,12 @@
     .report:nth-child(2) { border-top-color: #0e8583; }
     .report-body { display: grid; gap: 12px; }
     .report-section { border-top: 1px solid #e0e8f0; padding-top: 10px; }
+    .report-section ul { margin: 8px 0 0; padding-left: 21px; line-height: 1.6; }
+    .report-section li { margin: 5px 0; }
+    .report-section p { margin: 6px 0; }
+    .evidence-meta { line-height: 1.55; margin: 9px 0; }
+    .evidence-meta strong { color: #244f70; }
+    .raw-data { margin-top: 10px; background: #f5f8fb; }
     .field-grid { display: grid; gap: 12px; margin-top: 18px; }
     .field-grid label { display: grid; gap: 6px; font-weight: 620; }
     .field-grid select { width: 100%; }
@@ -49,7 +63,7 @@
     .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .status { min-height: 24px; color: #075d63; font-weight: 650; }
     .warning { color: #9c392e; }
-    @media (max-width: 860px) { .reports, .criteria { grid-template-columns: 1fr; } }
+    @media (max-width: 860px) { .reports, .criteria, .glossary { grid-template-columns: 1fr; } }
     @media print { header { background: #fff; color: #203348; } .toolbar, .case-nav, .actions { display: none; } .panel { box-shadow: none; } }
   </style>
 </head>
@@ -60,12 +74,43 @@
   </header>
   <main>
     <section class="panel intro" aria-label="검토 안내">
-      <h2>검토 방법</h2>
-      <p>각 사건의 증거와 고정된 판정 기준을 읽고 A·B 보고서를 각각 판단해 주세요. A/B 순서는 사건마다 섞여 있으며 방식 대응표와 기존 예비 판정은 이 화면에 없습니다. 보고서의 인용 ID가 존재하는지만 보지 말고, 인용한 내용이 해당 문장을 실제로 뒷받침하는지 확인해 주세요.</p>
-      <p class="muted">증거 부족 사건에서는 없는 값을 만들어내지 않고 판단을 유보했는지 평가합니다. 이 자료는 합성 저장 증거이며 실제 클러스터 상태를 뜻하지 않습니다. 검토 중에는 기존 A7 결과 화면이나 자체 검토 점수를 참고하지 않는 편이 좋습니다.</p>
+      <h2>무엇을 하는 화면인가요?</h2>
+      <p>가상의 서비스 운영 상황 16개에 대해 AI가 쓴 설명문 두 개를 원본 자료와 비교하는 화면입니다. 한 상황을 여기서는 <strong>사건</strong>, 원본 자료를 <strong>증거</strong>, AI의 설명문을 <strong>보고서</strong>라고 부릅니다. 사건마다 보고서 A와 B를 <strong>각각</strong> 읽고, 내용이 맞는지 <strong>판정</strong>해 주세요. 총 32개 보고서를 검토합니다.</p>
+      <p class="muted">A/B는 조사 방식의 이름을 숨긴 표시입니다. 어느 쪽이 어떤 방식인지 알 필요가 없고, 둘 중 하나를 반드시 고를 필요도 없습니다. 두 보고서 모두 맞거나 모두 틀릴 수 있습니다. 이 자료는 실제 클러스터 장애가 아닌 합성 예시입니다.</p>
+      <h3>검토 순서</h3>
+      <ol class="steps">
+        <li><strong>사건 기준 읽기:</strong> 사건 번호와 유형(장애·정상·증거 부족)을 확인합니다. ‘첫 원인 후보 기준’은 장애 사건에서 기대하는 구체적 원인, ‘금지 주장’은 원본으로는 말할 수 없는 내용입니다.</li>
+        <li><strong>증거 열기:</strong> 각 자료의 출처·상태·관측 내용을 읽습니다. 보고서가 인용한 증거 ID를 찾아 실제 내용과 시각을 대조합니다. 자료가 없거나 접근 거부된 경우, 그 상태 자체를 확인하고 값을 0으로 간주하지 않습니다.</li>
+        <li><strong>보고서 A 판정:</strong> 판단 상태, 관측 사실, 첫 원인 가설, 한계와 제안을 읽습니다. 아래 세 질문에 답하고 어떤 문장과 증거를 비교했는지 이유를 적습니다.</li>
+        <li><strong>보고서 B도 별도로 판정:</strong> A와 독립적으로 같은 세 질문에 답합니다. 장애가 아닌 사건에는 첫 원인 후보 질문이 나오지 않습니다.</li>
+        <li><strong>다음 사건으로 이동:</strong> 16건을 마치고 ‘완료 32/32’를 확인합니다. 검토자 식별자와 독립 검토 확인을 입력한 뒤 ‘완료 판정 JSON 저장’을 누릅니다.</li>
+      </ol>
+      <p class="example"><strong>간단한 예:</strong> 원본 로그에 ‘인증 정보가 거부돼 캐시 읽기가 실패했다’고 적혀 있는데 보고서가 ‘Redis 전체가 중단됐다’고 단정하면, 인증 문제를 맞혔더라도 금지 주장에는 ‘있음’을 고릅니다. 인용 ID가 존재한다는 이유만으로 문장까지 맞는 것은 아닙니다.</p>
+      <p class="muted">검토 중에는 기존 A7 결과 화면이나 자체 검토 점수를 참고하지 마세요. 이미 보았다면 검토를 마칠 때 그 한계를 판정 이유나 별도 전달 메모에 밝혀 주세요.</p>
+    </section>
+
+    <section class="panel" aria-label="검토 용어 풀이">
+      <h2>부록 · 화면 용어 풀이</h2>
+      <dl class="glossary">
+        <div><dt>사건(case)</dt><dd>특정 서비스와 시간대를 잘라 만든 가상의 조사 문제 한 건입니다. case-01 같은 번호는 이름표일 뿐, 장애 종류를 뜻하지 않습니다.</dd></div>
+        <div><dt>증거(evidence)</dt><dd>그 시간대에 저장된 로그·지표·배포 기록 등 원본 자료입니다. ev-… ID는 보고서 문장과 원본을 연결하는 표식입니다.</dd></div>
+        <div><dt>보고서 A/B</dt><dd>동일한 사건을 서로 다른 AI 조사 방식으로 설명한 결과입니다. A/B 배정은 사건마다 섞이며 이 화면에는 방식 이름을 표시하지 않습니다.</dd></div>
+        <div><dt>판정</dt><dd>검토자가 보고서의 첫 원인, 근거 문장, 금지 주장을 원본 자료와 비교해 ‘맞음/틀림’ 또는 ‘있음/없음’을 고르는 일입니다. AI의 자기 평가가 아닙니다.</dd></div>
+        <div><dt>관측 사실 · 원인 가설</dt><dd>관측 사실은 원본에 기록된 내용, 원인 가설은 그 사실로 추론한 가능한 이유입니다. 가설은 사실이나 복구 완료 선언과 구분해야 합니다.</dd></div>
+        <div><dt>지표 · 로그 · 이벤트</dt><dd>지표는 횟수·시간 같은 수치 기록, 로그는 프로그램이 남긴 문장, 이벤트는 클러스터가 남긴 상태 변화 기록입니다. 설정 요약·배포 기록·워크로드 상태도 원본 자료의 종류입니다.</dd></div>
+        <div><dt>원인 판단 · 서비스 상태</dt><dd>원인 판단은 AI가 이유를 추정했는지, 장애를 확인하지 못했는지, 판단을 유보했는지를 뜻합니다. 서비스 상태는 영향 있음·정상·복구됨·알 수 없음 중 보고서가 기록한 값이며, 실제 현재 클러스터 상태와 같다는 보장은 없습니다.</dd></div>
+        <div><dt>첫 원인 후보(Top-1)</dt><dd>보고서 ‘원인 가설’의 맨 첫 항목입니다. 장애 사건에서만 화면의 구체적인 기준과 비교합니다. 첫 항목이 없거나 다른 원인이면 ‘틀림’입니다.</dd></div>
+        <div><dt>필수 증거 ID · 인용 ID</dt><dd>필수 증거 ID는 판단에 특히 중요한 자료의 표식입니다. 인용 ID는 보고서가 근거로 붙인 표식입니다. 번호가 같아도 문장 내용이 원본과 맞는지는 따로 살펴야 합니다.</dd></div>
+        <div><dt>증거 부족 · 판단 유보</dt><dd>자료가 없거나 오래됐거나 접근이 막혀 원인을 결정할 수 없는 상태입니다. ‘모르겠다’는 판단이 맞을 수 있으며, 없는 값은 0이나 정상으로 바꾸면 안 됩니다.</dd></div>
+        <div><dt>관측 시각 · 수집 시각</dt><dd>관측 시각은 실제 상태가 기록된 때, 수집 시각은 그 자료를 확보한 때입니다. 화면은 읽기 쉽게 KST를 표시하고, 원본 JSON의 Z는 UTC(+00:00), KST는 UTC+09:00입니다.</dd></div>
+        <div><dt>JSON · null · []</dt><dd>JSON은 기계가 읽는 자료 형식입니다. null은 값이 없다는 뜻이고 []는 목록에 항목이 없다는 뜻입니다. 둘 다 오류나 지표 값 0이라는 뜻은 아닙니다.</dd></div>
+        <div><dt>제안 조치</dt><dd>보고서가 나중에 확인하거나 수행하자고 제안한 일입니다. 이 평가에서 실제 서버를 바꾸거나 조치를 실행하지 않았습니다.</dd></div>
+      </dl>
     </section>
 
     <section class="panel" aria-label="검토자와 진행 상태">
+      <h2>검토자와 저장</h2>
+      <p class="help">식별자는 실명 대신 reviewer-01처럼 적어도 됩니다. 작성에 참여하지 않은 경우에만 독립 검토 확인을 선택하세요. 입력은 이 브라우저에 임시 저장되지만, 중간에는 ‘현재 초안 JSON 저장’으로 백업하는 편이 안전합니다. 화면이 갱신됐거나 새로고침해야 한다면 먼저 초안을 저장하세요. 파일을 다시 열 때는 같은 패킷의 초안만 불러올 수 있습니다.</p>
       <div class="toolbar">
         <label>검토자 이름 또는 식별자 <input id="reviewer" type="text" autocomplete="name" placeholder="예: reviewer-01"></label>
         <label>사건 이동 <select id="case-select"></select></label>
@@ -78,15 +123,18 @@
         <label>초안 다시 열기 <input id="load-draft" type="file" accept="application/json,.json"></label>
       </div>
       <p class="status" id="status" role="status"></p>
+      <p class="help">완료 파일은 브라우저의 다운로드 폴더에 저장됩니다. 이 파일을 평가 담당자에게 전달하면 A/B의 실제 방식 이름을 복원해 점수에 반영합니다. 화면 자체나 원본 JSON을 공개 웹사이트에 게시하지 마세요.</p>
     </section>
 
     <section class="panel" aria-label="사건 기준과 증거">
       <div class="case-nav"><h2 id="case-title"></h2><div><button id="previous" type="button">이전 사건</button> <button id="next" type="button">다음 사건</button></div></div>
       <div class="criteria" id="criteria"></div>
-      <h3 style="margin-top:18px">검증된 합성 증거</h3>
+      <h3 style="margin-top:18px">원본 자료(증거)</h3>
+      <p class="help">각 줄을 누르면 해당 자료의 내용이 열립니다. ‘사용 가능’인 자료의 실제 내용과 보고서의 인용 문장을 비교하세요. ‘누락·접근 거부·오래됨’은 왜 읽을 수 없는지를 나타냅니다. 자료 번호가 보고서에 적혀 있어도 문장의 뜻이 맞는지는 별도 확인이 필요합니다.</p>
       <div class="evidence-list" id="evidence"></div>
     </section>
 
+    <p class="help">아래 보고서 A와 B를 각각 채점합니다. 순서나 문체로 방식 이름을 추측해 점수를 바꾸지 마세요. 첫 원인 후보는 ‘원인 가설’의 첫 줄입니다.</p>
     <div class="reports" id="reports" aria-label="익명 보고서 A와 B"></div>
   </main>
   <script type="application/json" id="review-data">__A7_REVIEW_DATA__</script>
@@ -123,6 +171,25 @@
       return element;
     }
     function pretty(value) { return JSON.stringify(value, null, 2); }
+    const evidenceKinds = {metric: "지표", log: "로그", event: "이벤트", deployment: "배포 기록",
+      config_summary: "설정 요약", workload_status: "워크로드 상태"};
+    const evidenceStatuses = {available: "사용 가능", missing: "누락", permission_denied: "접근 거부", stale: "오래됨"};
+    const evidenceStatusHelp = {
+      available: "이 시간대의 내용을 보고서 문장과 직접 대조할 수 있습니다.",
+      missing: "수집하지 못한 자료입니다. 값이 0이거나 정상이라는 의미가 아닙니다.",
+      permission_denied: "접근 권한이 없어 내용을 읽지 못했습니다. 실제 상태는 알 수 없습니다.",
+      stale: "요청 시간대에 맞지 않는 오래된 자료입니다. 현재 상태의 근거로 사용하면 안 됩니다.",
+    };
+    const diagnosisNames = {suspected_cause: "원인 후보를 제시함", no_incident: "제공된 자료에서 장애를 확인하지 못함",
+      insufficient_evidence: "자료가 부족해 판단을 유보함"};
+    const stateNames = {affected: "영향 있음", healthy: "정상", recovered: "복구됨", unknown: "현재 상태를 알 수 없음"};
+    function kst(value) {
+      if (!value) return "기록 없음";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat("ko-KR", {timeZone: "Asia/Seoul", year: "numeric", month: "2-digit",
+        day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23"}).format(date) + " KST";
+    }
     function criterion(title, body) {
       const card = node("div", undefined, "criterion");
       card.append(node("h3", title), node("div", body));
@@ -141,10 +208,34 @@
       label.append(select);
       return label;
     }
-    function reportSection(title, value) {
+    function reportSection(title, help, items) {
       const section = node("section", undefined, "report-section");
-      section.append(node("h3", title), node("pre", pretty(value)));
+      section.append(node("h3", title), node("p", help, "help"));
+      if (!items.length) {
+        section.append(node("p", "보고서에 적힌 항목 없음. 원본 자료가 없다는 뜻은 아닙니다.", "muted"));
+      } else {
+        const list = node("ul");
+        for (const item of items) list.append(node("li", item));
+        section.append(list);
+      }
       return section;
+    }
+    function evidenceCard(item) {
+      const details = node("details");
+      details.append(node("summary", item.evidence_id + " · " + (evidenceKinds[item.kind] || item.kind) +
+        " · " + (evidenceStatuses[item.status] || item.status)));
+      details.append(node("p", "출처: " + item.source_ref + " · 관측: " + kst(item.observed_at) +
+        " · 수집: " + kst(item.collected_at), "evidence-meta"));
+      details.append(node("p", evidenceStatusHelp[item.status] || "자료 상태를 확인하세요.", "help"));
+      if (item.status === "available") {
+        details.append(node("strong", "실제 기록 내용"), node("pre", pretty(item.payload)));
+      } else {
+        details.append(node("p", "내용을 읽을 수 없는 이유: " + (item.missing_reason || "별도 설명 없음")));
+      }
+      const raw = node("details", undefined, "raw-data");
+      raw.append(node("summary", "기술 정보 전체(JSON) 보기"), node("pre", pretty(item)));
+      details.append(raw);
+      return details;
     }
     function renderReport(caseData, report) {
       const alias = report.alias;
@@ -152,15 +243,32 @@
       const answer = state.reviews[key] || {top1_correct: null, evidence_semantically_supported: null,
         forbidden_claim_present: null, note: ""};
       const card = node("article", undefined, "panel report");
-      card.append(node("h2", "보고서 " + alias));
+      card.append(node("h2", "보고서 " + alias),
+        node("p", "같은 사건을 설명한 AI 결과입니다. 이 보고서만 원본 자료와 비교해 판단하세요.", "help"));
       const body = node("div", undefined, "report-body");
-      body.append(reportSection("판단 상태", {diagnosis_status: report.diagnosis_status, current_state: report.current_state}));
-      body.append(reportSection("관측 사실", report.facts));
-      body.append(reportSection("원인 가설", report.hypotheses));
-      body.append(reportSection("부족한 증거", report.missing_evidence));
-      body.append(reportSection("추가 확인", report.recommended_checks));
-      body.append(reportSection("제안 조치와 한계", {suggested_actions: report.suggested_actions, limitations: report.limitations}));
+      body.append(reportSection("판단 상태", "AI가 원인을 추정했는지와 그 시간대 서비스 상태를 어떻게 적었는지 보여줍니다. ‘알 수 없음’은 장애라는 뜻이 아닙니다.", [
+        "원인 판단: " + (diagnosisNames[report.diagnosis_status] || report.diagnosis_status) + " (" + report.diagnosis_status + ")",
+        "서비스 상태: " + (stateNames[report.current_state] || report.current_state) + " (" + report.current_state + ")",
+      ]));
+      body.append(reportSection("관측 사실", "AI가 원본에서 읽었다고 적은 내용입니다. 각 문장에 붙은 증거 ID의 실제 내용·시각과 비교하세요.",
+        report.facts.map(fact => fact.statement + " [인용: " + fact.evidence_ids.join(", ") + "]")));
+      body.append(reportSection("원인 가설", "첫 줄이 첫 원인 후보(Top-1)입니다. 사실의 복사가 아니라 가능한 이유를 추론한 문장입니다. 지지·반박 증거를 함께 살펴보세요.",
+        report.hypotheses.map((hypothesis, position) => (position === 0 ? "첫 후보: " : "추가 후보: ") +
+          hypothesis.cause + " [지지: " + (hypothesis.supporting_evidence_ids.join(", ") || "없음") +
+          "; 반박: " + (hypothesis.contradicting_evidence_ids.join(", ") || "없음") + "]")));
+      body.append(reportSection("부족한 증거", "더 정확히 판단하려면 필요하지만 이 보고서가 확보하지 못했다고 적은 자료입니다. ‘항목 없음’은 자료가 충분하다는 보장이 아닙니다.",
+        report.missing_evidence.map(item => item.source + " — " + item.reason)));
+      body.append(reportSection("추가 확인", "사람에게 제안한 다음 확인 항목입니다. 실제로 수행했다는 뜻은 아닙니다.", report.recommended_checks));
+      body.append(reportSection("제안 조치", "수정·재시작 등의 제안입니다. 이 평가에서는 실제 조치를 실행하지 않았습니다.",
+        report.suggested_actions.map(item => item.description + " [실행 상태: " +
+          (item.execution_status === "not_executed" ? "실행 안 함" : item.execution_status) + "]")));
+      body.append(reportSection("한계", "AI가 확인할 수 없다고 인정한 범위입니다. 한계 문장에도 원본에 없는 단정이 없는지 읽어 보세요.", report.limitations));
+      const raw = node("details", undefined, "raw-data");
+      raw.append(node("summary", "이 보고서의 기술 정보 전체(JSON) 보기"), node("pre", pretty(report)));
+      body.append(raw);
       card.append(body);
+      card.append(node("h3", "이 보고서의 판정"));
+      card.append(node("p", "아래 질문은 보고서 A/B마다 따로 답합니다. 서로 비교해 상대적으로 더 나은 쪽을 고르는 투표가 아닙니다.", "help"));
       const form = node("div", undefined, "field-grid");
       function set(field, value) {
         state.reviews[key] = {...answer, ...state.reviews[key], [field]: value};
@@ -169,21 +277,25 @@
       if (caseData.class === "incident") {
         form.append(choose("첫 원인 후보가 세부 기준에 맞나요?", [["", "판정 선택"], ["true", "맞음"], ["false", "틀림"]],
           answer.top1_correct, value => set("top1_correct", value)));
+        form.append(node("p", "맨 위 ‘원인 가설’ 첫 줄을 위의 ‘첫 원인 후보 기준’과 비교합니다. 원인이 구체적으로 같으면 맞음, 첫 줄이 없거나 다른 원인이면 틀림입니다. 뒤의 가설이 맞아도 첫 후보 점수는 바뀌지 않습니다.", "help"));
       } else {
         set("top1_correct", null);
-        form.append(node("p", "Top-1 원인 점수: 적용 안 됨 (정상 또는 증거 부족)", "muted"));
+        form.append(node("p", "첫 원인 후보 판정은 적용되지 않습니다. 이 사건은 정상 또는 증거 부족 사례입니다.", "muted"));
       }
       form.append(choose("인용 문장 또는 판단 유보가 증거와 의미상 맞나요?", [["", "판정 선택"], ["true", "맞음"], ["false", "맞지 않음"]],
         answer.evidence_semantically_supported, value => set("evidence_semantically_supported", value)));
+      form.append(node("p", "보고서의 관측 사실·원인 가설과 인용된 원본 내용을 모두 비교합니다. 번호만 존재하거나 일부 문장만 맞는다면 ‘맞음’으로 처리하지 마세요. 증거 부족 사건은 없는 값을 만들지 않고 유보했는지 확인합니다. 진단 상태의 정답 일치와는 별개의 질문입니다.", "help"));
       form.append(choose("금지 주장이 보고서에 있나요?", [["", "판정 선택"], ["false", "없음"], ["true", "있음"]],
         answer.forbidden_claim_present, value => set("forbidden_claim_present", value)));
+      form.append(node("p", "위 ‘금지 주장’과 뜻이 같은 단정이 보고서 어디에든 있으면 ‘있음’을 고릅니다. 정확히 같은 단어가 아니어도 됩니다. ‘있음’은 보고서의 결함을 뜻합니다.", "help"));
       const noteLabel = node("label", "원본 증거 ID와 해당 문장을 포함한 판정 이유");
       const note = node("textarea");
       note.value = answer.note || "";
-      note.placeholder = "예: 로그 e-01의 오류와 메트릭 e-02의 시각이 일치하지만 첫 가설은 다른 원인을 주장함";
+      note.placeholder = "예: ev-w01-2 로그는 인증 거부와 DB 우회를 기록한다. 보고서의 첫 가설은 이를 인증 불일치로 설명해 맞지만, 전체 Redis 장애라는 문장은 원본에 없다.";
       note.addEventListener("input", () => set("note", note.value));
       noteLabel.append(note);
       form.append(noteLabel);
+      form.append(node("p", "맞다고 판정해도 이유를 적어야 합니다. 인용 가능한 자료가 전혀 없다면 누락·접근 거부·오래됨으로 표시된 ID와 보고서의 유보 문장을 적으세요.", "help"));
       card.append(form);
       return card;
     }
@@ -195,18 +307,15 @@
       byId("next").disabled = index === packet.cases.length - 1;
       const criteria = byId("criteria");
       criteria.replaceChildren(
-        criterion("검토 유형", {incident: "장애", normal: "정상", insufficient: "증거 부족"}[caseData.class] || caseData.class),
-        criterion("첫 원인 후보 기준", caseData.class === "incident" ? caseData.top1_criterion : "적용 안 됨"),
-        criterion("금지 주장", caseData.forbidden_claim),
-        criterion("필수 증거 ID", caseData.required_evidence_ids.join(", ") || "없음"),
+        criterion("사건 유형", {incident: "장애: 원인 후보를 살핍니다", normal: "정상: 근거 없이 장애로 단정하면 안 됩니다",
+          insufficient: "증거 부족: 판단을 유보해야 합니다"}[caseData.class] || caseData.class),
+        criterion("첫 원인 후보 기준(장애에만)", caseData.class === "incident" ? caseData.top1_criterion : "이 사건에는 적용되지 않습니다"),
+        criterion("하면 안 되는 주장", caseData.forbidden_claim),
+        criterion("중요한 원본 자료 ID", caseData.required_evidence_ids.join(", ") || "지정된 사용 가능 자료 없음"),
       );
       const evidence = byId("evidence");
       evidence.replaceChildren();
-      for (const item of caseData.evidence) {
-        const details = node("details");
-        details.append(node("summary", item.evidence_id + " · " + item.status), node("pre", pretty(item)));
-        evidence.append(details);
-      }
+      for (const item of caseData.evidence) evidence.append(evidenceCard(item));
       byId("reports").replaceChildren(...caseData.reports.map(report => renderReport(caseData, report)));
       updateProgress();
     }

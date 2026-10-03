@@ -149,7 +149,7 @@ Python 3.14의 **새 잠금 의존성 환경(Pydantic 2.13.5)**에서도 로컬 
 
 ### 독립 검토자에게 넘길 화면
 
-[`prepare_blind_review.py`](../scripts/prepare_blind_review.py)로 기존 두 검토 패킷을 대조해 첫 반복 **16사건 × 익명 A/B 보고서 2건**을 로컬 `ai-ops/site/a7-review.html`에 묶었다. 사건마다 A/B 순서를 섞었고, 방식 대응표는 저장소 밖 개인 경로의 `a7-v3-blind-review-map.json`에 권한 `0600`으로 분리했다. 화면에는 고정된 Top-1 기준과 금지 주장, 합성 증거, 보고서가 있으며 기존 자체 검토 점수는 없다. 검토 결과 JSON은 대응표·빈 검토표와 검증해 기존 [`score_holdout.py`](../scripts/score_holdout.py)의 방식별 `--review` 입력으로 변환할 수 있다. 실제 판정은 아직 받지 않았고, 이 도구 검증에 쓴 모의 판정은 파일로 저장하거나 성능 점수로 사용하지 않았다. [독립 검토 인계 안내](A7-independent-review.md)에 검토 절차·블라인드 범위·변환 명령을 적었다.
+[`prepare_blind_review.py`](../scripts/prepare_blind_review.py)로 기존 두 검토 패킷을 대조해 첫 반복 **16사건 × 익명 A/B 보고서 2건**을 로컬 `ai-ops/site/a7-review.html`에 묶었다. 사건마다 A/B 순서를 섞었고, 방식 대응표는 저장소 밖 개인 경로의 `a7-v3-blind-review-map.json`에 권한 `0600`으로 분리했다. 화면에는 고정된 Top-1 기준과 금지 주장, 합성 증거, 보고서가 있으며 기존 자체 검토 점수는 없다. 검토 결과 JSON은 대응표·빈 검토표와 검증해 기존 [`score_holdout.py`](../scripts/score_holdout.py)의 방식별 `--review` 입력으로 변환할 수 있다. 실제 판정은 아직 받지 않았고, 이 도구 검증에 쓴 모의 판정은 파일로 저장하거나 성능 점수로 사용하지 않았다. 검토 절차·블라인드 범위·변환 명령은 로컬 검토 화면의 오른쪽 안내 패널에 적었다.
 
 ### v3 비교 해석: 자동 판정으로 확인한 범위
 

@@ -13,7 +13,7 @@
 - [A5 ChatGPT Plus 비채택 검토 기록](docs/A5-plus-feasibility.md)
 - [A6 보고서·실패·보안 검증](docs/A6-report-failure-validation.md)
 - [A7 고정 평가 진행 기록](docs/A7-fixed-evaluation.md)
-- [A7 독립 의미 검토 인계 안내](docs/A7-independent-review.md)
+- [A7 독립 의미 검토 화면 템플릿](scripts/review_template.html) — 로컬 생성 화면 오른쪽 패널에 검토 절차와 결과 반영 안내 포함
 - [A0·A1 파일별 처리 흐름 이미지](docs/assets/ai-ops-a0-a1-flow.png)
 - [캐시 런북](runbooks/cache.md)
 - [DB 런북](runbooks/database.md)

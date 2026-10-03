@@ -17,6 +17,7 @@ on:
   push:
     branches:
       - codex/ai-incident-copilot
+      - codex/ci-c0-validation
     paths:
       - '.github/workflows/dependency-compatibility.yml'
       - '.github/dependabot.yml'

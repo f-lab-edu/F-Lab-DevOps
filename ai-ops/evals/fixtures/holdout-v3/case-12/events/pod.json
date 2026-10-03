@@ -1,0 +1,6 @@
+{
+  "reason": "Started",
+  "message": "container started after scheduled rolling upgrade",
+  "type": "Normal",
+  "involved_uid": "pod-w12"
+}

@@ -1,0 +1,6 @@
+{
+  "reason": "ErrImagePull",
+  "message": "registry manifest unknown: requested tag v12-no-tag was not found",
+  "type": "Warning",
+  "involved_uid": "pod-w03"
+}

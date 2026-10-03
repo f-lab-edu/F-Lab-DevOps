@@ -1,0 +1,6 @@
+{
+  "image": "registry.example.invalid/url-shortener:v8-stable",
+  "phase": "Running",
+  "ready": true,
+  "restarts": 0
+}

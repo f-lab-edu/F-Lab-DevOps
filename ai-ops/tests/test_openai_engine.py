@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from ai_ops.contracts import load_target_registry
 from ai_ops.incidents import IncidentStore, RunStopped
-from ai_ops.openai_engine import AIAnalysisError, AIConfig, _http_count_input_tokens, _http_post, _tools, analyze_ai
+from ai_ops.openai_engine import AIAnalysisError, AIConfig, OpenAISelectionModel, _http_count_input_tokens, _http_post, _tools, analyze_ai
 from ai_ops.replay_runner import TransientModelError
 
 
@@ -65,6 +65,15 @@ class OpenAIEngineTest(unittest.TestCase):
         tools = {tool["name"]: tool["parameters"]["properties"] for tool in _tools()}
         self.assertIn("cache_outcomes", tools["query_service_metrics"]["query_id"]["enum"])
         self.assertEqual(tools["get_pod_logs"]["container"]["enum"], ["all"])
+
+    def test_oversized_model_request_stops_before_transport(self):
+        sent = []
+        model = OpenAISelectionModel(AIConfig("size-test"), "fake-test-key",
+                                     transport=lambda *args: sent.append(args))
+        with self.assertRaisesRegex(AIAnalysisError, "model_input_too_large"):
+            model.next_action({"question": "가" * 40_000}, 5)
+        self.assertEqual(sent, [])
+        self.assertGreater(model.usage_summary()["max_request_bytes"], model.config.max_input_bytes)
 
     def test_input_token_count_uses_matching_request_fields(self):
         body = {"model": "gpt-6-sol", "input": "합성 요청", "instructions": "읽기 전용",
@@ -218,7 +227,9 @@ class OpenAIEngineTest(unittest.TestCase):
         self.assertIn("AI 조사에 실패", record.markdown)
         self.assertEqual(json.loads((self.store.root / record.incident_id / record.run_id /
                                      "tool-audit.json").read_text())["delivered_evidence_ids"], ["ev-s1-log"])
-        self.assertEqual(record.metadata["model_usage"], {
+        usage = dict(record.metadata["model_usage"])
+        self.assertGreater(usage.pop("max_request_bytes"), 0)
+        self.assertEqual(usage, {
             "request_attempts": 2, "usage_responses": 1, "input_tokens": 321,
             "output_tokens": 45, "estimated_known_cost_usd": 0.001092,
             "complete_for_attempts": False, "price_date": "2026-09-30",

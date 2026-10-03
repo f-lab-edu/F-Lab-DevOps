@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "target": {
+    "cluster_id": "practice-eks-example",
+    "namespace": "url-shortener",
+    "workload": "url-shortener-api",
+    "service": "url-shortener-svc",
+    "environment": "practice"
+  },
+  "window": {
+    "start": "2026-09-25T00:00:00Z",
+    "end": "2026-09-25T01:00:00Z"
+  },
+  "created_at": "2026-09-25T01:10:00Z",
+  "entries": [
+    {
+      "evidence_id": "ev-w15-1",
+      "kind": "metric",
+      "source_ref": "metrics/http.json",
+      "raw_sha256": null,
+      "observed_at": null,
+      "collected_at": "2026-09-25T09:26:00+09:00",
+      "status": "missing",
+      "missing_reason": "metrics scrape was denied for this observation window",
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v3",
+        "fixture_version": "3"
+      }
+    },
+    {
+      "evidence_id": "ev-w15-2",
+      "kind": "log",
+      "source_ref": "logs/app.log",
+      "raw_sha256": null,
+      "observed_at": null,
+      "collected_at": "2026-09-25T09:27:00+09:00",
+      "status": "permission_denied",
+      "missing_reason": "application log access was denied",
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v3",
+        "fixture_version": "3"
+      }
+    }
+  ]
+}

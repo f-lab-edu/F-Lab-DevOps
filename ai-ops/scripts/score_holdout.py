@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from statistics import median
 from pathlib import Path
 
-from ai_ops.contracts import load_target_registry
+from ai_ops.contracts import canonical_json_bytes, load_target_registry
 from ai_ops.evidence import load_evidence_bundle
 
 
@@ -16,17 +17,28 @@ SUITE = ROOT / "evals/fixtures/holdout/suite.json"
 RUBRIC = ROOT / "evals/rubrics/holdout/scenarios.json"
 
 
-def score(runs: dict, rubric: dict, suite: dict) -> dict:
+def score(runs: dict, rubric: dict, suite: dict, suite_path: Path = SUITE) -> dict:
     """정답이 필요한 채점은 실행 종료 후에만 수행한다."""
     if runs.get("suite_hash") != suite.get("suite_hash") or rubric.get("suite_id") != suite.get("suite_id"):
         raise ValueError("평가 실행과 정답표의 suite가 다릅니다")
+    if suite.get("suite_hash") != hashlib.sha256(
+            canonical_json_bytes({k: v for k, v in suite.items() if k != "suite_hash"})).hexdigest():
+        raise ValueError("평가 suite 해시가 바뀌었습니다")
+    if suite.get("suite_id") in ("a7-holdout-v2", "a7-holdout-v3") and "rubric_hash" not in rubric:
+        raise ValueError("평가 정답표 해시가 없습니다")
+    if "rubric_hash" in rubric and rubric["rubric_hash"] != hashlib.sha256(
+            canonical_json_bytes({k: v for k, v in rubric.items() if k != "rubric_hash"})).hexdigest():
+        raise ValueError("평가 정답표 해시가 바뀌었습니다")
     cases = {item["case_id"]: item for item in rubric["cases"]}
     if len(cases) != 16 or set(cases) != {item["case_id"] for item in suite["cases"]}:
         raise ValueError("정답표의 16개 사건이 suite와 다릅니다")
     registry = load_target_registry(ROOT / "config/targets.example.json")
     evidence_ids = {}
     for row in suite["cases"]:
-        bundle = load_evidence_bundle(SUITE.parent / row["bundle"], registry)
+        folder = (suite_path.parent / row["bundle"]).resolve()
+        if folder.parent != suite_path.parent.resolve():
+            raise ValueError("평가 입력 경로가 suite 밖을 가리킵니다")
+        bundle = load_evidence_bundle(folder, registry)
         if bundle.bundle_hash != row["input_hash"] or runs["input_hashes"].get(row["case_id"]) != bundle.bundle_hash:
             raise ValueError("평가 입력 해시가 바뀌었습니다")
         evidence_ids[row["case_id"]] = {item.evidence_id for item in bundle.evidence if item.status == "available"}
@@ -90,6 +102,18 @@ def score(runs: dict, rubric: dict, suite: dict) -> dict:
     ] if runs["repeats"] == 3 else []
     agreed = sum(len({row["diagnosis_status"] for row in rows if row["case_id"] == case_id}) == 1
                  for case_id in repeated)
+    def known_cost(run: dict) -> float:
+        usage = run.get("model_usage") or {}
+        for value in (usage.get("estimated_known_cost_usd"), usage.get("cost_usd"),
+                      ((run.get("report") or {}).get("execution") or {}).get("cost_usd")):
+            if value is not None:
+                return value
+        return 0
+
+    def cost_is_unknown(run: dict) -> bool:
+        usage = run.get("model_usage") or {}
+        return usage.get("request_attempts", 0) > usage.get("usage_responses", 0)
+
     return {
         "suite_id": suite["suite_id"], "suite_hash": suite["suite_hash"], "mode": runs["mode"],
         "expected_runs": 16 * runs["repeats"], "recorded_runs": len(rows),
@@ -103,16 +127,8 @@ def score(runs: dict, rubric: dict, suite: dict) -> dict:
         "required_evidence_passes": sum(row["required_ids_cited"] for row in completed_rows),
         "completed_runs": len(completed_rows),
         "median_wall_ms": median(row["wall_ms"] for row in completed_rows) if completed_rows else None,
-        "estimated_cost_usd": round(sum(
-            (run.get("model_usage") or {}).get("cost_usd") or
-            ((run.get("report") or {}).get("execution") or {}).get("cost_usd") or 0
-            for run in runs["results"]
-        ), 6),
-        "unknown_cost_attempts": sum(
-            (run.get("model_usage") or {}).get("request_attempts", 0) > 0 and
-            (run.get("model_usage") or {}).get("cost_usd") is None
-            for run in runs["results"]
-        ),
+        "estimated_cost_usd": round(sum(known_cost(run) for run in runs["results"]), 6),
+        "unknown_cost_attempts": sum(cost_is_unknown(run) for run in runs["results"]),
         "three_run_diagnosis_agreement": {"agree": agreed, "eligible": len(repeated)},
         "top1_score": "수동 검토 대기",
         "semantic_evidence_score": "수동 검토 대기",
@@ -172,13 +188,15 @@ def apply_manual_reviews(result: dict, reviews: dict) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="A7 정답표 기반 자동 채점과 수동 검토 목록")
     parser.add_argument("--runs", type=Path, required=True, help="run_holdout.py가 만든 저장소 밖 결과")
+    parser.add_argument("--suite", type=Path, default=SUITE, help="실행에 사용한 suite.json")
+    parser.add_argument("--rubric", type=Path, default=RUBRIC, help="해당 suite의 별도 채점 기준")
     parser.add_argument("--review", type=Path, help="선택: 사람이 원본과 대조해 채운 검토표 JSON")
     parser.add_argument("--output", type=Path, help="선택: 채점표 JSON 저장 경로")
     args = parser.parse_args()
     runs = json.loads(args.runs.read_text(encoding="utf-8"))
-    rubric = json.loads(RUBRIC.read_text(encoding="utf-8"))
-    suite = json.loads(SUITE.read_text(encoding="utf-8"))
-    result = score(runs, rubric, suite)
+    rubric = json.loads(args.rubric.read_text(encoding="utf-8"))
+    suite = json.loads(args.suite.read_text(encoding="utf-8"))
+    result = score(runs, rubric, suite, args.suite)
     if args.review:
         reviews = json.loads(args.review.read_text(encoding="utf-8"))
         result = apply_manual_reviews(result, reviews)

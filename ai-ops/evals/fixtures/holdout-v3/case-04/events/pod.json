@@ -1,0 +1,6 @@
+{
+  "reason": "ImagePullBackOff",
+  "message": "registry returned HTTP 503 Service Unavailable during image pull",
+  "type": "Warning",
+  "involved_uid": "pod-w04"
+}

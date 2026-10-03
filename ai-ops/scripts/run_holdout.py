@@ -18,7 +18,7 @@ from ai_ops.evidence import load_evidence_bundle
 from ai_ops.fixed_summary import FIXED_PROMPT_VERSION, analyze_fixed_summary
 from ai_ops.incidents import IncidentStore, RunStopped
 from ai_ops.openai_engine import (
-    AIConfig, MODEL, PRICE_DATE, PROMPT_VERSION, TOOL_VERSION, analyze_ai,
+    AIConfig, CONTEXT_VERSION, MODEL, PRICE_DATE, PROMPT_VERSION, TOOL_VERSION, analyze_ai,
     api_key_from_environment,
 )
 
@@ -28,8 +28,11 @@ REPO_ROOT = ROOT.parent
 SUITE_PATH = ROOT / "evals/fixtures/holdout/suite.json"
 REGISTRY_PATH = ROOT / "config/targets.example.json"
 QUESTION = "제공된 시간대의 서비스 상태와 가능한 원인을 근거·불확실성과 함께 설명해 주세요."
+EVAL_DAILY_BUDGET_USD = 10.0
+MAX_EVAL_DAILY_BUDGET_USD = 30.0
 STOP_REASONS = {
     "daily_budget_limit", "model_http_401", "model_http_403",
+    "model_input_too_large",
     "model_credit_balance_exhausted", "model_insufficient_quota",
     "model_organization_spend_limit_exceeded", "model_project_spend_limit_exceeded",
     "model_organization_usage_limit_exceeded",
@@ -40,9 +43,9 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _load_suite() -> dict:
-    suite = json.loads(SUITE_PATH.read_text(encoding="utf-8"))
-    if suite.get("schema_version") != 1 or suite.get("suite_id") != "a7-holdout-v1":
+def _load_suite(path: Path = SUITE_PATH) -> dict:
+    suite = json.loads(path.read_text(encoding="utf-8"))
+    if suite.get("schema_version") != 1 or suite.get("suite_id") not in ("a7-holdout-v1", "a7-holdout-v2", "a7-holdout-v3"):
         raise ValueError("평가 suite 버전이 다릅니다")
     expected = hashlib.sha256(canonical_json_bytes({k: v for k, v in suite.items() if k != "suite_hash"})).hexdigest()
     if suite.get("suite_hash") != expected or len(suite.get("cases", [])) != 16:
@@ -85,32 +88,57 @@ def _daily_budget_available(store: IncidentStore, config: AIConfig) -> bool:
     return spent + config.per_case_usd <= config.per_day_usd + 1e-9
 
 
+def _request_id(mode: str, case_id: str, repeat: int, attempt: int,
+                suite_id: str = "a7-holdout-v1") -> str:
+    """입력 구성 변경 뒤 이전 사건을 재조회하지 않도록 버전을 ID에 넣는다."""
+    version = f"-{CONTEXT_VERSION}" if mode == "ai" else "-fixed-v2" if mode == "fixed" else ""
+    suite_version = "-v3" if suite_id == "a7-holdout-v3" else "-v2" if suite_id == "a7-holdout-v2" else ""
+    return f"a7{suite_version}-{mode}{version}-{case_id}-r{repeat}-a{attempt}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="A7 고정 입력 조사 실행; 정답표를 읽지 않는다")
     parser.add_argument("--mode", choices=("rules", "fixed", "ai"), default="rules")
+    parser.add_argument("--suite", type=Path, default=SUITE_PATH,
+                        help="고정 입력 suite.json; 기본값은 기존 v1")
+    parser.add_argument("--case", action="append", dest="case_ids", help="이번 호출에서 실행할 case ID; 여러 번 지정 가능")
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--max-new-runs", type=int, default=None)
+    parser.add_argument("--daily-budget-usd", type=float, default=EVAL_DAILY_BUDGET_USD,
+                        help="A7 평가 전용 UTC 일일 선예약 한도; 기본 $10, 최대 $30")
     parser.add_argument("--store", type=Path, default=DEFAULT_STORE)
     parser.add_argument("--result", type=Path, default=None)
     args = parser.parse_args()
     if not 1 <= args.repeats <= 3 or args.max_new_runs is not None and args.max_new_runs < 1:
         parser.error("반복 횟수는 1~3, 새 실행 상한은 양수여야 합니다")
-    suite = _load_suite()
+    if not math.isfinite(args.daily_budget_usd) or not 0.10 <= args.daily_budget_usd <= MAX_EVAL_DAILY_BUDGET_USD:
+        parser.error("A7 UTC 일일 선예약 한도는 $0.10~$30여야 합니다")
+    suite_path = args.suite.resolve()
+    suite = _load_suite(suite_path)
+    known_cases = {row["case_id"] for row in suite["cases"]}
+    selected_cases = set(args.case_ids) if args.case_ids else known_cases
+    if not selected_cases <= known_cases:
+        parser.error("--case에는 suite에 등록된 사건 ID만 사용할 수 있습니다")
     registry = load_target_registry(REGISTRY_PATH)
     bundles = {}
     for row in suite["cases"]:
-        folder = SUITE_PATH.parent / row["bundle"]
-        if folder.parent != SUITE_PATH.parent or _sha(folder / "manifest.json") != row["manifest_sha256"]:
+        folder = (suite_path.parent / row["bundle"]).resolve()
+        if folder.parent != suite_path.parent or _sha(folder / "manifest.json") != row["manifest_sha256"]:
             raise ValueError(f"평가 원본 manifest가 바뀌었습니다: {row['case_id']}")
         bundle = load_evidence_bundle(folder, registry)
         if bundle.bundle_hash != row["input_hash"]:
             raise ValueError(f"평가 입력 해시가 바뀌었습니다: {row['case_id']}")
         bundles[row["case_id"]] = folder
     store = IncidentStore(args.store)
-    result_path = args.result or store.root / f"a7-{args.mode}-results.json"
+    suite_prefix = "a7-v3" if suite["suite_id"] == "a7-holdout-v3" else "a7-v2" if suite["suite_id"] == "a7-holdout-v2" else "a7"
+    result_name = (f"{suite_prefix}-ai-{CONTEXT_VERSION}-results.json" if args.mode == "ai"
+                   else f"{suite_prefix}-fixed-prompt-v2-results.json" if args.mode == "fixed"
+                   else f"{suite_prefix}-{args.mode}-results.json")
+    result_path = args.result or store.root / result_name
     if result_path.is_symlink():
         raise ValueError("평가 결과 파일은 symlink일 수 없습니다")
-    config = AIConfig(account_label="personal-openai") if args.mode != "rules" else None
+    config = (AIConfig(account_label="personal-openai", per_day_usd=args.daily_budget_usd)
+              if args.mode != "rules" else None)
     api_key = (api_key_from_environment() or store.load_api_key()) if config else ""
     if config and not api_key:
         raise ValueError("AI 실행에는 개인 저장소 또는 환경변수의 API 키가 필요합니다")
@@ -125,28 +153,35 @@ def main() -> None:
         "input_hashes": {row["case_id"]: row["input_hash"] for row in suite["cases"]},
         "results": [],
     }
+    if args.mode == "ai":
+        header["context_version"] = CONTEXT_VERSION
     if result_path.exists():
         existing = json.loads(result_path.read_text(encoding="utf-8"))
-        if {k: v for k, v in existing.items() if k != "results"} != {k: v for k, v in header.items() if k != "results"}:
+        fixed_settings = lambda value: {k: v for k, v in value.items() if k not in ("results", "repeats")}
+        if (fixed_settings(existing) != fixed_settings(header) or
+                type(existing.get("repeats")) is not int or not 1 <= existing["repeats"] <= args.repeats):
             raise ValueError("기존 평가 실행의 고정 설정이 현재와 다릅니다")
         header = existing
+        header["repeats"] = args.repeats
     completed = {(row["case_id"], row["repeat"]) for row in header["results"]
                  if row["status"] == "completed"}
     new_runs = 0
     for row in suite["cases"]:
         case_id = row["case_id"]
+        if case_id not in selected_cases:
+            continue
         for repeat in range(1, args.repeats + 1):
             if (case_id, repeat) in completed:
                 continue
-            if config and not _daily_budget_available(store, config):
-                print("UTC 일일 AI 예산이 부족해 새 사건을 만들지 않고 중지했습니다")
-                return
             if args.max_new_runs is not None and new_runs >= args.max_new_runs:
                 print(f"설정한 새 실행 상한 {args.max_new_runs}건에 도달했습니다")
                 return
+            if config and not _daily_budget_available(store, config):
+                print("UTC 일일 AI 예산이 부족해 새 사건을 만들지 않고 중지했습니다")
+                return
             attempt = 1 + sum(row["case_id"] == case_id and row["repeat"] == repeat
                               for row in header["results"])
-            request_id = f"a7-{args.mode}-{case_id}-r{repeat}-a{attempt}"
+            request_id = _request_id(args.mode, case_id, repeat, attempt, suite["suite_id"])
             started = time.perf_counter()
             try:
                 if args.mode == "ai":
@@ -183,7 +218,7 @@ def main() -> None:
             new_runs += 1
             print(f"{case_id} #{repeat}: {result['status']} ({result['failure_reason'] or 'ok'})")
             if config and result["failure_reason"] in STOP_REASONS:
-                print("API 인증·할당량·일일 예산 문제로 유료 평가를 중지했습니다")
+                print("API 인증·할당량·예산 또는 고정 입력 한도 문제로 유료 평가를 중지했습니다")
                 return
     print(f"평가 실행 기록: {result_path}")
 

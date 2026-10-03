@@ -1,0 +1,16 @@
+{
+  "query_id": "cache_outcomes",
+  "unit": "requests",
+  "samples": [
+    {
+      "at": "2026-09-19T00:26:00Z",
+      "outcome": "miss",
+      "value": 5
+    },
+    {
+      "at": "2026-09-19T00:26:00Z",
+      "outcome": "error",
+      "value": 0
+    }
+  ]
+}

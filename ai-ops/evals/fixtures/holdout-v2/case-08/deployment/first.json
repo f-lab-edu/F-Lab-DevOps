@@ -1,0 +1,7 @@
+{
+  "image": "registry.example.invalid/url-shortener:v9-regression",
+  "source_sha": "0000000000000000000000000000000000000008",
+  "gitops_revision": "5555555555555555555555555555555555555555",
+  "ci_run_id": "holdout-v2-08",
+  "status": "failed"
+}

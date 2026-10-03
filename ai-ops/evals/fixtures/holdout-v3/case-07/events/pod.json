@@ -1,0 +1,6 @@
+{
+  "reason": "Unhealthy",
+  "message": "new revision readiness endpoint returned HTTP 503",
+  "type": "Warning",
+  "involved_uid": "pod-w07"
+}

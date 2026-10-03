@@ -23,6 +23,7 @@ from ai_ops.reports import validate_report
 
 MODEL = "gpt-6-sol"
 PROMPT_VERSION = "a5-v3"
+CONTEXT_VERSION = "a5-context-v2"
 PRICE_DATE = "2026-09-30"
 INPUT_USD_PER_MILLION = 2.0
 OUTPUT_USD_PER_MILLION = 10.0
@@ -47,7 +48,7 @@ class AIConfig:
     account_label: str
     per_case_usd: float = 0.10
     per_day_usd: float = 1.0
-    max_input_bytes: int = 16_000
+    max_input_bytes: int = 32_000
     max_output_tokens: int = 1_024
     max_response_calls: int = 5
 
@@ -196,10 +197,13 @@ class OpenAISelectionModel:
         self.calls = self.input_tokens = self.output_tokens = self.usage_responses = 0
         self.reserved_usd = 0.0
         self.actual_cost_usd = 0.0
+        self.max_request_bytes = 0
         self.response_model: str | None = None
         self.conversation: list[dict[str, Any]] = []
         self.pending_output: list[dict[str, Any]] | None = None
         self.pending_call_id: str | None = None
+        self.sent_evidence_ids: set[str] = set()
+        self.sent_runbook_ids: set[str] = set()
 
     def usage_summary(self) -> dict[str, Any]:
         """실패해도 이미 받은 usage만 추정하고 불명확한 호출은 0으로 간주하지 않는다."""
@@ -210,6 +214,7 @@ class OpenAISelectionModel:
             "output_tokens": self.output_tokens if self.usage_responses else None,
             "estimated_known_cost_usd": round(self.actual_cost_usd, 6) if self.usage_responses else None,
             "complete_for_attempts": self.usage_responses == self.calls,
+            "max_request_bytes": self.max_request_bytes,
             "price_date": PRICE_DATE,
         }
 
@@ -231,13 +236,19 @@ class OpenAISelectionModel:
         if not self.conversation:
             self.conversation.append({"role": "user", "content": json.dumps(view, ensure_ascii=False, separators=(",", ":"))})
         elif self.pending_output is not None and self.pending_call_id is not None:
+            new_evidence = [item for item in view["provided_evidence"]
+                            if item["evidence_id"] not in self.sent_evidence_ids]
+            new_runbooks = [item for item in view["provided_runbooks"]
+                            if item["document_id"] not in self.sent_runbook_ids]
             self.conversation.extend(self.pending_output)
             self.conversation.append({"type": "function_call_output", "call_id": self.pending_call_id,
                                       "output": json.dumps({
                                           "last_result": view["last_result"],
-                                          "provided_evidence": view["provided_evidence"],
-                                          "provided_runbooks": view["provided_runbooks"],
+                                          "provided_evidence": new_evidence,
+                                          "provided_runbooks": new_runbooks,
                                       }, ensure_ascii=False, separators=(",", ":"))})
+            self.sent_evidence_ids.update(item["evidence_id"] for item in new_evidence)
+            self.sent_runbook_ids.update(item["document_id"] for item in new_runbooks)
             self.pending_output = None
             self.pending_call_id = None
         body = {
@@ -250,6 +261,7 @@ class OpenAISelectionModel:
             "max_output_tokens": self.config.max_output_tokens,
         }
         size = len(canonical_json_bytes(body))
+        self.max_request_bytes = max(self.max_request_bytes, size)
         if size > self.config.max_input_bytes:
             raise AIAnalysisError("model_input_too_large")
         input_tokens = self.token_counter(body, self.api_key, timeout_seconds) if self.token_counter else size

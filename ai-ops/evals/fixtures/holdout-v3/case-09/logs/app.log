@@ -1,0 +1,1 @@
+first read after short-link registration missed cache, returned target from database, and warmed the entry

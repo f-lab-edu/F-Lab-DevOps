@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "target": {
+    "cluster_id": "practice-eks-example",
+    "namespace": "url-shortener",
+    "workload": "url-shortener-api",
+    "service": "url-shortener-svc",
+    "environment": "practice"
+  },
+  "window": {
+    "start": "2026-09-08T00:00:00Z",
+    "end": "2026-09-08T01:00:00Z"
+  },
+  "created_at": "2026-09-08T01:10:00Z",
+  "entries": [
+    {
+      "evidence_id": "ev-v08-1",
+      "kind": "deployment",
+      "source_ref": "deployment/first.json",
+      "raw_sha256": "b8766a1f44225bd53b46cf9e75215f147b4b6eca01d39302abdc4b3c6b51cbe7",
+      "observed_at": "2026-09-08T09:14:00+09:00",
+      "collected_at": "2026-09-08T00:15:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v2",
+        "fixture_version": "2"
+      }
+    },
+    {
+      "evidence_id": "ev-v08-2",
+      "kind": "deployment",
+      "source_ref": "deployment/second.json",
+      "raw_sha256": "7163920c2df71bad7cee543e69c5ff16dddc394a53e45b2f689174084f76a8ae",
+      "observed_at": "2026-09-08T09:42:00+09:00",
+      "collected_at": "2026-09-08T00:43:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v2",
+        "fixture_version": "2"
+      }
+    },
+    {
+      "evidence_id": "ev-v08-3",
+      "kind": "workload_status",
+      "source_ref": "workload/status.json",
+      "raw_sha256": "145288f9c0baf829b315bff71d08408ca4948d7aeb07853d65d12c3b4eae1eb6",
+      "observed_at": "2026-09-08T09:44:00+09:00",
+      "collected_at": "2026-09-08T00:45:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v2",
+        "fixture_version": "2"
+      }
+    }
+  ]
+}

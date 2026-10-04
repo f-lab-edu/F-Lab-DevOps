@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://aws.github.io/eks-charts   # ALB Controller Helm 레포
     chart: aws-load-balancer-controller
-    targetRevision: 1.14.x # Helm Chart Version.
+    targetRevision: 1.14.1 # Helm chart version
     helm:
       values: |
         clusterName: urlshortener

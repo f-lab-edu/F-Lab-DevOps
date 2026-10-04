@@ -54,7 +54,7 @@
 # EBS CSI Driver IRSA — terraform-aws-modules/iam 서브모듈 사용
 module "ebs_csi_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "~> 6.0"
+  version = "6.4.0"
 
   name = "${var.project_name}-ebs-csi-role"
 

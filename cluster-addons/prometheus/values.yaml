@@ -13,7 +13,7 @@ prometheus:
 
     # 메트릭 보관 기간 및 용량 상한
     retention: 7d
-    retentionSize: "40Gi"   # 50Gi PVC 기준 디스크 풀 방지를 위한 여유 공간 확보
+    retentionSize: "40GiB"  # 50Gi PVC 기준 디스크 풀 방지를 위한 여유 공간 확보
 
     # EBS PVC 기반 영구 저장소
     storageSpec:

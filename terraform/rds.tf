@@ -150,6 +150,10 @@ module "rds_replica" {
   instance_class = "db.t3.micro"
   storage_type   = "gp3"
 
+  # Replica의 실제 운영 정책을 명시해 Primary와 동일한 인증·용량 확장 기준을 유지한다.
+  iam_database_authentication_enabled = true
+  max_allocated_storage               = 100
+
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   # Replica도 동일 VPC(private subnet)에서 Subnet Group을 명시적으로 생성/사용

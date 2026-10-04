@@ -10,8 +10,8 @@ AWS 리전: ap-northeast-2
 
 - 이번 개선 사항이 포함된 PR의 병합 대상은 main이다. 운영 CI/CD는 main push 중 url-shortener/app/**, Dockerfile, requirements.txt, requirements.lock 변경이 있을 때 실행된다. 이번 개선 PR에는 이 경로의 변경이 있다.
 - Argo CD의 애플리케이션, Traefik 라우팅, Prometheus values는 main을 추적한다. 병합 전에는 이전 main의 내용이 반영될 수 있다. 새 코드의 검증 완료 판정은 병합 후에 한다.
-- GitHub 저장소의 Actions 권한과 main 보호 규칙이 CI의 values.prod.yaml 커밋·push를 허용하는지 확인한다.
-- GitHub Actions 변수 ARGOCD_SERVER와 비밀값 ARGOCD_AUTH_TOKEN을 준비한다. ARGOCD_SERVER는 아래에서 만드는 https://argocd.bidservice.store를 사용한다. 현재 argocd-ingress.yaml은 공개 HTTP ALB이므로 이 주소를 토큰 전달용으로 사용하지 않는다. HTTPS 인증서가 준비되지 않았다면 main 병합 전 배포 검증 단계는 실행할 준비가 되지 않은 것이다. Argo CD 토큰은 이 애플리케이션의 상태 조회에 필요한 권한만 부여하고 GitHub Actions Secret으로 저장한다.
+- CI의 values.prod.yaml 커밋·push에는 워크플로의 `contents: write` 권한이 필요하다. 현재 main 직접 push 제한 규칙은 제거됐으므로 별도 우회 설정은 필요하지 않다.
+- ARGOCD_AUTH_TOKEN은 Argo CD를 설치한 뒤 발급한다. 먼저 이 문서의 Argo CD·Traefik·DNS·HTTPS 인증서 설치를 진행하고, 8절에서 GitHub Actions 변수 ARGOCD_SERVER와 Secret ARGOCD_AUTH_TOKEN을 설정한다. 현재 argocd-ingress.yaml은 공개 HTTP ALB이므로 토큰 전달용으로 사용하지 않는다. Argo CD 토큰에는 이 애플리케이션의 상태 조회 권한만 부여한다.
 - 배포 검증은 클러스터 내부 PostSync Job이 /readyz와 /items를 호출한다. GitHub 러너가 IP 제한된 api.bidservice.store에 접근할 필요가 없고 SMOKE_TEST_BASE_URL도 사용하지 않는다.
 - 첫 배포에서 ECR에 이전 이미지가 없어도 빌드와 배포를 시도한다. 실패하면 존재하지 않는 태그로 롤백하지 않고 CI를 실패로 표시한다. 이전 이미지가 있을 때만 GitOps 롤백을 수행한다.
 
@@ -187,6 +187,19 @@ curl -fsS -o /dev/null -w '%{http_code}\n' https://argocd.bidservice.store/
 
 이 Ingress는 인터넷에서 HTTPS로 접속할 수 있다. 관리 UI 접근 제한은 별도로 설계해야 하며, 기존 HTTP ALB Ingress가 남아 있는 환경에서는 해당 Ingress도 제거한다.
 
+Argo CD와 HTTPS 경로가 준비되면 관리자 자격으로 CLI에 로그인해 CI 전용 읽기 역할의 토큰을 발급한다. 토큰은 명령 출력이나 파일에 남기지 않고 GitHub Actions Secret으로 바로 전달한다. 아래 예시는 30일 만료 토큰이므로 만료 전에 교체한다. 클러스터를 다시 만들면 역할도 다시 생성한다.
+
+~~~bash
+set -o pipefail
+argocd login argocd.bidservice.store --grpc-web
+argocd proj role create default ci-read
+argocd proj role add-policy default ci-read --resource applications --action get --object url-shortener --permission allow
+argocd proj role create-token default ci-read --expires-in 720h --token-only | gh secret set ARGOCD_AUTH_TOKEN --repo f-lab-edu/F-Lab-DevOps
+gh variable set ARGOCD_SERVER --body https://argocd.bidservice.store --repo f-lab-edu/F-Lab-DevOps
+~~~
+
+CLI에는 Argo CD 로그인과 GitHub CLI 인증이 필요하다. 이미 `ci-read` 역할이 있다면 생성 명령을 다시 실행하지 말고 현재 권한을 확인한다. GitHub Secret의 값은 다시 조회할 수 없으며, 토큰의 실제 유효성은 배포 검증 단계에서 확인한다.
+
 ## 10. main 병합과 첫 배포
 
 1. PR의 변경 파일에 url-shortener/app/**, Dockerfile, requirements.txt, requirements.lock 중 하나가 포함됐는지 확인한다. 이번 개선 PR에는 포함돼 있다.
@@ -195,6 +208,8 @@ curl -fsS -o /dev/null -w '%{http_code}\n' https://argocd.bidservice.store/
 4. Actions에서 이미지 빌드·ECR push·values.prod.yaml 커밋, Argo CD 동기화, 클러스터 내부 PostSync Job 완료를 확인한다.
 5. 첫 배포 전에 이전 ECR 이미지가 없었다면 실패 시 자동 롤백은 건너뛰며 원인을 수동으로 조사한다. 이전 이미지가 있으면 이전 태그로 GitOps 롤백하고 복구를 검증한다.
 6. Actions의 GITHUB_TOKEN이 만든 태그 커밋은 새 배포 실행을 다시 만들지 않는다.
+
+이미 main에 병합돼 CI가 이미지 태그를 Git에 기록했다면 새 병합은 필요하지 않다. 먼저 ECR에 `values.prod.yaml`의 태그가 있는지 확인하고 나머지 리소스를 설치한다. Argo CD가 현재 main을 동기화하고 PostSync Job이 성공하면 실제 배포 상태를 확인할 수 있다. 기존 워크플로 실행을 그대로 재실행하면 ECR의 변경 불가 이미지 태그와 충돌할 수 있으므로, 실패한 실행의 재시도와 실제 배포 검증을 구분한다.
 
 ~~~bash
 kubectl get application url-shortener -n argocd

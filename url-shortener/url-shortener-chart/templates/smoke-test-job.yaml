@@ -1,0 +1,42 @@
+{{- if .Values.api.smokeTest.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-smoke-test
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  activeDeadlineSeconds: 180
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-smoke-test
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: smoke-test
+          image: {{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command:
+            - python
+            - -c
+            - |
+              import json
+              from urllib.request import urlopen
+
+              base = "http://{{ .Release.Name }}-svc.{{ .Release.Namespace }}.svc.cluster.local"
+              with urlopen(base + "/readyz", timeout=10) as response:
+                  assert json.load(response).get("status") == "ready"
+              with urlopen(base + "/items", timeout=10) as response:
+                  assert isinstance(json.load(response), list)
+              print("클러스터 내부 /readyz 및 /items 검증을 통과했습니다")
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+{{- end }}

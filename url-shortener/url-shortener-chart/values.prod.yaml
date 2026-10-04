@@ -1,16 +1,18 @@
 api:
-  replicas: 2 # prod는 고가용성을 위해 2개
-  secretRevision: 1 # 운영 Secret 변경 후 증가시켜 Pod rollout
+  replicas: 2 # 운영 환경은 고가용성을 위해 2개
+  secretRevision: 1 # 운영 Secret 변경 후 증가시켜 새 Pod로 교체
+  smokeTest:
+    enabled: true # Argo CD PostSync Job이 클러스터 내부에서 배포를 검증
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
     tag: sha-c3071c9
     pullPolicy: IfNotPresent
   env:
     appEnv: production
-    debug: 'false' # prod는 디버그 비활성화
-    enableFaultInjection: false # Week 12 DB 지연 실습 때만 GitOps로 true 전환
+    debug: 'false' # 운영 환경은 디버그 비활성화
+    enableFaultInjection: false # 12주차 DB 지연 실습 때만 GitOps로 true 전환
     maxFaultDelayMs: 2000
-  # HPA 최대 10개와 롤링 업데이트 surge를 고려한 DB 연결 예산.
+  # HPA 최대 10개와 롤링 업데이트 중 추가로 생성되는 Pod를 고려한 DB 연결 예산.
   # db.t3.micro 기준 Primary 최대 39개, Replica 최대 52개 연결을 사용한다.
   databasePool:
     write:
@@ -45,23 +47,23 @@ pdb:
 postgres:
   enabled: false # 운영 환경
   database: urldb
-  # 민감정보는 values.prod-secret.yaml로 분리해서 사용하기 (Git ignore 권장)
+  # 민감정보는 values.prod-secret.yaml로 분리하고 Git 추적에서 제외한다.
   password: ""
   databaseUrl: ""
-  storage: 10Gi # prod는 스토리지 넉넉하게
+  storage: 10Gi # 운영 환경의 저장소 용량
   storageClass: gp2
 # Ingress 설정 (Traefik으로 이전 완료되어 차트 기본 Ingress 비활성화)
 ingress:
   enabled: false
 redis:
-  enabled: true # prod: Redis 캐시 활성화
+  enabled: true # 운영 환경에서 Redis 캐시 활성화
 # --- ServiceMonitor 설정 ────────────────────────────────────────
 serviceMonitor:
   enabled: true
 
 # API Pod는 Traefik·Prometheus와 필요한 데이터 저장소에만 통신을 허용
-# RDS와 Redis는 현재 같은 VPC(private subnet)에 있으므로 VPC CIDR을 사용
-# 외부 Redis로 이전하면 해당 서비스의 CIDR을 추가하거나 Security Groups for Pods로 경계를 좁힌다.
+# RDS와 Redis는 현재 같은 VPC의 사설 서브넷에 있으므로 VPC CIDR을 사용
+# 외부 Redis로 이전하면 해당 서비스의 CIDR을 추가하거나 Pod용 보안 그룹으로 경계를 좁힌다.
 networkPolicy:
   enabled: true
   externalEgress:

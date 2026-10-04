@@ -8,7 +8,7 @@ resource "aws_iam_service_linked_role" "ec2_spot" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 21.0"
+  version = "21.18.0"
 
   cluster_name = module.eks.cluster_name
 

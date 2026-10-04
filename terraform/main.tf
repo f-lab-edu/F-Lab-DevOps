@@ -253,7 +253,7 @@
 # VPC — terraform-aws-modules/vpc/aws
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 6.0"
+  version = "6.6.1"
 
   name = "${var.project_name}-vpc"
   cidr = var.vpc_cidr
@@ -289,7 +289,7 @@ module "vpc" {
 # EKS — terraform-aws-modules/eks/aws
 module "eks" {
   source  = "terraform-aws-modules/eks/aws" # Terraform Registry에 있는 공식 EKS 모듈 다운로드
-  version = "~> 21.0"
+  version = "21.18.0"
 
   name               = var.project_name
   kubernetes_version = var.eks_cluster_version
@@ -310,7 +310,7 @@ module "eks" {
   eks_managed_node_groups = {
     main = {
       name            = "${var.project_name}-nodegroup"
-      use_name_prefix = true  # 교체 시 새 노드 그룹을 먼저 생성할 수 있도록 이름 충돌 방지
+      use_name_prefix = true # 교체 시 새 노드 그룹을 먼저 생성할 수 있도록 이름 충돌 방지
 
       iam_role_name            = "${var.project_name}-nodegroup-role"
       iam_role_use_name_prefix = false
@@ -353,9 +353,14 @@ module "eks" {
       before_compute              = true
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
+
+      # Kubernetes NetworkPolicy 리소스를 VPC CNI가 실제로 집행하도록 활성화
+      configuration_values = jsonencode({
+        enableNetworkPolicy = "true"
+      })
     }
     eks-pod-identity-agent = {
-      before_compute = true  # Pod Identity 자격증명 주입도 노드 시작 전에 준비
+      before_compute = true # Pod Identity 자격증명 주입도 노드 시작 전에 준비
     }
     coredns    = {}
     kube-proxy = {}

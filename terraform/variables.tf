@@ -52,7 +52,7 @@ variable "node_instance_type" {
 variable "node_desired_size" {
   description = "NodeGroup 기본 노드 수"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 # 스케일 다운 시 보장되는 최소 노드 수

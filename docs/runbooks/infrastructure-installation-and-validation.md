@@ -366,7 +366,7 @@ eksctl get iamidentitymapping --cluster urlshortener --region ap-northeast-2
 eksctl create iamidentitymapping --cluster urlshortener --region ap-northeast-2 --arn "$(terraform output -raw karpenter_node_role_arn)" --group system:bootstrappers,system:nodes --username 'system:node:{{EC2PrivateDNSName}}' --no-duplicate-arns
 ~~~
 
-Karpenter 적용 전에는 기존 노드의 여유 CPU·메모리, 이미 Pending인 Pod, Controller 리소스 요청을 확인한다. 현재 Application 선언은 Controller Pod당 `1 CPU / 1Gi`를 요청하고 replica가 2개면 합계 `2 CPU / 2Gi`의 여유가 필요하다. 수용 여력이 없으면 **적용을 멈추고** 관리형 Node Group 용량이나 배치 시간을 먼저 조정한다. 실제 재설치에서는 여유 부족으로 기존 API·Prometheus Pod가 새 Spot 노드 준비 전 잠시 밀려난 적이 있다.
+Karpenter 적용 전에는 기존 노드의 여유 CPU·메모리, 이미 Pending인 Pod, Controller 리소스 요청을 확인한다. 현재 Application 선언은 Controller Pod당 `500m CPU / 1Gi`를 요청하고 replica가 2개면 합계 `1 CPU / 2Gi`의 여유가 필요하다. 이 환경의 관리형 Node Group 목표 수는 3대다. 초기 Terraform 설치 시 `terraform.tfvars`의 `node_desired_size = 3`을 확인한다. 이미 생성된 Node Group은 EKS 모듈이 `desired_size` 변경을 무시하므로, Terraform 계획에 증설이 없다면 실제 Node Group 이름과 현재 크기를 조회한 뒤 EKS `update-nodegroup-config --scaling-config desiredSize=3`으로 증설하고 업데이트 성공·노드 3대 `Ready`를 확인한다. 수용 여력이 없으면 **적용을 멈춘다**. 기존 노드를 줄일 때는 PodDisruptionBudget이 적용되지 않을 수 있으므로 별도로 계획한다.
 
 ~~~bash
 kubectl top nodes

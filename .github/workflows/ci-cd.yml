@@ -18,7 +18,7 @@ env:
   ECR_REPOSITORY: urlshortener
   AWS_ACCOUNT_ID: "716174522908"
   ARGOCD_APPLICATION: url-shortener
-  ARGOCD_WAIT_TIMEOUT: "600"
+  ARGOCD_WAIT_TIMEOUT: "300"
 
 # 앞선 배포의 검증·롤백이 끝난 뒤 다음 배포를 실행한다.
 concurrency:

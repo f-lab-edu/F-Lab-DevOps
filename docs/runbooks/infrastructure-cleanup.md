@@ -250,101 +250,25 @@ kubectl get ingress -A
 
 ---
 
-## 6. ALB·NLB·Target Group·AWS 종속 리소스 삭제 대기
+## 6. AWS Load Balancer 삭제 시작 확인 — 대기 중에는 7~10절 진행
 
-Ingress와 Service 오브젝트가 사라져도 AWS Load Balancer 삭제에는 수분이 걸릴 수 있다. 현재 Terraform VPC에 Load Balancer가 하나도 없을 때까지 기다린다.
-
-```bash
-for attempt in {1..40}; do
-  LB_COUNT=$(aws elbv2 describe-load-balancers \
-    --region "$AWS_REGION" \
-    --query "length(LoadBalancers[?VpcId=='${VPC_ID}'])" \
-    --output text) || exit 1
-
-  printf '남은 로드 밸런서: %s개\n' "$LB_COUNT"
-
-  [ "$LB_COUNT" = "0" ] && break
-  sleep 15
-done
-[ "$LB_COUNT" = "0" ] || { echo '로드 밸런서가 남아 있습니다'; exit 1; }
-```
-
-Target Group도 확인한다.
+4~5절에서 이 프로젝트의 `LoadBalancer` Service와 Ingress 삭제를 요청했다. Kubernetes 오브젝트가 사라져도 AWS NLB·ALB·Target Group·ENI·보안 그룹의 삭제는 비동기로 이어질 수 있다. **여기서 AWS 삭제 완료를 기다리지 말고** 아래 Kubernetes 상태를 확인한 다음 7~10절의 독립적인 정리를 진행한다.
 
 ```bash
-for attempt in {1..40}; do
-  TG_COUNT=$(aws elbv2 describe-target-groups \
-    --region "$AWS_REGION" \
-    --query "length(TargetGroups[?VpcId=='${VPC_ID}'])" \
-    --output text) || exit 1
-
-  printf '남은 대상 그룹: %s개\n' "$TG_COUNT"
-
-  [ "$TG_COUNT" = "0" ] && break
-  sleep 15
-done
-[ "$TG_COUNT" = "0" ] || { echo '대상 그룹이 남아 있습니다'; exit 1; }
+kubectl get service -A --field-selector spec.type=LoadBalancer
+kubectl get ingress -A
 ```
 
-NLB가 사용하던 Network Interface와 Kubernetes Load Balancer Security Group도 정리되었는지 확인한다.
-
-```bash
-for attempt in {1..40}; do
-  NLB_ENI_COUNT=$(aws ec2 describe-network-interfaces \
-    --region "$AWS_REGION" \
-    --filters "Name=vpc-id,Values=$VPC_ID" \
-    --query "length(NetworkInterfaces[?InterfaceType=='network_load_balancer'])" \
-    --output text) || exit 1
-
-  K8S_SG_COUNT=$(aws ec2 describe-security-groups \
-    --region "$AWS_REGION" \
-    --filters "Name=vpc-id,Values=$VPC_ID" \
-    --query "length(SecurityGroups[?starts_with(GroupName, 'k8s-')])" \
-    --output text) || exit 1
-
-  printf '남은 NLB 네트워크 인터페이스: %s개, Kubernetes 보안 그룹: %s개\n' \
-    "$NLB_ENI_COUNT" "$K8S_SG_COUNT"
-
-  [ "$NLB_ENI_COUNT" = "0" ] && [ "$K8S_SG_COUNT" = "0" ] && break
-  sleep 15
-done
-[ "$NLB_ENI_COUNT" = "0" ] && [ "$K8S_SG_COUNT" = "0" ] || { echo 'NLB 네트워크 인터페이스 또는 Kubernetes 보안 그룹이 남아 있습니다'; exit 1; }
-```
-
-Load Balancer, Target Group, NLB ENI, `k8s-` Security Group 결과가 모두 `0`이어야 한다. 이 확인을 건너뛰면 `terraform destroy`에서 Subnet, Internet Gateway 또는 VPC 삭제가 `DependencyViolation`으로 실패할 수 있다.
-
-각 확인은 최대 약 10분간 기다린다. 제한 시간에 도달하면 아래 명령으로 남은 리소스를 조사한다.
-
-```bash
-aws elbv2 describe-load-balancers \
-  --region "$AWS_REGION" \
-  --query "LoadBalancers[?VpcId=='${VPC_ID}'].[LoadBalancerArn,LoadBalancerName,DNSName]"
-
-aws elbv2 describe-target-groups \
-  --region "$AWS_REGION" \
-  --query "TargetGroups[?VpcId=='${VPC_ID}'].[TargetGroupArn,TargetGroupName]"
-
-aws ec2 describe-network-interfaces \
-  --region "$AWS_REGION" \
-  --filters "Name=vpc-id,Values=$VPC_ID" \
-  --query "NetworkInterfaces[?InterfaceType=='network_load_balancer'].[NetworkInterfaceId,Description,Status]"
-
-aws ec2 describe-security-groups \
-  --region "$AWS_REGION" \
-  --filters "Name=vpc-id,Values=$VPC_ID" \
-  --query "SecurityGroups[?starts_with(GroupName, 'k8s-')].[GroupId,GroupName,Description]"
-```
-
-이 리소스가 남아 있다면 EKS와 AWS Load Balancer Controller를 삭제하지 말고 원인이 된 Ingress 또는 `LoadBalancer` Service가 남았는지 먼저 확인한다.
+이 프로젝트의 LoadBalancer Service나 Ingress가 예상 밖으로 남아 있으면 원인을 조사하고 진행하지 않는다. AWS 정리가 진행되는 동안에도 **Argo CD, AWS Load Balancer Controller, EKS와 EBS CSI 드라이버는 유지**한다. 7~10절 완료 후 11절에서 현재 Terraform VPC의 Load Balancer·Target Group·NLB ENI·`k8s-` 보안 그룹이 모두 0인지 한 번에 확인한다. 확인 전에는 Controller·EKS 삭제나 `terraform destroy`를 실행하지 않는다.
 
 ---
 
 ## 7. 나머지 ArgoCD Application 삭제
 
-Karpenter CR과 노드, 인증서 리소스를 먼저 제거한 뒤 각 Application을 삭제한다. `kube-prometheus-stack`은 현재 Argo CD가 관리하므로 Helm 삭제보다 먼저 Application을 제거한다. 이 Application이 살아 있으면 삭제한 모니터링 리소스를 다시 만들 수 있다. 과거에 `aws-load-balancer-controller` Application도 적용했다면 Load Balancer가 모두 사라진 이 시점에 함께 제거한다. Controller의 Helm release와 Argo CD Application이 동시에 있으면 실제 소유권을 확인한다.
+Karpenter CR과 노드, 인증서 리소스를 먼저 제거한 뒤 각 Application을 삭제한다. `kube-prometheus-stack`은 현재 Argo CD가 관리하므로 Helm 삭제보다 먼저 Application을 제거한다. 이 Application이 살아 있으면 삭제한 모니터링 리소스를 다시 만들 수 있다. 과거에 `aws-load-balancer-controller` Application도 적용했다면 **11절의 AWS 종속 리소스 0개 확인 후** 제거한다. Controller의 Helm release와 Argo CD Application이 동시에 있으면 실제 소유권을 확인한다.
 
 ```bash
-for APP_NAME in kube-prometheus-stack karpenter cert-manager metrics-server aws-load-balancer-controller; do
+for APP_NAME in kube-prometheus-stack karpenter cert-manager metrics-server; do
   APP_PRESENT=$(kubectl get application "$APP_NAME" -n argocd --ignore-not-found -o name) || exit 1
   if [ -n "$APP_PRESENT" ]; then
     kubectl get application "$APP_NAME" -n argocd -o json \
@@ -354,17 +278,17 @@ for APP_NAME in kube-prometheus-stack karpenter cert-manager metrics-server aws-
     kubectl patch application "$APP_NAME" \
       -n argocd \
       --type=merge \
-      -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}'
+      -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}' || exit 1
 
-    kubectl delete application "$APP_NAME" -n argocd
-    kubectl wait --for=delete "application/$APP_NAME" -n argocd --timeout=300s
+    kubectl delete application "$APP_NAME" -n argocd || exit 1
+    kubectl wait --for=delete "application/$APP_NAME" -n argocd --timeout=300s || exit 1
   fi
 done
 
 kubectl get application -n argocd
 ```
 
-정상 기준: ArgoCD Application이 남지 않는다.
+정상 기준: 위 네 Application이 남지 않는다. 과거 `aws-load-balancer-controller` Application만 있다면 11절의 AWS 종속 리소스 확인 전까지 유지한다.
 
 ---
 
@@ -443,16 +367,96 @@ kubectl delete secret grafana-admin-secret alertmanager-slack-secret alertmanage
 
 ---
 
-## 11. ArgoCD와 ALB Controller 삭제
+## 11. AWS 종속 리소스 일괄 확인 후 Argo CD·ALB Controller 삭제
 
-모든 Application과 AWS Load Balancer가 삭제된 뒤 실행한다.
+7~10절에서 Argo CD가 관리하던 앱, Redis·모니터링, PVC·Secret을 정리하는 동안 AWS의 Load Balancer 삭제가 진행됐다. 이제 Controller·EKS를 내리기 전에 **현재 Terraform VPC**의 Load Balancer, Target Group, NLB ENI, Kubernetes 보안 그룹을 같은 루프에서 확인한다. 각 항목은 모두 `0`이어야 한다. 루프를 합치는 것은 대기 순서를 줄이는 것일 뿐, 통과 조건을 완화하는 것이 아니다.
 
 ```bash
-helm uninstall argocd -n argocd --ignore-not-found
-helm uninstall aws-load-balancer-controller -n kube-system --ignore-not-found
+for attempt in {1..40}; do
+  LB_COUNT=$(aws elbv2 describe-load-balancers \
+    --region "$AWS_REGION" \
+    --query "length(LoadBalancers[?VpcId=='${VPC_ID}'])" \
+    --output text) || exit 1
 
+  TG_COUNT=$(aws elbv2 describe-target-groups \
+    --region "$AWS_REGION" \
+    --query "length(TargetGroups[?VpcId=='${VPC_ID}'])" \
+    --output text) || exit 1
+
+  NLB_ENI_COUNT=$(aws ec2 describe-network-interfaces \
+    --region "$AWS_REGION" \
+    --filters "Name=vpc-id,Values=$VPC_ID" \
+    --query "length(NetworkInterfaces[?InterfaceType=='network_load_balancer'])" \
+    --output text) || exit 1
+
+  K8S_SG_COUNT=$(aws ec2 describe-security-groups \
+    --region "$AWS_REGION" \
+    --filters "Name=vpc-id,Values=$VPC_ID" \
+    --query "length(SecurityGroups[?starts_with(GroupName, 'k8s-')])" \
+    --output text) || exit 1
+
+  printf '남은 LB=%s, Target Group=%s, NLB ENI=%s, k8s- SG=%s\n' \
+    "$LB_COUNT" "$TG_COUNT" "$NLB_ENI_COUNT" "$K8S_SG_COUNT"
+
+  [ "$LB_COUNT" = "0" ] && [ "$TG_COUNT" = "0" ] && \
+    [ "$NLB_ENI_COUNT" = "0" ] && [ "$K8S_SG_COUNT" = "0" ] && break
+  sleep 15
+done
+
+[ "$LB_COUNT" = "0" ] && [ "$TG_COUNT" = "0" ] && \
+  [ "$NLB_ENI_COUNT" = "0" ] && [ "$K8S_SG_COUNT" = "0" ] || \
+  { echo 'AWS Load Balancer 종속 리소스가 남아 있습니다. Controller·EKS 삭제를 중단합니다'; exit 1; }
+```
+
+최대 약 10분 대기 후에도 남으면 아래 진단 명령을 실행해 리소스의 소유자와 관련 Ingress/Service를 조사한다. AWS 조회 실패를 `0`개로 간주하지 않는다. 문제가 해결되어 위 통과 조건을 다시 충족하기 전에는 다음 삭제 단계로 진행하지 않는다.
+
+```bash
+aws elbv2 describe-load-balancers \
+  --region "$AWS_REGION" \
+  --query "LoadBalancers[?VpcId=='${VPC_ID}'].[LoadBalancerArn,LoadBalancerName,DNSName]"
+
+aws elbv2 describe-target-groups \
+  --region "$AWS_REGION" \
+  --query "TargetGroups[?VpcId=='${VPC_ID}'].[TargetGroupArn,TargetGroupName]"
+
+aws ec2 describe-network-interfaces \
+  --region "$AWS_REGION" \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --query "NetworkInterfaces[?InterfaceType=='network_load_balancer'].[NetworkInterfaceId,Description,Status]"
+
+aws ec2 describe-security-groups \
+  --region "$AWS_REGION" \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --query "SecurityGroups[?starts_with(GroupName, 'k8s-')].[GroupId,GroupName,Description]"
+
+kubectl get service -A --field-selector spec.type=LoadBalancer
+kubectl get ingress -A
+```
+
+**위 통과 조건이 모두 충족된 뒤에만** 과거에 Argo CD로 설치한 `aws-load-balancer-controller` Application을 제거한다. 현재 설치 가이드에서는 Controller를 Helm으로 설치했으므로 이 Application은 보통 없다. Helm release와 Application이 함께 있으면 소유권을 먼저 확인한다.
+
+```bash
+ALB_APP=$(kubectl get application aws-load-balancer-controller -n argocd --ignore-not-found -o name) || exit 1
+if [ -n "$ALB_APP" ]; then
+  kubectl get application aws-load-balancer-controller -n argocd -o json \
+    | jq -e '(.metadata.finalizers // []) | all(. == "resources-finalizer.argocd.argoproj.io")' >/dev/null \
+    || { echo 'ALB Controller Application에 예상하지 못한 finalizer가 있습니다'; exit 1; }
+
+  kubectl patch application aws-load-balancer-controller -n argocd \
+    --type=merge -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}' || exit 1
+  kubectl delete application aws-load-balancer-controller -n argocd || exit 1
+  kubectl wait --for=delete application/aws-load-balancer-controller -n argocd --timeout=300s || exit 1
+fi
+
+REMAINING_APPS=$(kubectl get application -n argocd -o name) || exit 1
+[ -z "$REMAINING_APPS" ] || { printf '남은 Application:\n%s\n' "$REMAINING_APPS"; exit 1; }
+
+helm uninstall argocd -n argocd --ignore-not-found || exit 1
+helm uninstall aws-load-balancer-controller -n kube-system --ignore-not-found || exit 1
 helm list -A
 ```
+
+Controller 삭제 후 12절에서 Namespace를 정리한다. Route53은 조회만 하고 삭제·변경하지 않는다.
 
 ---
 
@@ -516,7 +520,7 @@ Primary의 삭제 보호만 변경되도록 코드를 임시 수정한 뒤 계�
 terraform plan
 ```
 
-계획을 검토하고 승인한 뒤에만 동일한 입력·버전으로 apply한다. apply가 다시 보여주는 계획도 확인하고, 결과가 `False`인지 검증한다.
+현재 저장소에는 `scripts/guarded-apply.sh`가 없다. 계획에서 Primary 삭제 보호 해제 **한 건만** 있는지 직접 확인하고, 같은 입력·버전으로 `terraform apply`를 실행한다. apply가 다시 보여주는 계획도 확인한 뒤에만 `yes`로 승인하고, 결과가 `False`인지 검증한다. 일반 `terraform apply`는 회전 버전 하향이나 예상 밖 비밀번호 변경을 별도로 차단하지 않으므로, 계획에 RDS 회전·교체 또는 다른 변경이 보이면 중단한다.
 
 ```bash
 terraform apply
@@ -732,21 +736,17 @@ gh variable list --repo f-lab-edu/F-Lab-DevOps
    ↓
 3. 수동 Argo CD HTTPS Ingress·Certificate·TLS Secret
    ↓
-4. Traefik Routing Application (url-shortener-traefik-routing)과 앱 Certificate·TLS Secret·ClusterIssuer
+4. Traefik Routing Application과 앱 Certificate·TLS Secret·ClusterIssuer
    ↓
-5. Traefik Controller Application 및 NLB (traefik)
+5. Traefik Controller Application 및 과거 ALB Ingress 삭제 요청
    ↓
-6. 과거 ALB Ingress 잔여분 (있을 때만)
+6. AWS Load Balancer 삭제가 시작됐는지 확인; Controller·EKS는 유지
+   ├─ AWS: Load Balancer·Target Group·NLB ENI·k8s- SG 비동기 정리 진행
+   └─ 7~10절: 나머지 Argo CD Application(과거 ALB Controller Application 제외),
+              Redis·모니터링·로그 릴리스, PVC·Secret 정리
    ↓
-7. AWS Load Balancer·Target Group·NLB ENI·k8s Security Group 삭제 대기 (모두 0 확인)
-   ↓
-8. 나머지 ArgoCD Application (kube-prometheus-stack, karpenter, cert-manager, metrics-server, 과거 ALB Controller Application)
-   ↓
-9. Redis Helm 릴리스와 과거 수동 설치한 모니터링·로그 릴리스
-   ↓
-10. PVC·Secret 정리
-   ↓
-11. ArgoCD·ALB Controller Helm 릴리스
+11. AWS 네 항목 모두 0 확인 → 과거 ALB Controller Application,
+    Argo CD·ALB Controller Helm 릴리스 삭제
    ↓
 12. 실습 Namespace 일괄 삭제
    ↓

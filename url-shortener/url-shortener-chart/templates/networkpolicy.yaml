@@ -59,7 +59,15 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # 클러스터 밖 데이터 저장소에는 환경별로 지정한 CIDR과 포트만 허용한다.
+    # Redis Service selector와 같은 라벨로 내부 Redis만 허용한다.
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.redis.podSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.redis.port }}
+    # 클러스터 밖 RDS에는 환경별 CIDR과 PostgreSQL 포트만 허용한다.
     {{- range .Values.networkPolicy.externalEgress.cidrs }}
     - to:
         - ipBlock:
@@ -67,7 +75,5 @@ spec:
       ports:
         - protocol: TCP
           port: {{ $.Values.networkPolicy.externalEgress.postgresPort }}
-        - protocol: TCP
-          port: {{ $.Values.networkPolicy.externalEgress.redisPort }}
     {{- end }}
 {{- end }}

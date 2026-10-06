@@ -61,8 +61,8 @@ redis:
 serviceMonitor:
   enabled: true
 # API Pod는 Traefik·Prometheus와 필요한 데이터 저장소에만 통신을 허용
-# RDS와 Redis는 현재 같은 VPC의 사설 서브넷에 있으므로 VPC CIDR을 사용
-# 외부 Redis로 이전하면 해당 서비스의 CIDR을 추가하거나 Pod용 보안 그룹으로 경계를 좁힌다.
+# RDS는 VPC CIDR의 5432 포트로 허용하고, 클러스터 내부 Redis는
+# values.yaml의 Service selector와 일치하는 Pod selector로만 허용한다.
 networkPolicy:
   enabled: true
   externalEgress:

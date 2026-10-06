@@ -130,8 +130,14 @@ networkPolicy:
     namespace: kube-system
     podSelector:
       k8s-app: kube-dns
+  redis:
+    # Service selector와 동일해야 EKS VPC CNI가 ClusterIP 경로도 허용한다.
+    podSelector:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: redis
+      app.kubernetes.io/component: master
+    port: 6379
   externalEgress:
-    # RDS와 Redis가 있는 VPC 또는 서브넷 CIDR만 환경별 values에서 허용한다.
+    # 클러스터 밖 RDS의 VPC 또는 서브넷 CIDR만 환경별 values에서 허용한다.
     cidrs: []
     postgresPort: 5432
-    redisPort: 6379

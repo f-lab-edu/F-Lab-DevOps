@@ -8,13 +8,13 @@ AWS 리전: ap-northeast-2
 
 ## 0. 배포 전 확인과 단계 통과 원칙
 
-- 운영 CI/CD는 `main`에 `url-shortener/app/**`, `url-shortener/Dockerfile`, `url-shortener/requirements.txt`, `url-shortener/requirements.lock` 변경이 push될 때 자동 실행된다. 새 앱 코드가 있는 PR은 **8절의 Argo CD HTTPS·CI 토큰과 9절의 현재 이미지·앱 상태가 준비되기 전에는 병합하지 않는다.** 이미 병합한 경우에는 과거 실행을 무작정 재시도하지 말고 현재 ECR 태그와 GitOps 상태부터 조사한다.
+- 운영 CI/CD는 `main`에 `url-shortener/app/**`, `url-shortener/Dockerfile`, `url-shortener/requirements.txt`, `url-shortener/requirements.lock` 변경이 push될 때 자동 실행된다. 일반 배포용 새 앱 코드 PR은 **8절의 Argo CD HTTPS·CI 토큰과 9절의 현재 이미지·앱 상태가 준비되기 전에는 병합하지 않는다.** 첫 이미지가 없는 경우에만 9절의 사용자 주도 CI/CD 이미지 확보 절차를 예외로 적용한다. 이미 병합한 경우에는 과거 실행을 무작정 재시도하지 말고 현재 ECR 태그와 GitOps 상태부터 조사한다.
 - Argo CD의 애플리케이션, Traefik 라우팅, Prometheus values는 `main`을 추적한다. 로컬 또는 PR 브랜치의 values 변경은 `main`에 반영되기 전까지 클러스터에 적용되지 않는다. 설치에 필요한 구성 수정은 앱 코드 변경과 분리해 `main`에 먼저 반영한다. 부트스트랩은 현재 `main`의 선언을 기준으로 하고, 새 코드의 배포 판정은 병합 후에 한다.
 - CI의 `values.prod.yaml` 커밋·push에는 워크플로의 `contents: write` 권한이 필요하다. 병합 전 실제 브랜치 보호 규칙과 push 권한도 다시 확인한다.
 - Argo CD 서버는 4절에서 내부 `ClusterIP`로 설치하고, 8절에서 Traefik HTTPS와 `ARGOCD_SERVER`·`ARGOCD_AUTH_TOKEN`을 준비한다. 기존 `argocd-ingress.yaml`은 공개 HTTP ALB이므로 적용하지 않는다. CI 토큰은 이 애플리케이션의 상태 조회 권한만 부여한다.
 - 배포 검증은 클러스터 내부 PostSync Job이 `/readyz`와 `/items`를 호출한다. GitHub 러너가 IP 제한된 `api.bidservice.store`에 접근할 필요가 없고 `SMOKE_TEST_BASE_URL`도 사용하지 않는다.
 - **각 적용 직후 명시된 검증이 통과해야만 다음 적용으로 넘어간다.** `Synced`만으로는 부족하며 필요한 `Healthy`, Pod `Ready`, PVC `Bound`, 실제 HTTP/DB 응답을 확인한다. 실패·시간 초과·예상 밖 Terraform 변경이면 중단하고 원인을 조사한다.
-- 첫 이미지가 ECR에 없는 경우 9절의 **일회성 이미지 부트스트랩**을 먼저 수행한다. 앱을 `ImagePullBackOff` 상태로 둔 채 일반 CI가 해결해 줄 것이라고 가정하지 않는다. 이전 이미지가 없는 첫 CI 실패 시에는 자동 롤백하지 않고 원인을 조사한다.
+- 첫 이미지가 ECR에 없으면 설치 담당자는 **여기서 멈추고 사용자에게 CI/CD 실행을 요청한다.** 로컬 Docker Desktop 실행·수동 빌드·ECR 직접 푸시는 하지 않는다. CI의 ECR 푸시와 GitOps 태그 갱신을 확인한 뒤 현재 `main` 태그의 이미지가 ECR에 있을 때만 앱 Application을 등록한다. 앱이 아직 없어서 첫 CI의 후반 배포 검증이 실패할 수 있으므로 CI 전체 성공과 이미지 확보를 구분한다.
 
 ## 1. Terraform 원격 state와 인프라
 
@@ -278,24 +278,21 @@ test -n "$IMAGE_TAG"
 aws ecr describe-images --repository-name urlshortener --region ap-northeast-2 --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text
 ~~~
 
-현재 태그가 ECR에 없다면, **일회성 빌드 전용 부트스트랩**으로 태그가 가리키는 Git 커밋을 정확히 빌드한다. 일반 `ci-cd.yml`을 재실행하면 Argo CD 앱이 없거나 변경 불가 ECR 태그가 이미 있을 때 실패할 수 있으므로 부트스트랩 대신 사용하지 않는다. 아래 명령은 Docker Buildx와 ECR push 권한이 있는 운영자만 실행한다. 각 줄이 실패하면 즉시 중단하고, 성공 전에는 앱 Application을 만들지 않는다.
+`ImageNotFoundException`이면 **설치를 즉시 멈추고 사용자에게 CI/CD 실행을 요청한다.** 설치 담당자는 Docker Desktop을 실행하거나 로컬 Buildx로 빌드하거나 ECR에 직접 푸시하지 않는다. 현재 `.github/workflows/ci-cd.yml`에는 수동 `workflow_dispatch`가 없으므로 사용자가 실제 앱 코드 변경을 `main`에 push해야 자동 실행된다. 문서나 Helm values만 push해도 실행되지 않는다.
+
+현재 워크플로는 린트 → ECR 이미지 푸시 → `values.prod.yaml` 태그 커밋·push → Argo CD 앱 검증 순서다. 이 시점에는 `url-shortener` Application이 아직 없으므로 첫 실행은 **이미지 푸시 후에도** 마지막 검증에서 실패할 수 있다. 이전 이미지가 없으면 자동 롤백도 건너뛴다. 이 실패를 배포 성공으로 기록하지 말고, ECR 푸시와 태그 갱신이 실제로 완료됐는지 개별적으로 확인한다. 푸시 전에 실패했거나 태그가 갱신되지 않았다면 원인을 해결할 때까지 다음 단계로 가지 않는다. 변경 불가 ECR 태그 때문에 **동일 SHA 실행을 무작정 재실행하지 않는다.**
+
+사용자가 CI/CD 실행 완료를 알리면 다음 명령으로 **현재 `origin/main`이 선언한 태그**를 다시 읽어 ECR digest를 확인한다. 첫 조회 당시의 오래된 태그를 그대로 사용하지 않는다. 이 검증이 통과해야만 아래 앱 Application 적용 단계로 재개한다.
 
 ~~~bash
-BOOTSTRAP_SHORT_SHA=${IMAGE_TAG#sha-}
-test "${#BOOTSTRAP_SHORT_SHA}" -eq 7
-BOOTSTRAP_COMMIT=$(git rev-parse --verify "${BOOTSTRAP_SHORT_SHA}^{commit}")
-test "$(printf '%.7s' "$BOOTSTRAP_COMMIT")" = "$BOOTSTRAP_SHORT_SHA"
-git merge-base --is-ancestor "$BOOTSTRAP_COMMIT" origin/main
-BOOTSTRAP_ROOT=$(mktemp -d /private/tmp/urlshortener-ecr-bootstrap.XXXXXX)
-git worktree add --detach "$BOOTSTRAP_ROOT/source" "$BOOTSTRAP_COMMIT"
-aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com
-docker buildx build --platform linux/amd64 --tag "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:$IMAGE_TAG" --push "$BOOTSTRAP_ROOT/source/url-shortener"
-aws ecr describe-images --repository-name urlshortener --region ap-northeast-2 --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text
-git worktree remove "$BOOTSTRAP_ROOT/source"
-rmdir "$BOOTSTRAP_ROOT"
+gh run list --repo f-lab-edu/F-Lab-DevOps --workflow ci-cd.yml --limit 5
+git fetch origin main
+IMAGE_TAG=$(git show origin/main:url-shortener/url-shortener-chart/values.prod.yaml | awk '$1 == "tag:" {print $2; exit}')
+test -n "$IMAGE_TAG"
+IMAGE_DIGEST=$(aws ecr describe-images --repository-name urlshortener --region ap-northeast-2 --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
+test -n "$IMAGE_DIGEST" && test "$IMAGE_DIGEST" != "None"
+printf '확인된 이미지 태그: %s\n' "$IMAGE_TAG"
 ~~~
-
-이 경로는 **태그가 없는 경우에만** 사용한다. ECR 태그가 이미 있으면 재푸시하지 않는다. 짧은 SHA가 현재 Git에서 유일한 커밋으로 해석되지 않거나 빌드 입력이 확인되지 않으면 중단한다. 부트스트랩 이미지에는 CI 검증 완료를 뜻하는 `release-` 태그를 붙이지 않는다.
 
 ~~~bash
 kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/argocd/application.yaml
@@ -306,13 +303,18 @@ kubectl -n url-shortener get pods,deploy,hpa,networkpolicy
 kubectl wait -n argocd application/url-shortener --for=jsonpath='{.status.operationState.phase}'=Succeeded --timeout=600s
 ~~~
 
-Application `Healthy`, API Pod `Ready`, PostSync `Succeeded`를 확인한다. 실제 Primary·Replica 비밀번호 인증과 역할도 **Secret 값을 출력하지 않고** 앱 Pod에서 검증한다. Primary의 `pg_is_in_recovery()`는 `False`, Replica는 `True`여야 한다. 하나라도 실패하면 다음 라우팅 단계로 넘어가지 않고 Terraform 입력·RDS 회전 버전·앱 Secret을 대조한다. DB 비밀번호 변경을 반영할 때는 Helm `secretRevision`도 올려 GitOps로 새 Pod를 만든다.
+Application `Healthy`, API Pod `Ready`, PostSync `Succeeded`를 확인한다. 실제 Primary·Replica 비밀번호 인증과 역할, **모든 앱 Pod의 Redis PING**도 Secret 값을 출력하지 않고 검증한다. Primary의 `pg_is_in_recovery()`는 `False`, Replica는 `True`여야 한다. 앱은 Redis 장애 시 DB로 우회할 수 있으므로 `/items` 성공만으로 Redis가 정상이라고 판단하지 않는다. 하나라도 실패하면 라우팅 단계로 넘어가지 않는다. DB 인증 실패 시 Terraform 입력·RDS 회전 버전·앱 Secret을 대조하고, Redis 타임아웃 시 Service selector와 앱 NetworkPolicy의 Redis egress selector를 확인한다. DB 비밀번호 변경을 반영할 때는 Helm `secretRevision`도 올려 GitOps로 새 Pod를 만든다.
 
 ~~~bash
-kubectl -n url-shortener exec deployment/url-shortener-api -- python -c 'from sqlalchemy import text; from app.core.database import write_engine, read_engine; print("primary_recovery=", write_engine.connect().scalar(text("select pg_is_in_recovery()"))); print("replica_recovery=", read_engine.connect().scalar(text("select pg_is_in_recovery()")))'
+kubectl -n url-shortener exec deployment/url-shortener-api -- python -c 'from sqlalchemy import text; from app.core.database import write_engine, read_engine; w=write_engine.connect(); r=read_engine.connect(); assert w.scalar(text("select pg_is_in_recovery()")) is False; assert r.scalar(text("select pg_is_in_recovery()")) is True; print("primary_write=ok replica_read=ok")'
+REDIS_CHECK_FAILED=0
+for pod in $(kubectl -n url-shortener get pods -l app=url-shortener-api -o jsonpath='{.items[*].metadata.name}'); do
+  kubectl -n url-shortener exec "$pod" -- python -c 'from app.core.cache import get_redis; c=get_redis(); assert c is not None and c.ping(); print("redis_ping=ok")' || REDIS_CHECK_FAILED=1
+done
+test "$REDIS_CHECK_FAILED" -eq 0
 ~~~
 
-DB 경로가 정상일 때만 별도 Traefik 라우팅 Application을 적용한다. 이 Application은 `url-shortener/k8s/traefik`의 ClusterIssuer, Middleware, HTTPS·HTTP redirect Ingress와 redirect Service를 관리한다. 과거 `traefik-canary`나 nginx Ingress는 적용하지 않는다.
+DB와 Redis 경로가 모두 정상일 때만 별도 Traefik 라우팅 Application을 적용한다. 이 Application은 `url-shortener/k8s/traefik`의 ClusterIssuer, Middleware, HTTPS·HTTP redirect Ingress와 redirect Service를 관리한다. 과거 `traefik-canary`나 nginx Ingress는 적용하지 않는다.
 
 ~~~bash
 kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/argocd/application-traefik-routing.yaml
@@ -327,7 +329,7 @@ kubectl wait -n url-shortener certificate/url-shortener-tls --for=condition=Read
 
 ## 10. 다음 앱 변경의 자동 CI/CD 검증
 
-8~9절에서 Argo CD HTTPS 인증서, Actions 변수·Secret, ECR의 현재 이미지, 앱·라우팅 Application의 `Synced/Healthy`, PostSync 성공, Primary·Replica 접속, API HTTPS 응답이 모두 확인된 뒤에만 새 앱 코드 변경을 `main`에 병합한다. 설치용 구성 수정만 있었다면 앱 배포 워크플로는 시작되지 않는다. 단지 CI를 실행하려고 의미 없는 앱 코드 변경을 만들 필요는 없다.
+일반 배포에서는 8~9절에서 Argo CD HTTPS 인증서, Actions 변수·Secret, ECR의 현재 이미지, 앱·라우팅 Application의 `Synced/Healthy`, PostSync 성공, Primary·Replica 접속, API HTTPS 응답이 모두 확인된 뒤에만 새 앱 코드 변경을 `main`에 병합한다. **첫 이미지가 없는 경우의 사용자 주도 CI/CD 실행만 9절의 예외**이며, 이때의 후반 Argo CD 검증 실패는 전체 배포 성공이 아니다. 설치용 구성 수정만 있었다면 앱 배포 워크플로는 시작되지 않는다. 단지 CI를 실행하려고 의미 없는 앱 코드 변경을 만들 필요는 없다.
 
 1. 실제 앱 변경 PR에 `url-shortener/app/**`, `Dockerfile`, `requirements.txt`, `requirements.lock` 중 워크플로 paths에 해당하는 변경이 있는지 확인한다.
 2. `ARGOCD_SERVER`·`ARGOCD_AUTH_TOKEN` 등록, 토큰 만료·조회 정책, Actions `contents: write`와 `main` push 정책을 확인한다.

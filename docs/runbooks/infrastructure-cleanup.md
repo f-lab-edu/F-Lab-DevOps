@@ -2,7 +2,7 @@
 
 > 대상: `Url-Shortener-EKS-Platform`
 >
-> 아래 명령은 리소스와 데이터를 실제로 삭제한다. 운영 RDS Primary는 현재 `deletion_protection=true`, `skip_final_snapshot=false`이고, 운영 ECR은 `repository_force_delete=false`다. 따라서 보호 설정과 이미지 보존 대상을 확인하지 않은 `terraform destroy`는 완료되지 않는다. 정상 삭제 시 운영 RDS 최종 스냅샷을 생성하도록 구성했으며, 생성 결과를 확인해 별도로 보관한다.
+> 아래 명령은 리소스와 데이터를 실제로 삭제한다. 기본 운영 구성에서 RDS Primary는 `deletion_protection=true`, `skip_final_snapshot=false`이고, ECR은 `repository_force_delete=false`다. 부분 정리 중에는 RDS 삭제 보호가 이미 해제됐을 수 있으므로 실제 AWS 상태와 Terraform state를 확인한다. 보호 설정과 이미지 보존 대상을 확인하지 않은 `terraform destroy`는 완료되지 않는다. 정상 삭제 시 운영 RDS 최종 스냅샷을 생성하도록 구성했으며, 생성 결과를 확인해 별도로 보관한다.
 >
 > 본 가이드는 `docs/runbooks/infrastructure-installation-and-validation.md`의 현재 구성을 기준으로 한다. 원본인 `실습 가이드 문서 모음/인프라 운영 가이드/`는 Git에서 제외되므로 PR에는 동일한 내용의 `docs/runbooks/infrastructure-cleanup.md`를 사용한다. 리소스 정리 실행 전에 현재 AWS 계정·Terraform state·클러스터 상태를 다시 확인한다. **Route53 Hosted Zone과 모든 레코드는 삭제·변경하지 않는다.**
 >
@@ -501,7 +501,7 @@ Kubernetes 리소스, Load Balancer, Target Group, PVC 정리가 끝난 뒤 실�
 
 ### 14-1. RDS 삭제 보호를 별도 변경으로 해제
 
-삭제 승인과 보관할 백업·스냅샷을 확인한다. 현재 `terraform/rds.tf`의 Primary는 `deletion_protection = var.environment == "production"`이다. Primary가 이미 Terraform state와 AWS에서 제거된 재개 상황이면 이 보호 해제 단계는 건너뛴다. state와 AWS가 서로 다르면 먼저 원인을 조사한다. Primary가 남아 있을 때만 승인된 정리 작업에서 `deletion_protection = false`로 임시 변경한다.
+삭제 승인과 보관할 백업·스냅샷을 확인한다. 커밋된 기본 구성에서 `terraform/rds.tf`의 Primary는 `deletion_protection = var.environment == "production"`이다. 이미 임시로 `false`로 바꾼 재개 상황에서는 같은 변경을 반복하지 말고 AWS·state의 실제 값을 확인한다. Primary가 이미 Terraform state와 AWS에서 제거됐다면 이 보호 해제 단계는 건너뛴다. state와 AWS가 서로 다르면 먼저 원인을 조사한다. Primary가 남아 있고 삭제 보호가 켜져 있을 때만 승인된 정리 작업에서 `deletion_protection = false`로 임시 변경한다.
 
 비밀번호와 마지막 적용 `TF_VAR_db_password_rotation_version`을 보호된 경로에서 같은 셸의 plan·apply에 제공한다. `terraform.tfvars`, `*.auto.tfvars`, JSON tfvars 및 명시적 `-var-file`이 환경변수보다 우선할 수 있다. 아래 명령은 비밀번호 **값을 출력하지 않고 충돌 파일 경로만** 보여준다. 출력이 있으면 입력 원천을 확정할 때까지 중단한다.
 
@@ -534,7 +534,7 @@ aws rds describe-db-instances \
 
 ### 14-2. ECR 이미지 보존 대상을 확인하고 저장소 비우기
 
-운영 ECR은 `repository_force_delete=false`여서 이미지가 남아 있으면 `terraform destroy`가 저장소 삭제에 실패한다. 현재 배포와 이전 안정 이미지의 태그·digest를 먼저 확인하고 보관할 이미지는 별도 저장소에 복사하거나 보존 결정을 기록한다. 전체 이미지 삭제가 승인된 경우에만 각 digest를 확인해 `aws ecr batch-delete-image`로 제거한다. 아래의 `imageDigest=sha256:...`는 **확인한 실제 digest로 바꿔 한 건씩 실행**한다.
+운영 ECR은 `repository_force_delete=false`여서 이미지가 남아 있으면 `terraform destroy`가 저장소 삭제에 실패한다. 현재 배포와 이전 안정 이미지의 태그·digest를 먼저 확인하고 보관할 이미지는 별도 저장소에 복사하거나 보존 결정을 기록한다. 전체 이미지 삭제가 승인된 경우에만 각 digest를 확인해 `aws ecr batch-delete-image`로 제거한다. 아래의 `imageDigest=sha256:...`는 **확인한 실제 digest로 바꿔 한 건씩 실행**한다. API 응답의 `failures`가 빈 배열인지도 확인한다.
 
 ```bash
 aws ecr list-images --repository-name urlshortener --region "$AWS_REGION" \
@@ -548,11 +548,11 @@ aws ecr list-images --repository-name urlshortener --region "$AWS_REGION" \
   --query 'imageIds' --output json
 ```
 
-마지막 결과가 빈 목록이어야 한다. 저장소 자체를 AWS 콘솔이나 CLI에서 강제 삭제하지 않는다. Terraform state와 실제 저장소가 달라져 이후 destroy가 실패할 수 있다.
+마지막 결과가 빈 목록이어야 한다. CI가 다시 이미지를 push하면 저장소가 다시 채워지므로 0-1절의 배포 동결을 유지하고, **실제 destroy 직전에도** 같은 `list-images` 명령으로 빈 목록을 재확인한다. 저장소 자체를 AWS 콘솔이나 CLI에서 강제 삭제하지 않는다. Terraform state와 실제 저장소가 달라져 이후 destroy가 실패할 수 있다.
 
 ### 14-3. 삭제 계획 확인 후 Terraform 실행
 
-RDS 삭제 보호가 해제됐고 ECR 이미지가 비었으며, 앞 절의 AWS 종속 리소스도 정리됐는지 확인한다. **최종 스냅샷이 필요한 Primary `urlshortener-postgres`는 `available`이어야 한다.** Read Replica가 아직 있다면 그 상태도 확인한다. `modifying`, `stopping`, `stopped`, `deleting` 또는 예상 밖 상태에서는 삭제를 시도하지 말고 원인을 조사한다. 특히 Primary가 `available`이 아니면 RDS가 최종 스냅샷을 만들지 못해 destroy가 실패할 수 있다. 이미 삭제된 인스턴스가 있다면 Terraform state와 대조한다.
+RDS 삭제 보호가 해제됐고 ECR 이미지가 비었으며, 앞 절의 AWS 종속 리소스도 정리됐는지 확인한다. **최종 스냅샷이 필요한 Primary `urlshortener-postgres`는 `available`이어야 한다.** Read Replica가 아직 있다면 그 상태도 확인한다. `modifying`, `stopping`, `stopped`, `deleting` 또는 예상 밖 상태에서는 삭제를 시도하지 말고 원인을 조사한다. 특히 Primary가 `available`이 아니면 RDS가 최종 스냅샷을 만들지 못해 destroy가 실패할 수 있다. 이미 삭제된 인스턴스가 있다면 Terraform state와 대조한다. 단, **시작 전 `available` 확인만으로 destroy 중의 상태 변경까지 막을 수는 없다.**
 
 ```bash
 aws rds describe-db-instances --region "$AWS_REGION" \
@@ -575,6 +575,21 @@ aws rds wait db-instance-available --db-instance-identifier urlshortener-postgre
 ```
 
 기다린 뒤 위 `describe-db-instances` 조회를 다시 실행해 존재하는 각 인스턴스가 실제로 `available`인지 확인한다.
+
+#### 반복 실패 원인과 다음 설치·정리 주기의 사전 수정
+
+2026-10-05 정리에서는 Primary가 살아 있는 동안 Enhanced Monitoring IAM 역할의 정책 연결이 먼저 제거됐다. 같은 시간대 RDS 이벤트에 모니터링 역할 오류와 `MonitoringInterval=0` 변경이 기록됐고, 최종 스냅샷을 만들려는 `DeleteDBInstance`는 DB가 `available`이 아니라며 실패했다. 정책 분리가 그 순간의 상태 변경을 일으켰다는 것은 이벤트에 근거한 **강한 추정**이며, 삭제 API 호출 시점의 정확한 DB 상태는 별도로 기록되지 않았다.
+
+현재 `terraform/rds.tf`는 RDS 모듈에서 IAM 역할 ARN만 참조한다. 역할에 `AmazonRDSEnhancedMonitoringRole` 정책을 연결하는 `aws_iam_role_policy_attachment.rds_enhanced_monitoring`과의 의존성은 선언하지 않았다. 따라서 **다음 설치·정리 주기 전**, 별도 코드 변경으로 `module "rds"`에 아래 의존성을 추가하고 설치·삭제 계획을 검증한다. 이렇게 하면 정책 연결이 DB보다 먼저 제거되지 않도록 삭제 순서를 표현할 수 있다. 이 문서 수정만으로 현재 Terraform 코드가 바뀌거나 일괄 destroy 성공이 보장되지는 않는다.
+
+```hcl
+# terraform/rds.tf의 module "rds" 블록에 추가할 변경 예시 — 별도 코드 검증 필요
+depends_on = [aws_iam_role_policy_attachment.rds_enhanced_monitoring]
+```
+
+모듈 단위 `depends_on`은 계획을 더 보수적으로 만들 수 있으므로 실제 변경 계획에서 RDS 교체·비밀번호 회전이 없는지 확인한다. `-parallelism=1`만 지정하는 것은 누락된 의존성을 복구하지 못한다. Read Replica 삭제 또는 다른 RDS 변경으로도 Primary 상태가 잠시 달라질 수 있으므로, 최종 스냅샷 실패 시에는 아래 14-4절에 따라 상태가 안정된 후 재개한다. 최종 스냅샷을 생략하는 설정 변경으로 오류를 우회하지 않는다.
+
+근거: [AWS Enhanced Monitoring의 IAM 역할 요구 사항](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.OS.Enabling.html), [AWS RDS 인스턴스 삭제·최종 스냅샷](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DeleteInstance.html), [Terraform `depends_on`의 숨은 의존성 처리와 주의점](https://developer.hashicorp.com/terraform/language/meta-arguments/depends_on).
 
 plan과 destroy에는 동일한 운영 backend, 환경 변수, 프로젝트 이름과 비밀번호 회전 버전을 사용한다. Spot 서비스 연결 역할은 다른 워크로드가 쓰는지 **destroy 전에** 확인한다. 다른 사용처가 있으면 무조건 삭제를 진행하지 말고 역할의 Terraform 소유권과 보존 방안을 검토한다. 최종 스냅샷 이름과 destroy 결과를 기록한다.
 
@@ -600,6 +615,35 @@ terraform state list
 - ALB Controller와 GitHub Actions IAM 리소스
 
 `terraform/bootstrap-state-bucket.sh`가 만든 S3 state 버킷과 버전, Terraform이 관리하지 않는 Route53 Hosted Zone과 모든 DNS 레코드는 남는다. state 버킷은 추후 복구·감사를 위해 삭제하지 않는다. Spot 서비스 연결 역할을 다른 워크로드도 사용 중이면 Terraform 삭제가 실패할 수 있으므로 다른 사용처를 확인한다.
+
+### 14-4. RDS 상태·ECR 이미지로 destroy가 부분 실패했을 때
+
+**실패 직후 같은 destroy를 즉시 반복하지 않는다.** Terraform state와 AWS 실제 리소스를 대조한다. 다음 조회는 삭제하지 않는다. RDS 목록이 비어 있다면 state에도 DB가 없는지 확인한다. ECR 저장소가 이미 삭제됐다면 `list-images`의 `RepositoryNotFoundException`만 정상으로 취급하고 state와 대조한다. 권한·네트워크 오류는 리소스가 없다는 근거가 아니다.
+
+```bash
+cd "$PROJECT_ROOT/terraform"
+terraform state list
+aws rds describe-db-instances --region "$AWS_REGION" \
+  --query "DBInstances[?DBInstanceIdentifier=='urlshortener-postgres' || DBInstanceIdentifier=='urlshortener-postgres-replica'].[DBInstanceIdentifier,DBInstanceStatus,DeletionProtection,MonitoringInterval,PendingModifiedValues]" \
+  --output json
+aws ecr list-images --repository-name urlshortener --region "$AWS_REGION" \
+  --query 'imageIds' --output json
+```
+
+RDS가 `modifying` 등 전환 중이면 원인을 조사하고 `available`이 될 때까지 기다린다. 이번 사례처럼 Enhanced Monitoring 정책 연결이 사라져 모니터링 간격이 `0`으로 바뀐 경우에는 이벤트·현재 상태를 확인한다. 실패 상태이거나 제한 시간 내 `available`이 되지 않으면 중단하고, 최종 스냅샷 생성을 생략하거나 Terraform state에서 DB를 제거하지 않는다.
+
+```bash
+aws rds describe-events --region "$AWS_REGION" \
+  --source-type db-instance --source-identifier urlshortener-postgres \
+  --duration 1440 --query 'Events[*].[Date,Message]' --output table
+aws rds wait db-instance-available \
+  --db-instance-identifier urlshortener-postgres --region "$AWS_REGION"
+aws rds describe-db-instances \
+  --db-instance-identifier urlshortener-postgres --region "$AWS_REGION" \
+  --query 'DBInstances[0].[DBInstanceStatus,DeletionProtection,PendingModifiedValues]' --output json
+```
+
+ECR 저장소가 남고 이미지 목록이 비어 있지 않으면 14-2절의 보존 결정·이미지 삭제를 완료하고 `[]`를 재확인한다. RDS Primary가 존재한다면 `available`·삭제 보호 `false`이고, ECR이 비었으며, state와 AWS가 일치할 때만 **새 `terraform plan -destroy`를 검토한 뒤** `terraform destroy`를 재실행한다. 이때 Route53 삭제가 계획에 없는지 다시 확인한다. 최종 스냅샷 생성·가용 상태는 15절에서 별도로 검증한다.
 
 ---
 

@@ -5,7 +5,7 @@ api:
     enabled: true # Argo CD PostSync Job이 클러스터 내부에서 배포를 검증
   image:
     repository: 716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener
-    tag: sha-cf41476
+    tag: sha-f459d80
     pullPolicy: IfNotPresent
   env:
     appEnv: production

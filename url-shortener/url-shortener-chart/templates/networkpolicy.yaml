@@ -13,7 +13,17 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Traefik ingress controller만 사용자 요청을 API Pod에 전달할 수 있다.
+    {{- if .Values.api.smokeTest.enabled }}
+    # Argo CD PostSync Job이 클러스터 내부에서 사용자 경로를 검증한다.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-smoke-test
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.port }}
+    {{- end }}
+    # Traefik 컨트롤러만 사용자 요청을 API Pod에 전달할 수 있다.
     - from:
         - namespaceSelector:
             matchLabels:
@@ -24,7 +34,7 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.api.port }}
-    # Prometheus만 API 메트릭 endpoint를 수집할 수 있다.
+    # Prometheus만 API 메트릭 경로에 접근할 수 있다.
     - from:
         - namespaceSelector:
             matchLabels:
@@ -36,7 +46,7 @@ spec:
         - protocol: TCP
           port: {{ .Values.api.port }}
   egress:
-    # RDS·Redis hostname을 해석하기 위한 CoreDNS 통신이다.
+    # RDS·Redis 호스트 이름을 해석하기 위한 CoreDNS 통신이다.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -49,7 +59,15 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # 클러스터 밖 데이터 저장소에는 환경별로 지정한 CIDR과 포트만 허용한다.
+    # Redis Service selector와 같은 라벨로 내부 Redis만 허용한다.
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.redis.podSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.redis.port }}
+    # 클러스터 밖 RDS에는 환경별 CIDR과 PostgreSQL 포트만 허용한다.
     {{- range .Values.networkPolicy.externalEgress.cidrs }}
     - to:
         - ipBlock:
@@ -57,7 +75,5 @@ spec:
       ports:
         - protocol: TCP
           port: {{ $.Values.networkPolicy.externalEgress.postgresPort }}
-        - protocol: TCP
-          port: {{ $.Values.networkPolicy.externalEgress.redisPort }}
     {{- end }}
 {{- end }}

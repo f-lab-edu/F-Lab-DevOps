@@ -1,8 +1,14 @@
 실습 가이드 문서 모음
 실습 가이드 문서 모음/
 
-# 로컬 설명 웹사이트
+# AI Ops local site and generated files
 ai-ops/site/
+ai-ops/build/
+ai-ops/**/__pycache__/
+ai-ops/**/*.py[cod]
+ai-ops/.venv/
+ai-ops/**/*.egg-info/
+ai-ops/docs/ai-ops-a0-a1-flow.html
 
 # Terraform
 *.tfstate

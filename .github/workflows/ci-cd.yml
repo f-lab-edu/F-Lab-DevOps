@@ -1,4 +1,4 @@
-name: 자동화-CI/CD Pipeline
+name: 자동화 CI/CD 파이프라인
 
 # 운영 배포는 main 브랜치에서만 실행한다.
 # paths 필터: 실제 앱 코드나 Dockerfile이 변경된 경우에만 실행
@@ -18,7 +18,7 @@ env:
   ECR_REPOSITORY: urlshortener
   AWS_ACCOUNT_ID: "716174522908"
   ARGOCD_APPLICATION: url-shortener
-  ARGOCD_WAIT_TIMEOUT: "600"
+  ARGOCD_WAIT_TIMEOUT: "300"
 
 # 앞선 배포의 검증·롤백이 끝난 뒤 다음 배포를 실행한다.
 concurrency:
@@ -85,11 +85,26 @@ jobs:
 
           previous_tag=$("${RUNNER_TEMP}/yq" e -r '.api.image.tag' url-shortener/url-shortener-chart/values.prod.yaml)
           echo "tag=${previous_tag}" >> "$GITHUB_OUTPUT"
+          # 첫 배포에서는 이전 태그가 아직 ECR에 없을 수 있다.
+          if [[ -z "${previous_tag}" || "${previous_tag}" == "null" ]]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          elif aws ecr describe-images \
+            --repository-name "${ECR_REPOSITORY}" \
+            --image-ids "imageTag=${previous_tag}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text >/dev/null 2>"${RUNNER_TEMP}/previous-image-error"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$(<"${RUNNER_TEMP}/previous-image-error")" == *ImageNotFoundException* ]]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "${RUNNER_TEMP}/previous-image-error" >&2
+            exit 1
+          fi
 
-      # 4. 코드 체크 (Lint)
+      # 4. 코드 린트 검사 (Lint)
       #    빌드 전에 코드 품질을 검사해서 문제 있는 코드가 배포되는 것을 방지
-      #    ruff: 고정 버전의 Python linter (flake8/isort/pyflakes 통합)
-      #    lint 실패 시 이후 빌드/배포 단계가 실행되지 않음
+      #    ruff: 버전을 고정한 Python 린터 (flake8/isort/pyflakes 통합)
+      #    린트 검사 실패 시 이후 빌드·배포 단계가 실행되지 않음
       - name: 린트 검사 (ruff)
         working-directory: url-shortener
         run: |
@@ -116,7 +131,7 @@ jobs:
           IMAGE_TAG="sha-${SHA}"
           FULL_IMAGE="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
 
-          echo "Building image: ${FULL_IMAGE}"
+          echo "이미지 빌드 중: ${FULL_IMAGE}"
 
           docker buildx build \
             --platform linux/amd64 \
@@ -134,11 +149,11 @@ jobs:
         run: |
           IMAGE_TAG=${{ steps.build-push.outputs.image_tag }}
 
-          # ECR이 immutable tag를 강제하므로 커밋 SHA 기반 tag만 기록한다.
+          # ECR 태그를 변경할 수 없으므로 커밋 SHA 기반 태그만 기록한다.
           yq e ".api.image.tag = \"${IMAGE_TAG}\"" -i \
             url-shortener/url-shortener-chart/values.prod.yaml
 
-          echo "Updated image tag"
+          echo "이미지 태그를 갱신했습니다"
 
       # TODO: 이미지 취약점 스캔(Trivy) 단계 추가
 
@@ -160,24 +175,23 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
+          git commit -m "chore: 이미지 태그를 ${IMAGE_TAG}로 갱신 [skip ci]"
           git push origin ${BRANCH}
 
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Argo CD 동기화 및 사용자 경로 검증
+      - name: Argo CD 동기화 및 클러스터 내부 경로 검증
         id: verify-deployment
         continue-on-error: true
         env:
           ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
           GITOPS_COMMIT: ${{ steps.push-gitops.outputs.commit }}
-          SMOKE_TEST_BASE_URL: ${{ vars.SMOKE_TEST_BASE_URL }}
         run: |
           bash .github/scripts/verify-gitops-deployment.sh
 
       # 검증을 통과한 이미지에만 별도 release 태그를 붙여 롤백 후보로 보존한다.
-      # ECR의 immutable tag 정책 때문에 같은 release 태그를 덮어쓰지 않는다.
+      # ECR 태그를 변경할 수 없으므로 같은 release 태그를 덮어쓰지 않는다.
       - name: 검증된 롤백 이미지 보존
         id: mark-release
         if: steps.verify-deployment.outcome == 'success'
@@ -199,12 +213,12 @@ jobs:
             --query 'imageDetails[0].imageDigest' \
             --output text 2>/dev/null)"; then
             test "${EXISTING_DIGEST}" = "${SOURCE_DIGEST}"
-            echo "Release tag already points to verified image: ${RELEASE_TAG}"
+            echo "릴리스 태그가 이미 검증된 이미지를 가리킵니다: ${RELEASE_TAG}"
             echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Buildx가 만든 단일 manifest 또는 image index 형식을 그대로 유지한다.
+          # Buildx가 만든 단일 매니페스트 또는 이미지 인덱스 형식을 그대로 유지한다.
           docker buildx imagetools create --prefer-index=false \
             --tag "${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${RELEASE_TAG}" \
             "${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
@@ -218,12 +232,11 @@ jobs:
 
       # Argo CD self-heal과 충돌하지 않도록 kubectl rollback 대신 Git desired state를 되돌린다.
       - name: 이전 이미지로 GitOps 롤백 및 복구 검증
-        if: steps.verify-deployment.outcome == 'failure'
+        if: steps.verify-deployment.outcome == 'failure' && steps.previous-image.outputs.available == 'true'
         env:
           PREVIOUS_TAG: ${{ steps.previous-image.outputs.tag }}
           ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
-          SMOKE_TEST_BASE_URL: ${{ vars.SMOKE_TEST_BASE_URL }}
         run: |
           test -n "${PREVIOUS_TAG}"
 
@@ -234,7 +247,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add url-shortener/url-shortener-chart/values.prod.yaml
           if ! git diff --cached --quiet; then
-            git commit -m "rollback: restore image ${PREVIOUS_TAG} [skip ci]"
+            git commit -m "rollback: 이전 이미지 ${PREVIOUS_TAG}로 복구 [skip ci]"
             git push origin "${GITHUB_REF#refs/heads/}"
           fi
 
@@ -244,5 +257,9 @@ jobs:
       - name: 배포 실패 처리
         if: steps.verify-deployment.outcome == 'failure'
         run: |
-          echo "배포 검증에 실패해 이전 이미지로 복구했습니다."
+          if [[ "${{ steps.previous-image.outputs.available }}" == "true" ]]; then
+            echo "배포 검증이 실패했습니다. 이전 이미지 복구 단계를 확인하세요."
+          else
+            echo "첫 배포 검증이 실패했고 ECR에 이전 이미지가 없어 자동 롤백을 건너뛰었습니다. Argo CD 상태를 확인하세요."
+          fi
           exit 1

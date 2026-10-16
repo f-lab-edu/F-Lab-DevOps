@@ -25,10 +25,13 @@ from ai_ops.contracts import (
     sha256_json,
 )
 from ai_ops.evidence import create_sanitized_incident_request, load_evidence_bundle, sanitize_question
+from ai_ops.b_contracts import BSettings
+from ai_ops.collection import CapturedSnapshot, CollectionAudit
+from ai_ops.data_policy import POLICY_VERSION, ensure_external_model_allowed, validate_local_bundle, validate_snapshot
 from ai_ops.openai_engine import AIAnalysisError, AIConfig, AIOutcome
 from ai_ops.reports import render_markdown, validate_report
 from ai_ops.replay_runner import ReplayLimits, ReplayResult, SelectionModel, run_replay
-from ai_ops.rules import analyze_rules
+from ai_ops.rules import analyze_rules, analyze_snapshot_rules
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -98,6 +101,7 @@ class RunRecord:
     bundle: EvidenceBundle | None = None
     report: AnalysisReport | None = None
     markdown: str | None = None
+    collection_audit: CollectionAudit | None = None
 
     @property
     def incident_id(self) -> str:
@@ -256,13 +260,36 @@ class IncidentStore:
         request = parse_incident_request_json(canonical_json_bytes(input_data["request"]))
         bundle = parse_evidence_bundle_json(canonical_json_bytes(input_data["bundle"]))
         report = AnalysisReport.model_validate(_read_json(run_dir / "report.json"))
+        collection_audit = None
+        if request.source == "manual_snapshot":
+            envelope = _read_json(run_dir / "collection-audit.json")
+            if (envelope.get("bundle_hash") != bundle.bundle_hash
+                    or sha256_json(envelope) != metadata.get("collection_audit_hash")
+                    or metadata.get("source") != "manual_snapshot"):
+                raise ValueError("stored collection audit does not match input")
+            snapshot = validate_snapshot(CapturedSnapshot(bundle, CollectionAudit.model_validate(envelope["audit"])))
+            collection_audit = snapshot.audit
+            expected = analyze_snapshot_rules(request, bundle, run_id, collection_audit)
+            expected_status = "partial" if expected.analysis_status == "partial" else "completed"
+            if (report.execution.engine != "rules-captured-v1" or report.execution.mode != "rules"
+                    or report.current_state != expected.current_state or report.analysis_status != expected.analysis_status
+                    or report.diagnosis_status != expected.diagnosis_status or metadata["status"] != expected_status
+                    or metadata.get("failure_reason") != ("collection_incomplete" if expected_status == "partial" else None)):
+                raise ValueError("stored snapshot report contradicts verified collection state")
+        elif metadata.get("collection_audit_hash") is not None:
+            raise ValueError("stored replay cannot contain a snapshot audit")
         fallback = (metadata["status"] == "partial" and metadata.get("mode") == "ai" and
                     report.execution.mode == "rules" and report.execution.engine == "rules-fallback-v1" and
                     report.analysis_status == "partial" and metadata.get("failure_reason") in FALLBACK_REASONS)
         if report.execution.mode != metadata.get("mode") and not fallback:
             raise ValueError("stored report mode does not match run")
-        if metadata["status"] == "partial" and not fallback:
-            raise ValueError("stored partial report is not a rule fallback")
+        collection_partial = (
+            collection_audit is not None and collection_audit.collection_status != "complete"
+            and report.execution.mode == "rules" and report.execution.engine == "rules-captured-v1"
+            and report.analysis_status == "partial" and metadata.get("failure_reason") == "collection_incomplete"
+        )
+        if metadata["status"] == "partial" and not (fallback or collection_partial):
+            raise ValueError("stored partial report has no verified fallback or collection cause")
         delivered = None
         if report.execution.mode == "ai":
             audit = _read_json(run_dir / "tool-audit.json")
@@ -271,7 +298,7 @@ class IncidentStore:
             delivered = set(audit["delivered_evidence_ids"])
         validate_report(report, request, bundle, run_id, delivered)
         markdown = render_markdown(report, request, bundle, delivered)
-        return RunRecord(metadata=metadata, request=request, bundle=bundle, report=report, markdown=markdown)
+        return RunRecord(metadata=metadata, request=request, bundle=bundle, report=report, markdown=markdown, collection_audit=collection_audit)
 
     def show(self, incident_id: str, run_id: str) -> RunRecord:
         with self._locked():
@@ -306,19 +333,52 @@ class IncidentStore:
         request_id: str, analyzer: Callable[[IncidentRequest, EvidenceBundle, str], AnalysisReport | AIOutcome] = analyze_rules,
         mode: str = "rules", ai_config: AIConfig | None = None,
     ) -> RunRecord:
+        bundle = load_evidence_bundle(bundle_root, registry)
+        return self.investigate_bundle(bundle=bundle, registry=registry, question=question,
+                                       request_id=request_id, analyzer=analyzer, mode=mode, ai_config=ai_config)
+
+    def investigate_snapshot(self, *, snapshot: CapturedSnapshot, settings: BSettings,
+                             question: str, request_id: str) -> RunRecord:
+        """수집 감사와 함께 검증한 captured snapshot을 규칙으로 조사한다."""
+        registry = TargetRegistry(schema_version=1, targets=[item.target for item in settings.bindings.bindings])
+        return self.investigate_bundle(bundle=snapshot.bundle, registry=registry, question=question,
+            request_id=request_id, source="manual_snapshot", collection_audit=snapshot.audit, settings=settings)
+
+    def investigate_bundle(
+        self, *, bundle: EvidenceBundle, registry: TargetRegistry, question: str, request_id: str,
+        analyzer: Callable[[IncidentRequest, EvidenceBundle, str], AnalysisReport | AIOutcome] = analyze_rules,
+        mode: str = "rules", ai_config: AIConfig | None = None, source: str = "manual_replay",
+        collection_audit: CollectionAudit | None = None, settings: BSettings | None = None,
+    ) -> RunRecord:
+        """파일 입력과 수집 입력이 공유하는 해시 검증·멱등성·보고서 저장 진입점이다."""
         if mode not in ("rules", "ai") or (mode == "ai") != (ai_config is not None):
             raise ValueError("invalid investigation mode or AI configuration")
-        bundle = load_evidence_bundle(bundle_root, registry)
-        if mode == "ai" and (bundle.target.environment != "practice" or
-                             any(item.provenance.kind != "synthetic" for item in bundle.evidence)):
-            raise ValueError("AI mode accepts synthetic practice evidence only")
+        bundle = validate_local_bundle(bundle, registry)
+        if mode == "ai":
+            ensure_external_model_allowed(bundle)
+        envelope = None
+        if source == "manual_snapshot":
+            if settings is None or collection_audit is None:
+                raise ValueError("snapshot requires settings and collection audit")
+            snapshot = validate_snapshot(CapturedSnapshot(bundle, collection_audit), settings)
+            bundle, collection_audit = snapshot.bundle, snapshot.audit
+            envelope = {"bundle_hash": bundle.bundle_hash, "audit": collection_audit.model_dump(mode="json")}
+        elif source != "manual_replay" or collection_audit is not None or settings is not None:
+            raise ValueError("invalid investigation source or collection context")
+        captured = any(item.provenance.kind == "captured" for item in bundle.evidence)
+        if captured and analyzer is not analyze_rules:
+            raise ValueError("captured input requires the built-in rules analyzer")
+        selected_analyzer = (lambda request, bundle, run_id: analyze_snapshot_rules(request, bundle, run_id, collection_audit)) if captured else analyzer
         cleaned_question, _ = sanitize_question(question)
-        fingerprint = hmac.new(self._fingerprint_key, canonical_json_bytes({
+        fingerprint_input = {
             "request_id": request_id, "mode": mode, "question": question,
             "sanitized_question": cleaned_question,
             "target": bundle.target.model_dump(mode="json"),
             "window": bundle.window.model_dump(mode="json"), "bundle_hash": bundle.bundle_hash,
-        }), hashlib.sha256).hexdigest()
+        }
+        if envelope is not None:
+            fingerprint_input.update(source=source, collection_audit_hash=sha256_json(envelope))
+        fingerprint = hmac.new(self._fingerprint_key, canonical_json_bytes(fingerprint_input), hashlib.sha256).hexdigest()
         with self._locked():
             index_path = self._index_path(request_id)
             if index_path.exists():
@@ -329,7 +389,7 @@ class IncidentStore:
 
             request, question_redaction = create_sanitized_incident_request(
                 request_id=request_id, target=bundle.target, question=question,
-                window=bundle.window, bundle=bundle, registry=registry, requested_at=_now(),
+                window=bundle.window, bundle=bundle, registry=registry, requested_at=_now(), source=source,
             )
             run_id = "run-" + uuid.uuid4().hex
             run_dir = self._run_dir(request.incident_id, run_id)
@@ -342,7 +402,11 @@ class IncidentStore:
                 "input_hash": bundle.bundle_hash, "mode": mode, "status": "accepted",
                 "created_at": moment, "updated_at": moment, "failure_reason": None,
                 "history": [{"status": "accepted", "at": moment}],
+                "source": source, "data_policy_version": POLICY_VERSION,
             }
+            if envelope is not None:
+                metadata["collection_audit_hash"] = sha256_json(envelope)
+                _write_json(run_dir / "collection-audit.json", envelope)
             _write_json(run_dir / "input.json", {
                 "request": request.model_dump(mode="json"),
                 "bundle": bundle.model_dump(mode="json"),
@@ -359,7 +423,7 @@ class IncidentStore:
                 self._transition(run_dir, metadata, "validating")
                 self._transition(run_dir, metadata, "analyzing")
                 started = time.perf_counter()
-                analysis = analyzer(request, bundle, run_id)
+                analysis = selected_analyzer(request, bundle, run_id)
                 replay = analysis.replay if isinstance(analysis, AIOutcome) else None
                 report = analysis.report if isinstance(analysis, AIOutcome) else analysis
                 if (mode == "ai") != (replay is not None) or report.execution.mode != mode:
@@ -372,7 +436,9 @@ class IncidentStore:
                     _write_json(run_dir / "tool-audit.json", replay.as_dict())
                 _write_json(run_dir / "report.json", report.model_dump(mode="json"))
                 _atomic_write(run_dir / "report.md", markdown.encode("utf-8"))
-                self._transition(run_dir, metadata, "completed")
+                incomplete = collection_audit is not None and report.analysis_status == "partial"
+                self._transition(run_dir, metadata, "partial" if incomplete else "completed",
+                                 "collection_incomplete" if incomplete else None)
             except KeyboardInterrupt:
                 self._transition(run_dir, metadata, "cancelled", "user_cancelled")
                 raise RunStopped(request.incident_id, run_id, "cancelled", "user_cancelled") from None
@@ -406,7 +472,7 @@ class IncidentStore:
                 self._transition(run_dir, metadata, stopped, reason)
                 raise RunStopped(request.incident_id, run_id, stopped, reason) from None
             return RunRecord(metadata=metadata, request=request, bundle=bundle,
-                             report=report, markdown=markdown)
+                             report=report, markdown=markdown, collection_audit=collection_audit)
 
     def _reserve_ai_budget(self, config: AIConfig) -> None:
         """저장소 잠금 안에서 건당 상한을 UTC 일일 한도에 보수적으로 선예약한다."""

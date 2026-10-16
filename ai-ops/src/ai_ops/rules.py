@@ -42,7 +42,9 @@ def analyze_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str)
     missing = [
         {"source": item.source_ref, "reason": item.missing_reason}
         for item in bundle.evidence if item.status != "available"
-    ]
+    ][:30]
+    if sum(item.status != "available" for item in bundle.evidence) > 30:
+        limitations.append("누락 항목은 보고서에 최대 30개만 표시하며 전체 목록은 입력 증거와 수집 감사에서 확인한다.")
     diagnosis = "insufficient_evidence"
     state = "unknown"
 
@@ -139,3 +141,67 @@ def analyze_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str)
         recommended_checks=checks, suggested_actions=[], limitations=limitations,
         execution={"mode": "rules", "engine": RULES_VERSION, "tool_calls": 0},
     )
+
+
+def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+    """captured 묶음의 출처·전체 Pod·부분 수집을 구분하는 별도 규칙 버전이다."""
+    report = analyze_rules(request, bundle, run_id)
+    report.execution.engine = "rules-captured-v1"
+    report.limitations[0] = "수집 시점의 captured 증거 묶음에 대한 규칙 요약이다. 이후 상태 변화는 관측하지 않았으며 AI 분석·변경 실행은 하지 않았다."
+    report.limitations.append("지표 increase는 추정 증가량이므로 소수 값을 정수 사건 수로 확정하지 않는다.")
+    report.limitations.append("로그·이벤트 자유 문장을 진단 표식으로 축약했으므로 원문 정보가 일부 생략됐다.")
+    workloads = [item for item in bundle.evidence if item.kind == "workload_status"]
+    complete = audit is not None and audit.collection_status == "complete" and not audit.deadline_exceeded
+    entries = {entry.evidence_id: entry for entry in audit.entries} if audit else {}
+    available = [item for item in bundle.evidence if item.status == "available"]
+    metrics = {item.payload.get("query_id") for item in available if item.kind == "metric"}
+    expected = audit.workload_expected_pods if audit else None
+    pod_ids = {entries[item.evidence_id].resource_uid for item in workloads if item.evidence_id in entries}
+    deployment_ids = {entries[item.evidence_id].deployment_uid for item in workloads if item.evidence_id in entries}
+    cache_error, _ = _metric(bundle, "cache_outcomes", "error")
+    cache_unavailable, _ = _metric(bundle, "cache_outcomes", "unavailable")
+    api_p95, _ = _metric(bundle, "api_latency", "p95")
+    db_p99, _ = _metric(bundle, "db_latency", "p99")
+    # 현 앱 경보 기준(API 1초·DB 0.5초)과 충돌하는 자료가 있으면 정상으로 확대하지 않는다.
+    normal_metrics = (cache_error == 0 and cache_unavailable == 0 and api_p95 is not None and api_p95 < 1
+                      and db_p99 is not None and db_p99 < 0.5 and _log_contains(bundle, "RedisError") is None)
+    healthy_scope = (
+        complete and normal_metrics and expected is not None and 0 < expected <= 12
+        and expected == len(workloads) == len(pod_ids)
+        and None not in pod_ids and len(deployment_ids) == 1 and None not in deployment_ids
+        and {"workload_status", "log", "event", "deployment", "config_summary", "metric"}.issubset({item.kind for item in available})
+        and {"cache_outcomes", "cache_hit_ratio", "http_error_ratio", "api_latency", "db_latency"}.issubset(metrics)
+        and all(item.status == "available" and item.payload.get("ready") is True
+                and item.payload.get("phase") == "Running" and entries[item.evidence_id].replicaset_uid
+                and entries[item.evidence_id].replicaset_resource_version for item in workloads)
+    )
+    if report.current_state == "healthy":
+        workload_fact = next(fact for fact in report.facts if fact.statement == "관측된 workload는 Running/Ready 상태다.")
+        if healthy_scope:
+            workload_fact.statement = f"등록 Deployment의 기대 Pod {expected}개 전체가 관측 시점에 Running/Ready 상태다."
+            workload_fact.evidence_ids = [item.evidence_id for item in workloads]
+        else:
+            workload_fact.statement = "확보한 Pod 상태에서 Running/Ready 관측이 있지만 전체 서비스 정상은 확인하지 못했다."
+            report.current_state = "unknown"
+            report.limitations.append("전체 Pod 수·소유 관계·필수 출처·수집 완료 조건이 모두 확인되지 않아 전체 건강을 판정하지 않았다.")
+    elif report.current_state == "recovered":
+        report.current_state = "unknown"
+        report.limitations.append("이전 복구 기록은 현재 전체 Pod 건강을 입증하지 않아 최신 상태를 확인 불가로 둔다.")
+    reasons = {
+        "permission_denied": "자료 조회 권한이 거부됐다.", "missing_history": "CI 실패·롤백 전후 또는 배포 이력이 확보되지 않았다.",
+        "empty_response": "조회 결과가 없어 수치 0으로 해석하지 않았다.", "no_traffic": "평가 구간의 요청·표본이 0건이어서 비율·지연을 판단하지 않았다.",
+        "scrape_unavailable": "지표 수집 상태·최근성·표본 수 조건을 충족하지 못했다.",
+        "truncated": "수집 상한 또는 잘린 응답 때문에 자료 전체를 확보하지 못했다.",
+        "scope_mismatch": "등록 대상이나 객체 소유 관계가 일치하지 않았다.",
+        "revision_changed": "수집 도중 Deployment 또는 Pod가 변경됐다.",
+        "deadline_exceeded": "수집 기한이 지났다.", "timeout": "조회 시간이 초과됐다.",
+        "invalid_payload": "자료 형식·허용 필드·진단 표식 검사를 통과하지 못했다.",
+    }
+    for missing in report.missing_evidence:
+        missing.reason = reasons.get(missing.reason, missing.reason)
+    if audit is not None and not complete:
+        report.analysis_status = "partial"
+        report.limitations.append(f"수집 상태는 {audit.collection_status}이며 일부 또는 전체 출처가 부족한 규칙 부분 결과다.")
+    if audit is None:
+        report.limitations.append("수집 감사가 없는 captured 입력이므로 전체 Pod 범위와 수집 완전성을 검증하지 못했다.")
+    return report

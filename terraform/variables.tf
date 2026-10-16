@@ -12,6 +12,12 @@ variable "project_name" {
   default     = "urlshortener"
 }
 
+variable "enable_ai_ops_registry" {
+  description = "독립 AI 이미지 저장소와 등록 전용 역할 생성 여부. 기본 비활성"
+  type        = bool
+  default     = false
+}
+
 # 실습 환경은 운영과 별도 state 및 project_name을 사용한다.
 variable "environment" {
   description = "리소스 보존 정책을 적용할 환경 (production 또는 practice)"

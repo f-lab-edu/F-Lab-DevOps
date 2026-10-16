@@ -10,7 +10,7 @@
 | 계약 | 주요 필드·검증 | 생성 주체 |
 |---|---|---|
 | TargetRegistry | schema version 1, 정확한 cluster/namespace/workload/service/environment 튜플, 중복 거부 | 신뢰된 로컬 설정 파일 |
-| IncidentRequest | 내부 incident ID, 재전송 request ID, manual_replay, 등록 대상, 질문, UTC 24시간 이내 window, bundle hash, 요청 시각 | `create_incident_request`가 incident ID 생성. 재전송 처리 자체는 A3 |
+| IncidentRequest | 내부 incident ID, 재전송 request ID, manual_replay / manual_snapshot, 등록 대상, 질문, UTC 24시간 이내 window, bundle hash, 요청 시각 | `create_incident_request`가 incident ID 생성. 재전송 처리 자체는 A3 |
 | EvidenceItem/Bundle | 종류·출처·시각·상태·provenance, 누락 사유, payload/hash, 중복 ID·대상·bundle hash 검사 | A1은 계약과 생성 함수 제공. A2가 [로컬 파일 정규화](A2-evidence.md)를 구현 |
 | AnalysisReport | incident/run/input 연계, 진단·현재 상태 구분, 사실·가설·부족 증거·추가 확인·미실행 대응·실행 메타데이터 | A3/A5의 조사 엔진이 생성 예정 |
 
@@ -30,3 +30,5 @@
 - 로컬 검증은 Codex 번들 Python 3.12.14/Pydantic 2.13.5로 수행했다. CI 실행과 다른 Python 3.11 설치 검증은 별도다.
 
 A2는 로컬 저장 파일을 읽어 이 계약에 맞는 증거와 개발용 합성 fixture 8건을 준비했다. A3는 [사건 저장·CLI·규칙 기반 보고서](A3-local-investigation.md)를 연결했다. 현재 예제 대상은 실제 EKS 자격증명이나 실환경 연결을 의미하지 않는다.
+
+2026-10-16 B-02 확장: `source=manual_snapshot`은 B 수집기의 메모리 증거 묶음으로 만든 조사 요청이다. 파일 입력의 `manual_replay` 기본값을 유지하며, source 값 자체가 전송 승인이나 실제 클러스터 관측을 입증하지 않는다. B 입력은 수집 감사·설정·해시를 함께 검사한다.

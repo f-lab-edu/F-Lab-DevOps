@@ -41,10 +41,11 @@ def analyze_fixed_summary(
     """정답표·원본 파일을 읽지 않고 검증된 묶음 전체만 모델에 제공한다."""
     from ai_ops.openai_engine import AIOutcome
 
-    if bundle.target.environment != "practice" or any(
-        item.provenance.kind != "synthetic" for item in bundle.evidence
-    ):
-        raise AIAnalysisError("captured_data_not_approved")
+    from ai_ops.data_policy import ModelDataDenied, ensure_external_model_allowed
+    try:
+        ensure_external_model_allowed(bundle)
+    except ModelDataDenied as exc:
+        raise AIAnalysisError(exc.reason) from None
     if not api_key:
         raise ValueError("API key is required")
     delivered = [item.evidence_id for item in bundle.evidence if item.status == "available"]

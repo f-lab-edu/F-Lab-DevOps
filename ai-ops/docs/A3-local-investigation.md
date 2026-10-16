@@ -46,3 +46,10 @@ python3 ai-ops/scripts/build_dev_fixtures.py --check
 ```
 
 시험은 8개 합성 사례의 진단 구분, 존재하는 증거 ID 인용, 동일 요청 재전송·충돌, 개인 저장소 권한, UTC JSON/KST Markdown의 동일 시각, 취소·중단·실패 보존, CLI 재조회를 확인한다. 실제 모델 품질·실시간 경보·클러스터 권한·변경 승인·실행은 검증하지 않는다. [A4](A4-replay-tools.md)에서 묶음 내부 조회 도구와 실행 제한을 추가했으며, A5에서 실제 AI를 연결한다. 원시 캡처 자료의 보관 기간·삭제 정책은 실제 자료를 도입하기 전에 정해야 한다.
+
+
+## B-02 수집 입력 연결 — 2026-10-16
+
+파일 입력의 저장 기능을 `investigate_bundle` 공통 진입점으로 재사용하고 B의 `investigate_snapshot`·`collect-investigate` 명령을 추가했다. 수집 묶음과 설정·감사를 검증하고 규칙 보고서와 `collection-audit.json`을 저장한다. 수집 누락은 `partial` / `collection_incomplete`로 기록하며 `show`에서 감사 hash·입력·현재 상태 판정을 재검사한다. 이 부분 결과는 A5 모델 오류 fallback과 구분한다. 자세한 명령·적용 조건은 [README](../README.md)에 있다.
+
+B의 captured 규칙은 별도 `rules-captured-v1`이며 기대 Pod 전체·소유 관계·필수 출처·수집 완료를 확인하지 못하면 일부 Ready 관측을 전체 건강으로 확대하지 않는다. 기존 A fixture 56개의 `rules-v1` JSON은 그대로 유지했다. 외부 모델 전송은 여전히 practice synthetic에만 허용한다. 실제 EKS 연결은 아직 시험하지 않았다.

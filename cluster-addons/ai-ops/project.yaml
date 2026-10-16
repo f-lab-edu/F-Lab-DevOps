@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ai-ops
+  namespace: argocd
+spec:
+  description: AI 운영 조사 진단 리소스만 소유하는 전용 프로젝트
+  sourceRepos:
+    - https://github.com/f-lab-edu/F-Lab-DevOps.git
+  destinations:
+    - {server: "https://kubernetes.default.svc", namespace: ai-ops}
+    - {server: "https://kubernetes.default.svc", namespace: url-shortener}
+    - {server: "https://kubernetes.default.svc", namespace: argocd}
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - {group: "", kind: ConfigMap}
+    - {group: "", kind: Service}
+    - {group: "", kind: ServiceAccount}
+    - {group: "", kind: PersistentVolumeClaim}
+    - {group: apps, kind: StatefulSet}
+    - {group: rbac.authorization.k8s.io, kind: Role}
+    - {group: rbac.authorization.k8s.io, kind: RoleBinding}
+    - {group: networking.k8s.io, kind: NetworkPolicy}

@@ -4,7 +4,11 @@ on:
   pull_request:
     paths:
       - 'ai-ops/**'
+      - 'cluster-addons/ai-ops/**'
       - '.github/workflows/ai-ops-ci.yml'
+      - '.github/workflows/ai-ops-image.yml'
+      - '.github/workflows/ci-cd.yml'
+      - '.github/scripts/**'
       - 'url-shortener/app/**'
       - 'url-shortener/url-shortener-chart/**'
   push:
@@ -13,7 +17,11 @@ on:
       - codex/ai-incident-copilot
     paths:
       - 'ai-ops/**'
+      - 'cluster-addons/ai-ops/**'
       - '.github/workflows/ai-ops-ci.yml'
+      - '.github/workflows/ai-ops-image.yml'
+      - '.github/workflows/ci-cd.yml'
+      - '.github/scripts/**'
       - 'url-shortener/app/**'
       - 'url-shortener/url-shortener-chart/**'
 
@@ -40,3 +48,24 @@ jobs:
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_holdout_v3_fixtures.py --check
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py
           git diff --exit-code -- ai-ops/schemas
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # 버전 5.0.1
+        with:
+          version: v4.1.3
+      - name: 배포 정의·읽기 권한·통신·저장 정적 검사
+        run: PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_deployment.py
+
+  image:
+    needs: contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - name: 독립 에이전트 이미지 빌드
+        run: docker build --tag ai-ops:ci ai-ops
+      - name: 통신 없는 읽기 전용 이미지 실행 검사
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=64m ai-ops:ci --help
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --entrypoint python ai-ops:ci -c \
+            'import os, pydantic; from ai_ops.replay_tools import _runbook; assert os.getuid() == 10001; assert pydantic.__version__ == "2.13.5"; [_runbook(name) for name in ("cache", "database", "deployment")]'

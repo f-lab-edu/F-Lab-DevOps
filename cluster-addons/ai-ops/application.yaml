@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-ops
+  namespace: argocd
+spec:
+  project: ai-ops
+  source:
+    repoURL: https://github.com/f-lab-edu/F-Lab-DevOps.git
+    # chart가 포함된 검토 완료 커밋의 전체 SHA로 교체해야 동기화할 수 있다.
+    targetRevision: REPLACE_WITH_REVIEWED_COMMIT_SHA
+    path: ai-ops/chart
+    helm:
+      releaseName: ai-ops
+      valuesObject:
+        enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ai-ops
+  # 자동 동기화·자동 namespace 생성은 첫 묶음에서 활성화하지 않는다.
+  syncPolicy:
+    syncOptions:
+      - FailOnSharedResource=true

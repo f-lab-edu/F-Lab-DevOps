@@ -257,7 +257,7 @@ class IncidentRequest(StrictModel):
     schema_version: Literal[1]
     incident_id: IncidentId
     request_id: RequestId
-    source: Literal["manual_replay"]
+    source: Literal["manual_replay", "manual_snapshot"]
     target: Target
     question: Annotated[StrictStr, Field(min_length=1, max_length=1000)]
     window: TimeWindow
@@ -291,12 +291,13 @@ def validate_request_bundle(
 def create_incident_request(
     *, request_id: str, target: Target, question: str, window: TimeWindow,
     bundle: EvidenceBundle, registry: TargetRegistry, requested_at: datetime,
+    source: Literal["manual_replay", "manual_snapshot"] = "manual_replay",
 ) -> IncidentRequest:
     request = IncidentRequest(
         schema_version=1,
         incident_id=f"inc-{uuid.uuid4().hex}",
         request_id=request_id,
-        source="manual_replay",
+        source=source,
         target=target,
         question=question,
         window=window,

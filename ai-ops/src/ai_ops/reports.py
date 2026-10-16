@@ -122,6 +122,8 @@ def render_markdown(
               if report.execution.engine == "rules-fallback-v1" else
               "AI가 합성 저장 증거를 읽고 작성한 조사 초안입니다. 실시간 클러스터 확인·변경 실행은 하지 않았습니다."
               if report.execution.mode == "ai" else
+              "수집 시점의 captured 증거 묶음을 규칙으로 분석한 결과입니다. 이후 상태 변화는 확인하지 않았으며 AI 분석·변경 실행은 하지 않았습니다."
+              if any(item.provenance.kind == "captured" for item in bundle.evidence) else
               "규칙 기반 로컬 조사 결과입니다. AI 분석·실시간 클러스터 확인·변경 실행은 하지 않았습니다.")
     lines = [
         "# 운영 조사 보고서",

@@ -1,6 +1,6 @@
 # AI 운영 조사 기능
 
-현재 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. **A7은 새 v3 합성 입력에서 수정 고정 증거 AI와 도구 탐색 AI를 각각 48/48회 완료**했다. 기대 진단 자동 채점은 각각 45/48, 36/48이다. 첫 반복의 Codex 예비 검토와 Claude 외부 AI 교차검토, [AI 전용 원격 CI 통과](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37116993482), [앱 CI 원격 검증](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37118365182), [두 workflow의 PR 이벤트 검증](https://github.com/f-lab-edu/F-Lab-DevOps/pull/16)을 확인했다. 익명 A/B 검토 화면과 원본 증거 전용 수동 분석 화면·빈 기록표를 준비했지만 사람의 독립 의미 채점과 수동 분석 기준선은 남았다. 실클러스터 수집과 변경 실행은 후속 구현 범위다.
+현재 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. **A7은 새 v3 합성 입력에서 수정 고정 증거 AI와 도구 탐색 AI를 각각 48/48회 완료**했다. 기대 진단 자동 채점은 각각 45/48, 36/48이다. 첫 반복의 Codex 예비 검토와 Claude 외부 AI 교차검토, [AI 전용 원격 CI 통과](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37116993482), [앱 CI 원격 검증](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37118365182), [두 workflow의 PR 이벤트 검증](https://github.com/f-lab-edu/F-Lab-DevOps/pull/16)을 확인했다. 익명 A/B 검토 화면과 원본 증거 전용 수동 분석 화면·빈 기록표를 준비했지만 사람의 독립 의미 채점과 수동 분석 기준선은 남았다. B-02 읽기 수집기는 모의 API로 검증했으며 실클러스터 연결과 변경 실행은 후속 구현 범위다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -22,6 +22,46 @@
 런북은 코드에서 확인한 동작과 사건별 판단 절차를 제공한다. 실환경 정상 동작이나 특정 사건의 원인을 입증하는 자료는 별도로 수집해야 한다. `index.yaml`에 등록된 문서만 향후 AI 입력 후보로 사용한다. 기준선 기록·데이터 정책·평가 정답은 자동으로 모델에 제공하지 않는다.
 
 `src/ai_ops/contracts.py`가 요청·증거·보고서의 Pydantic 계약을 정의한다. `schemas/`는 같은 모델에서 생성한 JSON Schema다. 등록 대상은 `config/targets.example.json` 형식으로 관리한다. 예제 cluster ID는 가상 값이다.
+
+B-02의 첫 묶음은 `b_contracts.py`의 대상·수집 설정과 `collection.py`의 읽기 경계·captured 증거 정규화를 구현했다. `config/targets.practice.example.json`은 조사 대상과 연결 별칭·컨테이너·유한 query dimension을 등록하고, `b-runtime.example.json`은 시간·응답 크기·로그·예산 상한을 정한다. 예제 연결 주소는 `null`, 모델 사용은 `false`이며 실제 환경값으로 확정한 설정이 아니다. `metric-queries.json`은 내용 해시를 확인하는 다섯 query ID의 5분 instant PromQL과 scrape 품질 식을 담는다. 해시는 변경 추적용이며 설정 작성자의 신뢰를 대신하지 않는다.
+
+`SnapshotBuilder`는 주입된 읽기 transport와 clock을 사용해 대상·GET 경로·query·시간·크기를 검사하고, 수집 후보를 기존 `EvidenceBundle`과 별도 `CollectionAudit`으로 고정한다. 내부 시각은 UTC, 원본 offset은 증거에 보존하며 화면 표시는 기존 KST 함수를 재사용한다. 403·timeout·미래/모호한 시각·잘못된 값은 내용 없는 누락·거부·무효 항목으로 남긴다. captured 로그·이벤트는 허용된 진단 표식만 보존해 사용자 이름·item ID·URL·자유 문장을 버리므로 정보 손실이 있다. B-02 두 번째 묶음에서 `live_collectors/`의 API 응답 추출·owner UID 검증·scrape 품질 판정·GET transport를 구현했다. 세 번째 묶음에서 조사 CLI·공통 captured 기본 거부 정책·규칙 보고서 연결을 구현했다. captured AI 엔진 활성은 자료 검토 이후의 별도 작업이다. 현재 모의 시험은 실제 EKS 연결 검증을 뜻하지 않는다.
+
+B-02 두 번째 묶음의 [snapshot.py](src/ai_ops/live_collectors/snapshot.py)는 `collect_snapshot(settings, target, transport=..., clock=..., route=..., operation=...)`로 세 수집기를 연결해 메모리의 bundle/audit를 반환한다. 기본 예제의 주소가 비어 있으면 실제 연결을 거부한다. 모의 transport를 전달하면 서버·API 키 없이 실행할 수 있다.
+
+- [kubernetes.py](src/ai_ops/live_collectors/kubernetes.py): Deployment·Service selector와 Deployment→ReplicaSet→Pod의 controller UID를 확인한다. 목록은 최대 12개와 `continue`를 검사하고 초과 시 페이지를 계속 읽지 않고 truncated로 남긴다. Pod별 현재 상태·구성·현재 로그와 재시작 시 이전 로그를 읽으며, Pod 이름 재사용·수집 중 Deployment 변경을 확인한다. 로그는 Pod별 현재/이전 합계 200줄·전체 원시 64KiB를 제한하고 이벤트는 owner UID와 원본 시각으로 최대 20건을 선별한다. 읽은 bytes는 버린 응답도 예산에 포함한다. UID·resourceVersion·누락·잘림은 감사에 기록한다.
+- [prometheus.py](src/ai_ops/live_collectors/prometheus.py): 고정 instant query의 t0·vector·label·유한 값을 확인한다. `up`, 최근 5분 `min_over_time(up)`, scrape 표본 수(기본 최소 8), 마지막 scrape 시각(기본 60초)을 같은 series 집합에서 확인한다. warning/info·범위 응답·NaN은 거부한다. 캐시 결과 일부가 없으면 확보한 증가량과 누락 outcome을 함께 남기고 누락을 0으로 채우지 않는다. 비율·지연은 요청 수부터 읽고 0건이면 no_traffic으로 기록한다. 실제 시계열 전체 범위와 scrape 주기는 B-03에서 대조해야 한다.
+- [deployment.py](src/ai_ops/live_collectors/deployment.py): 등록 Argo Application의 repo/path/destination을 대조하고 전체 Git revision·reconciledAt·최근 최대 10개 배포 이력의 revision/deployedAt만 선별한다. 현재 Healthy나 성공 이력으로 실패·롤백·복구를 만들지 않는다. CI 전후 artifact는 아직 연결하지 않아 missing_history로 남긴다. secretKeyRef의 존재는 실제 URL 값·연결 성공·DB 역할로 해석하지 않는다.
+- [transport.py](src/ai_ops/live_collectors/transport.py): 표준 라이브러리로 신뢰 origin에 GET을 보낸다. 환경 proxy·redirect·압축을 끄고 TLS CA 검증·파일 Bearer token·읽기 바이트 상한을 적용한다. token은 매 요청 파일에서 다시 읽으며 오류 본문·credential을 감사나 증거에 저장하지 않는다. 새 SDK 의존성은 추가하지 않았다. socket timeout·경과 시간·늦은 응답 거부를 적용하지만 OS DNS 등 동기 I/O를 별도 프로세스로 강제 종료하는 기능은 없으며 실환경 기한 검증이 남았다.
+
+모의 API와 HTTP opener 대체 시험은 `tests/test_live_collectors.py`에 있다. 실제 클러스터·모델 호출은 하지 않았다. collection 완료와 진단 완료는 구분하며, 세 번째 묶음에서 기대 Pod 수·UID 소유 관계·전체 Pod Ready·필수 출처·수집 완료를 함께 검사하도록 규칙 보고서를 연결했다. 불완전한 수집은 partial로 저장한다.
+
+B-02 세 번째 묶음의 `IncidentStore.investigate_bundle`은 파일과 메모리 입력이 공유하는 해시·대상·시간·멱등성·저장 진입점이다. `investigate_snapshot`은 B 설정과 수집 감사를 추가 검사하고 `rules-captured-v1`로 조사한다. 요청 source는 기존 파일 입력 `manual_replay`, 새 수집 입력 `manual_snapshot`으로 구분하며 JSON Schema도 갱신했다. `<store>/<incident>/<run>/collection-audit.json`에 bundle hash와 수집 감사를 0600으로 저장하고 metadata의 감사 hash와 연결한다. `show`는 입력·감사·보고서의 정합성을 다시 검사한다.
+
+`data_policy.py`는 두 AI 어댑터·조사 진입점·재생 실행기의 모델 입력을 `practice` synthetic으로 제한한다. captured·혼합·production 자료는 API 키·토큰 계산·모델 transport·비용 예약 전에 거부한다. 검토된 captured 자료를 허용하는 flag는 아직 없다. 이 정책은 출처 표기의 진실성을 자동 판별하는 기능이 아니므로 실제 자료를 synthetic으로 바꿔 전송하면 안 된다. B CLI의 모델 사용은 비활성 상태이며 수집 후 규칙 분석만 지원한다.
+
+실환경 대상·권한·주소를 B-03에서 확인한 뒤 사용할 명령은 다음과 같다. **현재 예제 주소는 null이므로 예제 설정 그대로는 실제 수집이 시작되지 않는다.** 연결 설정·질문에 Secret을 넣지 않고 별도 신뢰 파일과 마운트 경로를 사용한다.
+
+```sh
+PYTHONPATH=ai-ops/src python3 -m ai_ops collect-investigate \
+  --bindings /path/to/trusted-targets.json \
+  --runtime /path/to/trusted-b-runtime.json \
+  --metric-queries ai-ops/config/metric-queries.json \
+  --target url-shortener-practice \
+  --store /private/tmp/aiops-b-practice \
+  --mode rules --request-id practice-snapshot-001 \
+  --question '수집 시점의 장애 징후와 부족한 근거를 정리해줘'
+```
+
+`--route`·`--operation`은 등록 목록의 dimension으로만 제한할 수 있다. 실제 재수집은 시각·bundle hash가 달라지므로 새 request ID를 사용한다. 같은 snapshot·감사·질문·request ID의 내부 재전송은 기존 run을 반환한다. 반환 코드는 보고서 완료 0, 수집 불완전 또는 AI fallback 부분 결과 1, 입력·정책·설정 오류 2, 사용자 취소 130이다. 수집 불완전은 `partial` / `collection_incomplete`이며 AI 오류로 표시하지 않는다. 전 출처 누락이면 규칙상 증거 부족·최신 상태 unknown을 저장하고 모델은 호출하지 않는다.
+
+captured의 정상 상태는 기대 Pod 수와 중복 없는 UID가 맞고, 전체 Pod가 Running/Ready이며 필수 종류·다섯 query와 수집 완료가 확인돼야 허용한다. 캐시 error/unavailable·RedisError·API P95 1초/DB P99 0.5초 경보 기준과 충돌하면 정상으로 확대하지 않는다. 이 지연 기준은 현 앱 chart와 맞춘 고정 규칙이며 chart 변경 시 재대조해야 한다. 진단 결론과 최신 상태는 별도이며 정상 cache miss가 보여도 전체 건강은 unknown일 수 있다. CI 과거 artifact의 누락도 현재는 partial로 다루므로 보수적인 판정이다. 누락은 보고서에서 최대 30건, 전체 입력·감사에는 모두 남긴다.
+
+세 번째 묶음은 Python 3.12.14/Pydantic 2.13.5에서 전체 125건(신규 조사·정책·CLI 경계 14건 포함)을 통과했다. 기존 A fixture 56개의 규칙 보고서 JSON은 수정 전과 동일했고 A7 유료 평가를 재실행하지 않았다. 다음은 B-03의 image·chart·읽기 권한·통신·PVC 구성이다. 실환경 시각/권한·CI 전후 artifact·captured 자료 검토와 모델 활성은 남아 있다.
+
+B-03 첫 묶음은 [배포 진단 안내](docs/B3-deployment.md)에 기록했다. 독립 Dockerfile·기본 비활성 Helm chart·읽기 RBAC·DNS/API/Prometheus 통신 정책·PVC·수동 비활성 GitOps 정의와 네트워크 없는 로컬 진단 모드를 구현했다. 전체 Python 시험 130건과 Helm/권한 정적 검사를 통과했다. 후속 로컬 검증에서 linux/amd64 이미지 실제 빌드·통신 없는 실행·합성 규칙 조사/재조회·배포 로컬 진단을 통과했다. 원격 CI 결과는 배포 진단 안내의 Actions 링크에서 확인한다. B-03 전체는 진행 중이며 다음은 독립 ECR/이미지 등록 경로와 CI 롤백 전후 artifact 보존이다. 실제 환경·경보·모델 활성은 여전히 대기 중이다.
+
+B-03 두 번째 묶음은 [독립 이미지 등록·배포 관측 보존](docs/B3-image-and-observations.md)을 구현했다. ECR/등록 전용 OIDC 역할은 Terraform 기본 비활성이며 수동 workflow도 publish=false가 기본이다. 검증한 같은 이미지의 digest·소스/lock/runbook hash를 기록하고 GitOps는 수정하지 않는다. 앱 CI에는 배포 검증 직후·롤백 검증 뒤 허용 필드만 남기는 artifact 보존을 추가했으며 수집 실패가 복구를 막거나 원래 실패를 성공으로 바꾸지 않는다. Python 142건·Terraform validate/변경 파일 fmt·Helm/셸 검사를 통과했다. 실제 AWS·이미지 등록·artifact 업로드·B 입력 import는 아직 미검증/미연결이다.
 
 Python 3.11 이상과 `requirements.lock`의 고정 의존성을 사용한다. 저장소 루트에서 로컬 검증:
 

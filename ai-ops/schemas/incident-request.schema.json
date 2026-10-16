@@ -86,7 +86,10 @@
       "type": "string"
     },
     "source": {
-      "const": "manual_replay",
+      "enum": [
+        "manual_replay",
+        "manual_snapshot"
+      ],
       "title": "Source",
       "type": "string"
     },

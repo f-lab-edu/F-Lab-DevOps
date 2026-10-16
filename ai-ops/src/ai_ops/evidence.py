@@ -1,4 +1,4 @@
-"""저장된 증거 파일을 제한된 범위에서 읽어 A1 계약으로 정규화한다.
+"""저장 파일과 수집기의 메모리 자료를 A1 계약으로 정규화한다.
 
 이 모듈은 라이브 클러스터에 연결하지 않는다. 원시 파일은 모델 입력으로 전달하지
 않으며, 명시적으로 허용한 필드와 마스킹한 문자열만 증거 묶음에 담는다.
@@ -108,12 +108,13 @@ def sanitize_question(question: str) -> tuple[str, RedactionSummary]:
 def create_sanitized_incident_request(
     *, request_id: str, target: Target, question: str, window: TimeWindow,
     bundle: EvidenceBundle, registry: TargetRegistry, requested_at: datetime,
+    source: Literal["manual_replay", "manual_snapshot"] = "manual_replay",
 ) -> tuple[IncidentRequest, RedactionSummary]:
     """원본 질문을 요청 계약에 넣기 전에 마스킹한다."""
     cleaned, summary = sanitize_question(question)
     request = create_incident_request(
         request_id=request_id, target=target, question=cleaned, window=window,
-        bundle=bundle, registry=registry, requested_at=requested_at,
+        bundle=bundle, registry=registry, requested_at=requested_at, source=source,
     )
     return request, summary
 
@@ -294,6 +295,146 @@ def _normalize_sample_times(payload: dict[str, Any], window: TimeWindow) -> None
         sample["source_offset"] = offset
 
 
+def normalize_payload(
+    kind: str, source: dict[str, Any], window: TimeWindow,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """허용 필드·비밀값·지표 시각 검사를 파일과 captured 경로에서 공유한다."""
+    if kind not in PAYLOAD_FIELDS:
+        raise ValueError("unsupported evidence kind")
+    counts: dict[str, int] = {}
+    payload = _project(source, PAYLOAD_FIELDS[kind], counts)
+    if kind == "metric":
+        if payload.get("query_id") not in ALLOWED_QUERY_IDS:
+            raise ValueError("metric query ID is not allowed")
+        if not payload.get("samples") or any(
+            not {"at", "outcome", "value"}.issubset(sample)
+            or sample["outcome"] not in QUERY_OUTCOMES[payload["query_id"]]
+            for sample in payload["samples"]
+        ):
+            raise ValueError("metric outcome or samples are invalid")
+        _normalize_sample_times(payload, window)
+    return payload, counts
+
+
+CAPTURED_LOG_MARKERS = (
+    "RedisError", "ConnectionError", "TimeoutError", "ImagePullBackOff",
+    "ErrImagePull", "CrashLoopBackOff", "OOMKilled", "recent write marker",
+)
+CAPTURED_EVENT_REASONS = {
+    "BackOff", "Failed", "FailedMount", "FailedScheduling", "Unhealthy", "Killing",
+    "Pulling", "Pulled", "Created", "Started", "Scheduled", "SuccessfulCreate",
+    "ScalingReplicaSet", "ImagePullBackOff", "ErrImagePull", "OOMKilled",
+}
+
+
+def _diagnostic_tokens(line: str) -> list[str]:
+    """자유 문장 대신 코드에서 쓰는 유한한 진단 표식만 남긴다."""
+    tokens = [marker for marker in CAPTURED_LOG_MARKERS
+              if re.search(r"(?<![\w])" + re.escape(marker) + r"(?![\w])", line)]
+    fields = {
+        "db_route": {"primary", "replica"},
+        "operation": {"select_one", "select_all", "insert", "delete"},
+        "result": QUERY_OUTCOMES["cache_outcomes"],
+    }
+    for key, allowed in fields.items():
+        for match in re.finditer(r"\b" + key + r"=([a-z_]+)(?![\w])", line):
+            if match.group(1) in allowed:
+                tokens.append(f"{key}={match.group(1)}")
+    return list(dict.fromkeys(tokens))
+
+
+def normalize_captured_payload(
+    kind: str, source: dict[str, Any], window: TimeWindow,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """captured 문장의 개인정보를 보존하지 않고 검토 가능한 진단 필드만 남긴다.
+
+    로그는 Kubernetes timestamps 형식의 줄만 받는다. 자유 메시지는 제거하므로
+    진단 정보가 손실될 수 있으며, 이 제한은 수집 감사에 함께 남겨야 한다.
+    """
+    if kind == "runbook":
+        raise ValueError("captured runbooks are not supported")
+    filtered = dict(source)
+    privacy_counts: dict[str, int] = {}
+    line_times = []
+    if kind == "log":
+        lines = source.get("lines")
+        if not isinstance(lines, list) or not 1 <= len(lines) <= 200:
+            raise ValueError("captured log line limit exceeded")
+        cleaned = []
+        for line in lines:
+            if not isinstance(line, str) or len(line) > 4096:
+                raise ValueError("invalid captured log line")
+            raw_time, separator, message = line.partition(" ")
+            if len(raw_time) > 64:
+                raise ValueError("captured log timestamp exceeds limit")
+            at, offset = normalize_source_time(raw_time)
+            if not separator or not window.start <= at <= window.end:
+                raise ValueError("captured log time is outside the window")
+            tokens = _diagnostic_tokens(message)
+            if tokens:
+                cleaned.append(_utc_text(at) + " " + " ".join(tokens))
+                line_times.append({"at": _utc_text(at), "source_at": raw_time, "source_offset": offset})
+            privacy_counts["captured_log_projection"] = privacy_counts.get("captured_log_projection", 0) + 1
+        if not cleaned:
+            raise ValueError("captured log has no allowed diagnostic fields")
+        filtered = {"container": source.get("container"), "lines": cleaned}
+    elif kind == "event":
+        if source.get("reason") not in CAPTURED_EVENT_REASONS or source.get("type") not in {"Normal", "Warning"}:
+            raise ValueError("unsupported captured event reason or type")
+        uid = source.get("involved_uid")
+        if not isinstance(uid, str) or not re.fullmatch(r"[a-zA-Z0-9-]{1,80}", uid):
+            raise ValueError("invalid event owner UID")
+        # 이벤트 자유 문장에도 환경변수·URL·사용자값이 있을 수 있어 표식만 보존한다.
+        message = source.get("message", "")
+        if not isinstance(message, str) or len(message) > 4096:
+            raise ValueError("invalid captured event message")
+        filtered["message"] = " ".join(_diagnostic_tokens(message)) or "자유 메시지는 수집 정책에 따라 생략됨"
+        privacy_counts["captured_event_projection"] = 1
+    payload, counts = normalize_payload(kind, filtered, window)
+    _merge_counts(counts, privacy_counts)
+    if kind == "metric":
+        expected_unit = ("seconds" if payload["query_id"].endswith("latency") else
+                         "count" if payload["query_id"] == "cache_outcomes" else "ratio")
+        if payload.get("unit") != expected_unit:
+            raise ValueError("captured metric unit does not match query ID")
+        outcomes = [sample["outcome"] for sample in payload["samples"]]
+        if len(set(outcomes)) != len(outcomes):
+            raise ValueError("captured metric requires one instant sample per outcome")
+        if any(sample["value"] > 1 for sample in payload["samples"] if sample["outcome"] == "ratio"):
+            raise ValueError("metric ratio exceeds one")
+        if payload["query_id"] != "cache_outcomes":
+            if set(outcomes) != QUERY_OUTCOMES[payload["query_id"]]:
+                raise ValueError("captured ratio or latency has incomplete samples")
+            count = next(sample["value"] for sample in payload["samples"] if sample["outcome"] in {"requests", "count"})
+            if count == 0:
+                raise ValueError("captured ratio or latency requires traffic")
+    elif kind == "log":
+        if not isinstance(payload.get("container"), str) or not re.fullmatch(r"[a-z0-9-]{1,63}", payload["container"]):
+            raise ValueError("invalid captured log container")
+        payload["line_times"] = line_times
+    elif kind == "workload_status":
+        if not {"image", "phase", "ready", "restarts"}.issubset(payload):
+            raise ValueError("captured workload status is incomplete")
+        if payload["phase"] not in {"Pending", "Running", "Succeeded", "Failed", "Unknown"}:
+            raise ValueError("invalid captured workload phase")
+        if not isinstance(payload["restarts"], int):
+            raise ValueError("invalid restart count")
+    elif kind == "config_summary":
+        if payload.get("read_engine_role", "unknown") not in {"primary", "replica", "unknown"}:
+            raise ValueError("invalid read engine role")
+    if kind in {"workload_status", "deployment"}:
+        image = payload.get("image")
+        if image is not None and (not re.fullmatch(r"[a-zA-Z0-9._/@:+-]{1,512}", image) or "://" in image):
+            raise ValueError("captured image must be an image reference")
+    if kind == "deployment":
+        if payload.get("status") not in {"failed", "progressing", "healthy", "healthy_after_rollback", "unknown"}:
+            raise ValueError("invalid captured deployment status")
+        for key in ("source_sha", "gitops_revision", "rollback_revision", "ci_run_id"):
+            if key in payload and not re.fullmatch(r"[a-zA-Z0-9._/-]{1,160}", payload[key]):
+                raise ValueError("invalid captured deployment reference")
+    return payload, counts
+
+
 def load_evidence_bundle(bundle_root: Path, registry: TargetRegistry) -> EvidenceBundle:
     """manifest와 파일을 검증해 마스킹된 EvidenceBundle을 생성한다."""
     try:
@@ -348,17 +489,8 @@ def load_evidence_bundle(bundle_root: Path, registry: TargetRegistry) -> Evidenc
                     if not entry.source_ref.endswith(".json"):
                         raise ValueError("structured evidence requires .json file")
                     source_payload = _json_object(raw)
-                payload = _project(source_payload, PAYLOAD_FIELDS[entry.kind], counts)
-                if entry.kind == "metric":
-                    if payload.get("query_id") not in ALLOWED_QUERY_IDS:
-                        raise ValueError("metric query ID is not allowed")
-                    if not payload.get("samples") or any(
-                        not {"at", "outcome", "value"}.issubset(sample)
-                        or sample["outcome"] not in QUERY_OUTCOMES[payload["query_id"]]
-                        for sample in payload["samples"]
-                    ):
-                        raise ValueError("metric outcome or samples are invalid")
-                    _normalize_sample_times(payload, manifest.window)
+                payload, payload_counts = normalize_payload(entry.kind, source_payload, manifest.window)
+                _merge_counts(counts, payload_counts)
                 payload["source_time"] = {
                     "observed_raw": entry.observed_at,
                     "observed_offset": observed_offset,

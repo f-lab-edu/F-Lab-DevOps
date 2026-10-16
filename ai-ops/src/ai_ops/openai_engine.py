@@ -317,8 +317,11 @@ def analyze_ai(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, co
                api_key: str, transport: Callable[[dict[str, Any], str, float], dict[str, Any]] = _http_post,
                token_counter: Callable[[dict[str, Any], str, float], int] | None = None) -> AIOutcome:
     """합성 입력에만 모델을 연결하고 실제 전달한 증거 ID로 보고서를 검사한다."""
-    if bundle.target.environment != "practice" or any(item.provenance.kind != "synthetic" for item in bundle.evidence):
-        raise AIAnalysisError("captured_data_not_approved")
+    from ai_ops.data_policy import ModelDataDenied, ensure_external_model_allowed
+    try:
+        ensure_external_model_allowed(bundle)
+    except ModelDataDenied as exc:
+        raise AIAnalysisError(exc.reason) from None
     model = OpenAISelectionModel(config, api_key, transport, token_counter)
     replay = run_replay(request=request, bundle=bundle, run_id=run_id, model=model, limits=ReplayLimits())
     def reject(reason: str, diagnostics: list[dict[str, str]] | None = None) -> None:

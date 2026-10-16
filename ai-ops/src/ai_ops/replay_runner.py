@@ -130,6 +130,8 @@ def run_replay(
     clock: Callable[[], float] = time.monotonic,
 ) -> ReplayResult:
     """도구 호출 수·시간·범위를 제한하며 모델에 제공한 ID만 추적한다."""
+    from ai_ops.data_policy import ensure_external_model_allowed
+    ensure_external_model_allowed(bundle)
     if request.target != bundle.target or request.window != bundle.window or request.bundle_hash != bundle.bundle_hash:
         raise ValueError("request does not match replay bundle")
     if not re.fullmatch(r"run-[0-9a-f]{32}", run_id):

@@ -92,3 +92,5 @@ git diff --exit-code -- ai-ops/schemas
 AI 호출이 인증·네트워크·시간·예산 문제로 실패하면 검증된 저장 증거의 규칙 분석을 `partial`로 저장한다. CLI는 실패 이유를 보여주고 종료 코드 1을 반환한다. 보고서 형식·근거·보안 검증을 통과하지 못한 모델 초안은 부분 결과로 위장하지 않고 실패 상태로 남긴다. 자세한 조건은 [A6 검증 기록](docs/A6-report-failure-validation.md)을 참고한다.
 
 B-03의 [AWS 적용 전 점검·비교 계획](docs/B3-aws-preflight.md) 후 별도 AI state를 선택했다. [AI 등록 전용 Terraform](../terraform/ai-ops-registry/README.md)으로 ECR/IAM을 분리하고 기존 OIDC는 조회만 한다. AWS 읽기 plan에서 전용 root는 생성 4개·수정/삭제 없음, AI 정의를 제거한 기존 production root는 변경 없음이었다. 2026-10-17 후속 작업에서 별도 state에 4개를 실제 생성하고 GitHub 등록 환경·변수를 설정했다. 적용 후 plan은 변경 없음이다. 실제 OIDC 인증·이미지 등록·main 반영은 대기 중이며 [적용 기록](docs/B3-registry-apply.md)을 따른다.
+
+운영자 CLI의 파일 인자와 기본값은 [지정 폴더 정책](docs/cli-file-policy.md)을 적용한다. 기존 임의 경로는 기본 개인 저장 폴더로 옮기거나 운영자 환경변수 `AI_OPS_FILES_ROOT`에 전용 폴더를 등록해야 한다. 일반 결과는 기존 파일을 덮어쓰지 않는다.

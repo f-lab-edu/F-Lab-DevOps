@@ -1,5 +1,6 @@
 """배포 진단이 모델·네트워크 없이 설정·런북·저장소만 검사하는지 확인한다."""
 
+import os
 import contextlib
 import io
 import json
@@ -20,6 +21,9 @@ class DeploymentCheckTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
+        policy = patch.dict(os.environ, {"AI_OPS_FILES_ROOT": self.directory.name})
+        policy.start()
+        self.addCleanup(policy.stop)
         self.root = Path(self.directory.name)
         self.config = self.root / "config"
         self.config.mkdir()

@@ -9,6 +9,7 @@ import re
 import statistics
 from datetime import datetime, timedelta
 from pathlib import Path
+from ai_ops.path_policy import cli_paths, write_private_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,7 +92,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="A7 수동 분석 CSV의 시간·분류를 사후 검증")
     parser.add_argument("--csv", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="Git 제외 개인 경로의 결과 JSON")
-    args = parser.parse_args()
+    args = cli_paths(parser, parser.parse_args(), {'csv': 'input', 'output': 'output'})
     if args.output.resolve().is_relative_to(ROOT.resolve()) and not args.output.resolve().is_relative_to((ROOT / "site").resolve()):
         parser.error("결과 JSON은 Git 제외 개인 경로 또는 ai-ops/site에 저장하세요")
     with args.csv.open(encoding="utf-8-sig", newline="") as stream:
@@ -102,9 +103,7 @@ def main() -> None:
     suite = json.loads(SUITE.read_text(encoding="utf-8"))
     rubric = json.loads(RUBRIC.read_text(encoding="utf-8"))
     result = evaluate(rows, suite, rubric)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    args.output.chmod(0o600)
+    write_private_json(args.output, result)
     print(f"16건 검증: 진단 분류 {result['diagnosis_status_matches']}/16, 상태 {result['current_state_matches']}/16, 첫 원인 의미는 별도 검토 대기")
 
 

@@ -7,6 +7,7 @@ import hashlib
 import json
 from statistics import median
 from pathlib import Path
+from ai_ops.path_policy import cli_paths, write_private_json
 
 from ai_ops.contracts import canonical_json_bytes, load_target_registry
 from ai_ops.evidence import load_evidence_bundle
@@ -192,7 +193,7 @@ def main() -> None:
     parser.add_argument("--rubric", type=Path, default=RUBRIC, help="해당 suite의 별도 채점 기준")
     parser.add_argument("--review", type=Path, help="선택: 사람이 원본과 대조해 채운 검토표 JSON")
     parser.add_argument("--output", type=Path, help="선택: 채점표 JSON 저장 경로")
-    args = parser.parse_args()
+    args = cli_paths(parser, parser.parse_args(), {'runs': 'input', 'suite': 'input', 'rubric': 'input', 'review': 'input', 'output': 'output'})
     runs = json.loads(args.runs.read_text(encoding="utf-8"))
     rubric = json.loads(args.rubric.read_text(encoding="utf-8"))
     suite = json.loads(args.suite.read_text(encoding="utf-8"))
@@ -202,7 +203,7 @@ def main() -> None:
         result = apply_manual_reviews(result, reviews)
     output = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
     if args.output:
-        args.output.write_text(output, encoding="utf-8")
+        write_private_json(args.output, result)
     else:
         print(output, end="")
 

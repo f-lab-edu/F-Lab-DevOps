@@ -7,6 +7,7 @@ import json
 import random
 import uuid
 from pathlib import Path
+from ai_ops.path_policy import cli_paths
 
 from run_holdout import _write_private
 
@@ -173,7 +174,7 @@ def main() -> None:
     ingest.add_argument("--ai-template", type=Path, required=True)
     ingest.add_argument("--fixed-output", type=Path, required=True)
     ingest.add_argument("--ai-output", type=Path, required=True)
-    args = parser.parse_args()
+    args = cli_paths(parser, parser.parse_args(), {'fixed_packet': 'input', 'ai_packet': 'input', 'html': 'html', 'mapping': 'output', 'review': 'input', 'fixed_template': 'input', 'ai_template': 'input', 'fixed_output': 'output', 'ai_output': 'output'})
     if args.command == "prepare":
         if args.html == args.mapping:
             parser.error("HTML과 대응표는 다른 경로에 저장해야 합니다")

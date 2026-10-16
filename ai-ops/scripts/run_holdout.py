@@ -11,6 +11,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from ai_ops.path_policy import cli_paths
 
 from ai_ops.cli import DEFAULT_STORE
 from ai_ops.contracts import canonical_json_bytes, load_target_registry
@@ -108,7 +109,7 @@ def main() -> None:
                         help="A7 평가 전용 UTC 일일 선예약 한도; 기본 $10, 최대 $30")
     parser.add_argument("--store", type=Path, default=DEFAULT_STORE)
     parser.add_argument("--result", type=Path, default=None)
-    args = parser.parse_args()
+    args = cli_paths(parser, parser.parse_args(), {'suite': 'input', 'store': 'store', 'result': 'checkpoint'})
     if not 1 <= args.repeats <= 3 or args.max_new_runs is not None and args.max_new_runs < 1:
         parser.error("반복 횟수는 1~3, 새 실행 상한은 양수여야 합니다")
     if not math.isfinite(args.daily_budget_usd) or not 0.10 <= args.daily_budget_usd <= MAX_EVAL_DAILY_BUDGET_USD:

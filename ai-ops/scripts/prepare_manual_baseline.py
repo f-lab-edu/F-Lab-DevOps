@@ -8,6 +8,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from ai_ops.path_policy import cli_paths
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -81,7 +82,7 @@ def render(packet: dict, template: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="A7 v3 사람 분석용 원본 증거 화면 생성")
     parser.add_argument("--output", type=Path, default=LOCAL_SITE / "a7-manual-baseline.html")
-    args = parser.parse_args()
+    args = cli_paths(parser, parser.parse_args(), {'output': 'html'})
     output = args.output.resolve()
     if output.parent != LOCAL_SITE.resolve() or output.suffix != ".html":
         parser.error("출력은 ai-ops/site의 HTML 파일이어야 합니다")

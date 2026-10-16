@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from ai_ops.path_policy import cli_paths
 
 from ai_ops.contracts import AnalysisReport, load_target_registry
 from ai_ops.evidence import load_evidence_bundle
@@ -85,7 +86,7 @@ def main() -> None:
     parser.add_argument("--packet", type=Path, required=True, help="저장소 밖 개인 파일")
     parser.add_argument("--template", type=Path, required=True, help="저장소 밖 개인 파일")
     parser.add_argument("--first-only", action="store_true", help="첫 반복만 검토")
-    args = parser.parse_args()
+    args = cli_paths(parser, parser.parse_args(), {'runs': 'input', 'suite': 'input', 'rubric': 'input', 'packet': 'output', 'template': 'output'})
     if args.packet == args.template:
         parser.error("검토 자료와 빈 판정표의 저장 경로는 달라야 합니다")
     runs = json.loads(args.runs.read_text(encoding="utf-8"))

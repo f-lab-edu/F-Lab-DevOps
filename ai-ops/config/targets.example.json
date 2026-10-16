@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "targets": [
+    {
+      "cluster_id": "practice-eks-example",
+      "namespace": "url-shortener",
+      "workload": "url-shortener-api",
+      "service": "url-shortener-svc",
+      "environment": "practice"
+    }
+  ]
+}

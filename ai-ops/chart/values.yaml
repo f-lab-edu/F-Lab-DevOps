@@ -1,0 +1,32 @@
+# 실제 환경값을 확인하기 전에는 어떤 리소스도 생성하지 않는다.
+enabled: false
+image:
+  repository: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+# 첫 묶음은 수신기·큐·모델 대신 로컬 검사만 하는 진단 모드다.
+mode: diagnostics
+replicaCount: 1
+config:
+  bindings: {}
+  runtime: {}
+persistence:
+  storageClassName: ""
+  size: 5Gi
+network:
+  # API 주소 변환 전후의 실제 도착 IP를 확인한 뒤 /32 단위로 지정한다.
+  apiServerCIDRs: []
+  dns:
+    namespace: kube-system
+    podLabels: {}
+  prometheus:
+    namespace: monitoring
+    podLabels: {}
+    port: 9090
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

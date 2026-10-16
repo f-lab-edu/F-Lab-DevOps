@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "target": {
+    "cluster_id": "practice-eks-example",
+    "namespace": "url-shortener",
+    "workload": "url-shortener-api",
+    "service": "url-shortener-svc",
+    "environment": "practice"
+  },
+  "window": {
+    "start": "2026-09-18T00:00:00Z",
+    "end": "2026-09-18T01:00:00Z"
+  },
+  "created_at": "2026-09-18T01:10:00Z",
+  "entries": [
+    {
+      "evidence_id": "ev-w08-1",
+      "kind": "deployment",
+      "source_ref": "deployment/first.json",
+      "raw_sha256": "9c93f0a5cd792084ec32b40ffdab99dd07ab96e9dfae1ecdc07a55a7612c3efe",
+      "observed_at": "2026-09-18T09:16:00+09:00",
+      "collected_at": "2026-09-18T00:17:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v3",
+        "fixture_version": "3"
+      }
+    },
+    {
+      "evidence_id": "ev-w08-2",
+      "kind": "event",
+      "source_ref": "events/pod.json",
+      "raw_sha256": "425e82df2a2af9ae8282f8095ddbb63a31920f4ae6607ee86a6a56fa7c9d6761",
+      "observed_at": "2026-09-18T09:18:00+09:00",
+      "collected_at": "2026-09-18T00:19:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v3",
+        "fixture_version": "3"
+      }
+    },
+    {
+      "evidence_id": "ev-w08-3",
+      "kind": "deployment",
+      "source_ref": "deployment/second.json",
+      "raw_sha256": "59d0969d0a57f3a077beb378cf503524a02f078b86c11c046f8da19b70c6bab9",
+      "observed_at": "2026-09-18T09:41:00+09:00",
+      "collected_at": "2026-09-18T00:42:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v3",
+        "fixture_version": "3"
+      }
+    },
+    {
+      "evidence_id": "ev-w08-4",
+      "kind": "workload_status",
+      "source_ref": "workload/status.json",
+      "raw_sha256": "85c953174847735096338f9db7b011222cfc435d166147ee9455037d76e15b03",
+      "observed_at": "2026-09-18T09:43:00+09:00",
+      "collected_at": "2026-09-18T00:44:00Z",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v3",
+        "fixture_version": "3"
+      }
+    }
+  ]
+}

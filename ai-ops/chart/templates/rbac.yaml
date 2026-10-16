@@ -1,0 +1,73 @@
+{{- if .Values.enabled }}
+{{- $binding := first .Values.config.bindings.bindings }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-investigator
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-read-target
+  namespace: {{ $binding.target.namespace }}
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [{{ $binding.target.workload | quote }}]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [services]
+    resourceNames: [{{ $binding.target.service | quote }}]
+    verbs: [get]
+  # 동적 Pod 이름은 RBAC만으로 label 범위에 한정할 수 없다. 수집기가 selector·UID를 추가 검사한다.
+  - apiGroups: [""]
+    resources: [pods, events]
+    verbs: [get, list]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-read-target
+  namespace: {{ $binding.target.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-investigator
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-read-target
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-read-argo
+  namespace: {{ $binding.argo.namespace }}
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [applications]
+    resourceNames: [{{ $binding.argo.application | quote }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-read-argo
+  namespace: {{ $binding.argo.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-investigator
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-read-argo
+{{- end }}

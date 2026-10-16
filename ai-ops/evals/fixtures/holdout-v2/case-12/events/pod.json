@@ -1,0 +1,6 @@
+{
+  "reason": "Started",
+  "message": "container started after scheduled node maintenance",
+  "type": "Normal",
+  "involved_uid": "pod-v12"
+}

@@ -1,0 +1,7 @@
+{
+  "image": "registry.example.invalid/url-shortener:v12-registry-503",
+  "source_sha": "0000000000000000000000000000000000000004",
+  "gitops_revision": "8888888888888888888888888888888888888888",
+  "ci_run_id": "holdout-v3-04",
+  "status": "progressing"
+}

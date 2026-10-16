@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "target": {
+    "cluster_id": "practice-eks-example",
+    "namespace": "url-shortener",
+    "workload": "url-shortener-api",
+    "service": "url-shortener-svc",
+    "environment": "practice"
+  },
+  "window": {
+    "start": "2026-09-01T00:00:00Z",
+    "end": "2026-09-01T01:00:00Z"
+  },
+  "created_at": "2026-09-01T01:10:00Z",
+  "entries": [
+    {
+      "evidence_id": "ev-v01-1",
+      "kind": "metric",
+      "source_ref": "metrics/cache.json",
+      "raw_sha256": "cc1133c31471a2c0bb8b79e2dc9f1ae039647f7e4ed153b9dcadec9f273eccd2",
+      "observed_at": "2026-09-01T00:11:00Z",
+      "collected_at": "2026-09-01T09:12:00+09:00",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v2",
+        "fixture_version": "2"
+      }
+    },
+    {
+      "evidence_id": "ev-v01-2",
+      "kind": "log",
+      "source_ref": "logs/app.log",
+      "raw_sha256": "0904fe46fb87cbbb126fc0877305ac771685f82f7ff59db533cfea7c95c318db",
+      "observed_at": "2026-09-01T00:12:00Z",
+      "collected_at": "2026-09-01T09:13:00+09:00",
+      "status": "available",
+      "missing_reason": null,
+      "provenance": {
+        "kind": "synthetic",
+        "origin": "a7-holdout-v2",
+        "fixture_version": "2"
+      }
+    }
+  ]
+}

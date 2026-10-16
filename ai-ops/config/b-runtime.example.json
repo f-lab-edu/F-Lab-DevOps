@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "collector_version": "captured-snapshot-v1",
+  "llm_enabled": false,
+  "per_incident_budget_usd": 0.1,
+  "daily_budget_usd": 1.0,
+  "connections": {
+    "practice-kubernetes": {
+      "kind": "kubernetes",
+      "base_url": null,
+      "ca_file": null,
+      "token_file": null
+    },
+    "practice-prometheus": {
+      "kind": "prometheus",
+      "base_url": null,
+      "ca_file": null,
+      "token_file": null
+    }
+  },
+  "limits": {
+    "lookback_seconds": 900,
+    "deadline_seconds": 60,
+    "request_timeout_seconds": 5,
+    "max_pods": 12,
+    "max_events": 20,
+    "log_lines_per_pod": 200,
+    "raw_log_bytes": 65536,
+    "response_bytes": 262144,
+    "total_response_bytes": 4194304,
+    "payload_bytes": 65536,
+    "bundle_bytes": 4194304,
+    "max_items": 256,
+    "future_tolerance_seconds": 30
+  },
+  "scrape": {
+    "interval_seconds": 30,
+    "minimum_samples": 8,
+    "max_age_seconds": 60
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "reason": "ImagePullBackOff",
+  "message": "image tag was not found in the synthetic registry",
+  "type": "Warning",
+  "involved_uid": "pod-example-1"
+}

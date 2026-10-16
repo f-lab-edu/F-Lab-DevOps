@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "version": "instant-5m-v1",
+  "queries": [
+    {
+      "query_id": "cache_outcomes",
+      "unit": "count",
+      "dimension": null,
+      "expressions": {
+        "hit": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"hit\"}[5m]))",
+        "miss": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"miss\"}[5m]))",
+        "error": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"error\"}[5m]))",
+        "unavailable": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"unavailable\"}[5m]))",
+        "bypass": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"bypass\"}[5m]))",
+        "consistency_primary": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"consistency_primary\"}[5m]))"
+      }
+    },
+    {
+      "query_id": "cache_hit_ratio",
+      "unit": "ratio",
+      "dimension": null,
+      "expressions": {
+        "ratio": "sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"hit\"}[5m])) / (sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"hit\"}[5m])) + sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"miss\"}[5m])))",
+        "requests": "(sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"hit\"}[5m])) + sum(increase(cache_operation_total{namespace=\"@namespace@\",service=\"@service@\",result=\"miss\"}[5m])))"
+      }
+    },
+    {
+      "query_id": "http_error_ratio",
+      "unit": "ratio",
+      "dimension": null,
+      "expressions": {
+        "ratio": "sum(increase(http_request_total{namespace=\"@namespace@\",service=\"@service@\",path!~\"/healthz|/readyz\",status_code=~\"5..\"}[5m])) / sum(increase(http_request_total{namespace=\"@namespace@\",service=\"@service@\",path!~\"/healthz|/readyz\"}[5m]))",
+        "requests": "sum(increase(http_request_total{namespace=\"@namespace@\",service=\"@service@\",path!~\"/healthz|/readyz\"}[5m]))"
+      }
+    },
+    {
+      "query_id": "api_latency",
+      "unit": "seconds",
+      "dimension": "route",
+      "expressions": {
+        "p95": "histogram_quantile(0.95, sum by (le)(rate(http_request_duration_seconds_bucket{namespace=\"@namespace@\",service=\"@service@\",route!~\"/healthz|/readyz\"@dimension@}[5m])))",
+        "count": "sum(increase(http_request_duration_seconds_count{namespace=\"@namespace@\",service=\"@service@\",route!~\"/healthz|/readyz\"@dimension@}[5m]))"
+      }
+    },
+    {
+      "query_id": "db_latency",
+      "unit": "seconds",
+      "dimension": "operation",
+      "expressions": {
+        "p99": "histogram_quantile(0.99, sum by (le)(rate(db_query_latency_seconds_bucket{namespace=\"@namespace@\",service=\"@service@\"@dimension@}[5m])))",
+        "count": "sum(increase(db_query_latency_seconds_count{namespace=\"@namespace@\",service=\"@service@\"@dimension@}[5m]))"
+      }
+    }
+  ],
+  "quality_expressions": {
+    "up": "up{namespace=\"@namespace@\",service=\"@service@\"}",
+    "scrape_samples": "count_over_time(up{namespace=\"@namespace@\",service=\"@service@\"}[5m])",
+    "last_scrape": "timestamp(up{namespace=\"@namespace@\",service=\"@service@\"})",
+    "scrape_health": "min_over_time(up{namespace=\"@namespace@\",service=\"@service@\"}[5m])"
+  },
+  "content_hash": "f8576223414c499f9b445b05b87be06d02d6d2f4c8b0cfcad5ecf8c86c0b0f9a"
+}

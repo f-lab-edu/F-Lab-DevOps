@@ -1,0 +1,5 @@
+{
+  "cache_intended_enabled": false,
+  "redis_url_configured": false,
+  "read_engine_role": "shared"
+}

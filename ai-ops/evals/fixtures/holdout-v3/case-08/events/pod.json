@@ -1,0 +1,6 @@
+{
+  "reason": "OOMKilled",
+  "message": "new revision container exceeded its memory limit",
+  "type": "Warning",
+  "involved_uid": "pod-w08"
+}

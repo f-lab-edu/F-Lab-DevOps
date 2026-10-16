@@ -9,6 +9,23 @@ on:
       - 'cluster-addons/**'
       - 'terraform/**'
       - 'url-shortener/Dockerfile'
+      - 'url-shortener/app/**'
+      - 'url-shortener/tests/**'
+      - 'url-shortener/requirements.txt'
+      - 'url-shortener/requirements.lock'
+      - 'url-shortener/url-shortener-chart/**'
+  push:
+    branches:
+      - codex/ai-incident-copilot
+    paths:
+      - '.github/workflows/dependency-compatibility.yml'
+      - '.github/dependabot.yml'
+      - '.github/requirements-ci.txt'
+      - 'cluster-addons/**'
+      - 'terraform/**'
+      - 'url-shortener/Dockerfile'
+      - 'url-shortener/app/**'
+      - 'url-shortener/tests/**'
       - 'url-shortener/requirements.txt'
       - 'url-shortener/requirements.lock'
       - 'url-shortener/url-shortener-chart/**'
@@ -28,6 +45,11 @@ jobs:
         working-directory: terraform
         run: |
           terraform fmt -check -recursive
+          terraform init -backend=false -lockfile=readonly -input=false
+          terraform validate
+      - name: AI 등록 전용 Terraform 검증
+        working-directory: terraform/ai-ops-registry
+        run: |
           terraform init -backend=false -lockfile=readonly -input=false
           terraform validate
 
@@ -53,6 +75,9 @@ jobs:
         working-directory: url-shortener
         run: |
           ruff check app/
+      - name: 캐시 일관성 단위 시험
+        working-directory: url-shortener
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Build without publishing
         working-directory: url-shortener

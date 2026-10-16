@@ -1,0 +1,8 @@
+{
+  "image": "registry.example.invalid/url-shortener:v7-stable",
+  "source_sha": "0000000000000000000000000000000000000007",
+  "gitops_revision": "4444444444444444444444444444444444444444",
+  "ci_run_id": "holdout-v2-07",
+  "status": "healthy_after_rollback",
+  "rollback_revision": "4444444444444444444444444444444444444444"
+}

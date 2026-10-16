@@ -1,0 +1,6 @@
+{
+  "reason": "Unhealthy",
+  "message": "readiness probe failed for new revision",
+  "type": "Warning",
+  "involved_uid": "pod-v07"
+}

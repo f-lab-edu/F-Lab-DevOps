@@ -1,0 +1,53 @@
+{{- if .Values.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-deny
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ai-ops.selector" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-read-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ai-ops.selector" . | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.network.dns.namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- .Values.network.dns.podLabels | toYaml | nindent 14 }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        {{- range .Values.network.apiServerCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: 443}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.network.prometheus.namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- .Values.network.prometheus.podLabels | toYaml | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.network.prometheus.port }}
+{{- end }}

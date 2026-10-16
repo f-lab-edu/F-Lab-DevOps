@@ -112,6 +112,18 @@ class PathPolicyTest(unittest.TestCase):
                 self.assertIn("파일 경로 정책 위반", result.stderr)
         self.assertFalse(Path(blocked).exists())
 
+    def test_additional_roots_cannot_grant_repository_writes_or_use_shared_permissions(self):
+        for root in (PACKAGE_ROOT, PACKAGE_ROOT / "config", self.base / "missing"):
+            with self.subTest(root=root), patch.dict(os.environ, {"AI_OPS_FILES_ROOT": str(root)}):
+                with self.assertRaises(ValueError):
+                    permitted_path(self.json, "input")
+        self.allowed.chmod(0o777)
+        try:
+            with self.assertRaises(ValueError):
+                permitted_path(self.json, "input")
+        finally:
+            self.allowed.chmod(0o700)
+
     def test_broad_or_symbolic_policy_roots_cannot_expand_the_allowlist(self):
         link = self.base / "policy-link"
         link.symlink_to(self.allowed, target_is_directory=True)

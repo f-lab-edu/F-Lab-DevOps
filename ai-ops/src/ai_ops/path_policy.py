@@ -23,10 +23,15 @@ def _roots(kind: Kind) -> tuple[Path, ...]:
     if extra:
         configured = Path(extra).expanduser()
         if (not configured.is_absolute() or ".." in configured.parts or configured.is_symlink()
-                or configured in (Path("/"), Path.home(), Path("/tmp"), Path("/private/tmp"), Path("/var/tmp"))):
+                or len(configured.parts) < 3 or configured.resolve() == Path.home().resolve()):
             raise ValueError("AI_OPS_FILES_ROOT에는 전용 절대 폴더를 등록해야 합니다")
-        if configured.exists() and (configured.stat().st_uid != os.geteuid() or configured.stat().st_mode & 0o022):
+        if (not configured.is_dir() or configured.stat().st_uid != os.geteuid()
+                or configured.stat().st_mode & 0o022):
             raise ValueError("추가 폴더는 현재 사용자 소유이며 다른 사용자에게 쓰기가 허용되지 않아야 합니다")
+        canonical = str(configured.resolve())
+        repository = str(PACKAGE_ROOT.parent.resolve())
+        if os.path.commonpath((canonical, repository)) in (canonical, repository):
+            raise ValueError("추가 폴더는 프로젝트 저장소와 분리된 전용 위치여야 합니다")
         personal.append(configured)
     if kind == "html":
         return (PACKAGE_ROOT / "site",)

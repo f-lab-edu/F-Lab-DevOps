@@ -26,7 +26,13 @@ def read_argo(env: dict[str, str], timeout: float = 8) -> tuple[str, bytes | Non
     if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
             or parsed.path not in ("", "/") or parsed.query or parsed.fragment or not env.get("ARGOCD_AUTH_TOKEN")):
         return "unconfigured", None
-    cli = env.get("ARGOCD_CLI") or str(Path(env.get("RUNNER_TEMP", "/tmp")) / "argocd")
+    cli = env.get("ARGOCD_CLI")
+    if not cli:
+        # CI가 준비한 경로만 사용한다. 공용 임시 디렉터리의 실행 파일을 대신 실행하지 않는다.
+        runner_temp = env.get("RUNNER_TEMP")
+        if not runner_temp or not Path(runner_temp).is_absolute():
+            return "unconfigured", None
+        cli = str(Path(runner_temp) / "argocd")
     try:
         process = subprocess.Popen([cli, "--server", parsed.netloc, "--grpc-web", "app", "get", "url-shortener", "--refresh", "-o", "json"],
                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env, start_new_session=True)

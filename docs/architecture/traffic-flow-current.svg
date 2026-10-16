@@ -1,0 +1,219 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1670" viewBox="0 0 2200 1670" role="img">
+<title>현재 API 요청 및 제어 흐름 아키텍처 (운영 코드 선언 기준)</title><desc>사용자 요청은 Route 53과 인터넷 공개 NLB의 IP target을 거쳐 Traefik Pod에 직접 전달되고, Traefik은 Ingress 규칙에 따라 API Service 및 Pod로 보낸다. 제어 흐름과 HTTP 308 경로를 구분한다.</desc>
+<defs>
+              <marker id="arrow-blue" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#2864d8"/></marker>
+              <marker id="arrow-green" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#087f69"/></marker>
+              <marker id="arrow-purple" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#7546b8"/></marker>
+              <marker id="arrow-orange" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#c87617"/></marker>
+              <marker id="arrow-muted" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#8794a9"/></marker>
+              <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#17233b" flood-opacity=".10"/></filter>
+            </defs>
+<rect width="100%" height="100%" fill="#f6f8fc"/>
+<text x="64" y="83" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="52" font-weight="800" fill="#17233b" text-anchor="start">
+<tspan x="64" dy="0">현재 API 요청 · 제어 흐름 아키텍처</tspan>
+</text>
+<text x="66" y="130" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="66" dy="0">실선: 요청/데이터  ·  점선: Kubernetes 선언 감시와 설정 동기화  ·  운영 코드 선언 기준</tspan>
+</text>
+<rect x="1420" y="77" width="210" height="37" rx="18" fill="#e8f0ff" stroke="none" stroke-width="2"/>
+<text x="1525.0" y="102" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="700" fill="#2864d8" text-anchor="middle">
+<tspan x="1525.0" dy="0">HTTPS 요청</tspan>
+</text>
+<rect x="1645" y="77" width="210" height="37" rx="18" fill="#f1eaff" stroke="none" stroke-width="2"/>
+<text x="1750.0" y="102" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="700" fill="#7546b8" text-anchor="middle">
+<tspan x="1750.0" dy="0">설정 동기화</tspan>
+</text>
+<rect x="1870" y="77" width="240" height="37" rx="18" fill="#fff0df" stroke="none" stroke-width="2"/>
+<text x="1990.0" y="102" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="700" fill="#c87617" text-anchor="middle">
+<tspan x="1990.0" dy="0">HTTP 308 분기</tspan>
+</text>
+<rect x="350" y="186" width="355" height="126" rx="20" fill="#ffffff" stroke="#2864d8" stroke-width="2" filter="url(#shadow)"/>
+<text x="374" y="225" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="29" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="374" dy="0">사용자 / 브라우저</tspan>
+</text>
+<text x="374" y="259" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="374" dy="0">HTTPS · 허용된 소스 IP</tspan>
+</text>
+<rect x="760" y="186" width="365" height="126" rx="20" fill="#edf3ff" stroke="#2864d8" stroke-width="2" filter="url(#shadow)"/>
+<text x="784" y="225" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="29" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="784" dy="0">Route 53 A Alias</tspan>
+</text>
+<text x="784" y="259" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="784" dy="0">api.bidservice.store</tspan>
+</text>
+<rect x="1190" y="174" width="510" height="151" rx="20" fill="#e7f0ff" stroke="#2864d8" stroke-width="2" filter="url(#shadow)"/>
+<text x="1214" y="213" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="29" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1214" dy="0">인터넷 공개 AWS NLB</tspan>
+</text>
+<text x="1214" y="247" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1214" dy="0">80 / 443 · Target type: ip</tspan>
+<tspan x="1214" dy="27.720000000000002">Ready Traefik Pod IP에 직접 전달</tspan>
+</text>
+<path d="M705 249 H757" fill="none" stroke="#2864d8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-blue)"/>
+<path d="M1125 249 H1187" fill="none" stroke="#2864d8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-blue)"/>
+<rect x="75" y="423" width="430" height="135" rx="20" fill="#f1eaff" stroke="#7546b8" stroke-width="2" filter="url(#shadow)"/>
+<text x="99" y="462" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="99" dy="0">AWS Load Balancer Controller</tspan>
+</text>
+<text x="99" y="496" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="99" dy="0">LoadBalancer Service를 감시</tspan>
+<tspan x="99" dy="27.720000000000002">NLB · IP Target Group 관리</tspan>
+</text>
+<rect x="75" y="590" width="430" height="137" rx="20" fill="#f1eaff" stroke="#7546b8" stroke-width="2" filter="url(#shadow)"/>
+<text x="99" y="629" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="99" dy="0">traefik Service</tspan>
+</text>
+<text x="99" y="663" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="99" dy="0">type: LoadBalancer</tspan>
+<tspan x="99" dy="26.400000000000002">Ready Pod IP를 엔드포인트로 게시</tspan>
+</text>
+<path d="M290 588 V561" fill="none" stroke="#7546b8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="10 9" marker-end="url(#arrow-purple)"/>
+<path d="M505 658 H543 V360 H1445 V328" fill="none" stroke="#7546b8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="10 9" marker-end="url(#arrow-purple)"/>
+<text x="90" y="759" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="600" fill="#7546b8" text-anchor="start">
+<tspan x="90" dy="0">Service의 ClusterIP는 NLB 요청의 경유지가 아님</tspan>
+</text>
+<rect x="617" y="462" width="999" height="261" rx="24" fill="#f8f5ff" stroke="#cbb7ef" stroke-width="2" stroke-dasharray="12 9"/>
+<text x="646" y="501" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="700" fill="#7546b8" text-anchor="start">
+<tspan x="646" dy="0">Traefik Deployment · replicas 2 · 두 AZ/노드로 분산</tspan>
+</text>
+<rect x="660" y="543" width="385" height="122" rx="20" fill="#ffffff" stroke="#7546b8" stroke-width="2" filter="url(#shadow)"/>
+<text x="684" y="582" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="28" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="684" dy="0">Traefik Pod 1</tspan>
+</text>
+<text x="684" y="616" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="684" dy="0">NLB IP target · TLS 종료</tspan>
+</text>
+<rect x="1177" y="543" width="385" height="122" rx="20" fill="#ffffff" stroke="#7546b8" stroke-width="2" filter="url(#shadow)"/>
+<text x="1201" y="582" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="28" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1201" dy="0">Traefik Pod 2</tspan>
+</text>
+<text x="1201" y="616" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1201" dy="0">NLB IP target · TLS 종료</tspan>
+</text>
+<path d="M1365 325 V397 H595 V520 H855 V540" fill="none" stroke="#2864d8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-blue)"/>
+<path d="M1510 325 V540" fill="none" stroke="#2864d8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-blue)"/>
+<rect x="1675" y="420" width="445" height="303" rx="20" fill="#f1eaff" stroke="#7546b8" stroke-width="2" filter="url(#shadow)"/>
+<text x="1699" y="459" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1699" dy="0">Ingress + Middleware</tspan>
+</text>
+<text x="1699" y="493" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1699" dy="0">IngressClass: traefik</tspan>
+<tspan x="1699" dy="26.400000000000002">Host: api.bidservice.store</tspan>
+<tspan x="1699" dy="26.400000000000002">Path: / (Prefix)</tspan>
+<tspan x="1699" dy="26.400000000000002">TLS Secret: url-shortener-tls</tspan>
+<tspan x="1699" dy="26.400000000000002">cert-manager / Let&#x27;s Encrypt</tspan>
+<tspan x="1699" dy="26.400000000000002">IP allowlist · avg 5/s, burst 15</tspan>
+</text>
+<path d="M1672 522 H1620 V518 H1570" fill="none" stroke="#7546b8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="10 9" marker-end="url(#arrow-purple)"/>
+<text x="1700" y="749" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="600" fill="#7546b8" text-anchor="start">
+<tspan x="1700" dy="0">Traefik이 Ingress/CRD를 읽어 라우팅 설정</tspan>
+</text>
+<rect x="856" y="793" width="470" height="105" rx="20" fill="#e4f8f1" stroke="#087f69" stroke-width="2" filter="url(#shadow)"/>
+<text x="880" y="832" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="28" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="880" dy="0">url-shortener-svc :80</tspan>
+</text>
+<text x="880" y="866" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="880" dy="0">ClusterIP · selector로 API Pod 선택</tspan>
+</text>
+<path d="M852 665 V751 H960 V790" fill="none" stroke="#087f69" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<path d="M1370 665 V751 H1220 V790" fill="none" stroke="#087f69" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<rect x="617" y="954" width="999" height="200" rx="24" fill="#f0fbf7" stroke="#b5ddd1" stroke-width="2" stroke-dasharray="12 9"/>
+<text x="647" y="993" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="700" fill="#087f69" text-anchor="start">
+<tspan x="647" dy="0">FastAPI Deployment · HPA 2–10 (CPU 50%)</tspan>
+</text>
+<rect x="661" y="1023" width="384" height="100" rx="20" fill="#ffffff" stroke="#087f69" stroke-width="2" filter="url(#shadow)"/>
+<text x="685" y="1062" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="685" dy="0">API Pod :8000</tspan>
+</text>
+<text x="685" y="1096" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="685" dy="0">/items CRUD · /metrics</tspan>
+</text>
+<rect x="1180" y="1023" width="383" height="100" rx="20" fill="#ffffff" stroke="#087f69" stroke-width="2" filter="url(#shadow)"/>
+<text x="1204" y="1062" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1204" dy="0">API Pod :8000</tspan>
+</text>
+<text x="1204" y="1096" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1204" dy="0">Read/Write DB 풀 분리</tspan>
+</text>
+<path d="M970 898 V934 H853 V1020" fill="none" stroke="#087f69" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<path d="M1210 898 V934 H1370 V1020" fill="none" stroke="#087f69" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<rect x="1680" y="835" width="440" height="275" rx="20" fill="#fff5e9" stroke="#c87617" stroke-width="2" filter="url(#shadow)"/>
+<text x="1704" y="874" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1704" dy="0">HTTP :80 별도 경로</tspan>
+</text>
+<text x="1704" y="908" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1704" dy="0">Traefik → redirect-308 Service</tspan>
+<tspan x="1704" dy="26.400000000000002">→ nginx Pod :8080</tspan>
+<tspan x="1704" dy="26.400000000000002">→ 308 HTTPS 응답</tspan>
+<tspan x="1704" dy="26.400000000000002">(nginx Ingress Controller 아님)</tspan>
+</text>
+<path d="M1562 629 H1640 V870 H1677" fill="none" stroke="#c87617" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-orange)"/>
+<rect x="76" y="1201" width="428" height="189" rx="20" fill="#f2f6fb" stroke="#cad5e5" stroke-width="2"/>
+<text x="100" y="1240" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="100" dy="0">데이터 접근</tspan>
+</text>
+<text x="100" y="1274" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="100" dy="0">Redis 적중 시 DB 생략</tspan>
+<tspan x="100" dy="25.080000000000002">캐시 미스 → 보통 Replica</tspan>
+<tspan x="100" dy="25.080000000000002">최근 쓰기/캐시 오류 → Primary</tspan>
+</text>
+<rect x="635" y="1241" width="336" height="151" rx="20" fill="#fff4e7" stroke="#c87617" stroke-width="2" filter="url(#shadow)"/>
+<text x="659" y="1280" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="659" dy="0">Redis Pod + PVC</tspan>
+</text>
+<text x="659" y="1314" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="659" dy="0">Cache Aside · standalone</tspan>
+<tspan x="659" dy="26.400000000000002">장애 시 DB 직접 조회</tspan>
+</text>
+<rect x="990" y="1241" width="336" height="151" rx="20" fill="#fff4e7" stroke="#c87617" stroke-width="2" filter="url(#shadow)"/>
+<text x="1014" y="1280" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1014" dy="0">RDS Primary</tspan>
+</text>
+<text x="1014" y="1314" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1014" dy="0">쓰기 · 최근 쓰기 후 읽기</tspan>
+<tspan x="1014" dy="26.400000000000002">캐시 오류 시 읽기 가능</tspan>
+</text>
+<rect x="1345" y="1241" width="336" height="151" rx="20" fill="#fff4e7" stroke="#c87617" stroke-width="2" filter="url(#shadow)"/>
+<text x="1369" y="1280" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1369" dy="0">Multi-AZ Standby</tspan>
+</text>
+<text x="1369" y="1314" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1369" dy="0">자동 장애조치 전용</tspan>
+<tspan x="1369" dy="26.400000000000002">일반 읽기 처리 안 함</tspan>
+</text>
+<rect x="1700" y="1241" width="336" height="151" rx="20" fill="#fff4e7" stroke="#c87617" stroke-width="2" filter="url(#shadow)"/>
+<text x="1724" y="1280" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="1724" dy="0">RDS Read Replica</tspan>
+</text>
+<text x="1724" y="1314" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="1724" dy="0">일반 캐시 미스 읽기</tspan>
+<tspan x="1724" dy="26.400000000000002">Primary 비동기 복제</tspan>
+</text>
+<path d="M851 1123 V1202 H802 V1238" fill="none" stroke="#087f69" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<path d="M946 1123 V1180 H1158 V1238" fill="none" stroke="#087f69" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<path d="M1371 1123 V1198 H1868 V1238" fill="none" stroke="#087f69" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-green)"/>
+<path d="M1328 1316 H1342" fill="none" stroke="#c87617" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="7 7" marker-end="url(#arrow-orange)"/>
+<text x="1336" y="1435" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="600" fill="#c87617" text-anchor="middle">
+<tspan x="1336" dy="0">Standby: 자동 장애조치   ·   Read Replica: Primary에서 비동기 복제</tspan>
+</text>
+<rect x="76" y="951" width="428" height="190" rx="20" fill="#f2f6fb" stroke="#cad5e5" stroke-width="2"/>
+<text x="100" y="990" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="100" dy="0">확장·관측 (별도 제어 경로)</tspan>
+</text>
+<text x="100" y="1024" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="100" dy="0">Metrics Server → HPA</tspan>
+<tspan x="100" dy="25.080000000000002">Karpenter → 노드 증설</tspan>
+<tspan x="100" dy="25.080000000000002">ServiceMonitor → Prometheus</tspan>
+<tspan x="100" dy="25.080000000000002">Alertmanager → Slack</tspan>
+</text>
+<rect x="61" y="1481" width="2077" height="123" rx="20" fill="#eaf0f8" stroke="#d0dbea" stroke-width="2"/>
+<text x="88" y="1524" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="24" font-weight="700" fill="#17233b" text-anchor="start">
+<tspan x="88" dy="0">주의</tspan>
+</text>
+<text x="171" y="1524" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="171" dy="0">AWS LBC·Ingress 규칙·HPA·Prometheus는 고객 요청의 경유지가 아닙니다.</tspan>
+</text>
+<text x="171" y="1565" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="500" fill="#56647a" text-anchor="start">
+<tspan x="171" dy="0">RDS 인스턴스의 정확한 AZ, 실제 Pod 수/상태는 런타임에서 확인해야 합니다. 앱은 현재 /items CRUD 실습 API입니다.</tspan>
+</text>
+</svg>

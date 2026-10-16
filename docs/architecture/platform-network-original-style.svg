@@ -1,0 +1,411 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1350" viewBox="0 0 2400 1350" role="img">
+<title>AWS EKS URL Shortener platform network architecture — corrected original style</title><desc>Original poster composition corrected to the repository&#x27;s declared Traefik NLB, private EKS, redirect, data, CI/CD and observability flows.</desc>
+<defs>
+              <marker id="arrow-blue" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#2864d8"/></marker>
+              <marker id="arrow-green" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#087f69"/></marker>
+              <marker id="arrow-purple" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#7546b8"/></marker>
+              <marker id="arrow-orange" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#c87617"/></marker>
+              <marker id="arrow-muted" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0 0 L11 5.5 L0 11 Z" fill="#8794a9"/></marker>
+              <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#17233b" flood-opacity=".10"/></filter>
+            </defs>
+<rect width="100%" height="100%" fill="#f6f8fc"/>
+<rect x="0" y="0" width="2400" height="1350" rx="0" fill="#ffffff" stroke="none" stroke-width="2"/>
+<defs>
+<marker id="arrow-poster-green" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="#298d4b"/></marker>
+<marker id="arrow-poster-orange" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="#db7b22"/></marker>
+<marker id="arrow-poster-purple" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="#7658b5"/></marker>
+<marker id="arrow-poster-navy" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="#142033"/></marker>
+<marker id="arrow-poster-muted" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="#707988"/></marker>
+</defs>
+<text x="60" y="112" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="68" font-weight="800" fill="#142033" text-anchor="start">
+<tspan x="60" dy="0">AWS EKS 기반 URL Shortener 플랫폼 네트워크 아키텍처</tspan>
+</text>
+<rect x="530" y="160" width="1815" height="940" rx="0" fill="#ffffff" stroke="#142033" stroke-width="3"/>
+<rect x="530" y="160" width="61" height="61" rx="0" fill="#142033" stroke="#142033" stroke-width="1"/>
+<text x="560" y="198" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="560" dy="0">aws</tspan>
+</text>
+<text x="610" y="200" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="28" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="610" dy="0">AWS Cloud - ap-northeast-2</tspan>
+</text>
+<rect x="690" y="215" width="1610" height="850" rx="0" fill="#fffdfa" stroke="#db7b22" stroke-width="3"/>
+<rect x="690" y="215" width="62" height="58" rx="0" fill="#db7b22" stroke="#db7b22" stroke-width="1"/>
+<text x="721" y="253" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="28" font-weight="800" fill="#ffffff" text-anchor="middle">
+<tspan x="721" dy="0">V</tspan>
+</text>
+<text x="770" y="253" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="29" font-weight="500" fill="#af5c16" text-anchor="start">
+<tspan x="770" dy="0">VPC 10.0.0.0/16</tspan>
+</text>
+<rect x="735" y="278" width="735" height="758" rx="0" fill="none" stroke="#d69a5d" stroke-width="2" stroke-dasharray="12 9"/>
+<text x="1102" y="306" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="500" fill="#af5c16" text-anchor="middle">
+<tspan x="1102" dy="0">AZ-1: ap-northeast-2a</tspan>
+</text>
+<rect x="748" y="320" width="709" height="183" rx="0" fill="#eaf3e9" stroke="none" stroke-width="2"/>
+<rect x="748" y="523" width="709" height="501" rx="0" fill="#e5f2fb" stroke="none" stroke-width="2"/>
+<rect x="761" y="339" width="30" height="30" rx="0" fill="#176c39" stroke="#176c39" stroke-width="2"/>
+<text x="776" y="362" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="776" dy="0">○</tspan>
+</text>
+<text x="805" y="364" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="24" font-weight="600" fill="#176c39" text-anchor="start">
+<tspan x="805" dy="0">Public subnet 10.0.0.0/24</tspan>
+</text>
+<rect x="761" y="540" width="30" height="30" rx="0" fill="#2374a8" stroke="#2374a8" stroke-width="2"/>
+<text x="776" y="563" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="776" dy="0">○</tspan>
+</text>
+<text x="805" y="565" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="24" font-weight="600" fill="#2374a8" text-anchor="start">
+<tspan x="805" dy="0">Private subnet 10.0.10.0/24</tspan>
+</text>
+<rect x="1515" y="278" width="735" height="758" rx="0" fill="none" stroke="#d69a5d" stroke-width="2" stroke-dasharray="12 9"/>
+<text x="1882" y="306" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="500" fill="#af5c16" text-anchor="middle">
+<tspan x="1882" dy="0">AZ-2: ap-northeast-2c</tspan>
+</text>
+<rect x="1528" y="320" width="709" height="183" rx="0" fill="#eaf3e9" stroke="none" stroke-width="2"/>
+<rect x="1528" y="523" width="709" height="501" rx="0" fill="#e5f2fb" stroke="none" stroke-width="2"/>
+<rect x="1541" y="339" width="30" height="30" rx="0" fill="#176c39" stroke="#176c39" stroke-width="2"/>
+<text x="1556" y="362" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1556" dy="0">○</tspan>
+</text>
+<text x="1585" y="364" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="24" font-weight="600" fill="#176c39" text-anchor="start">
+<tspan x="1585" dy="0">Public subnet 10.0.1.0/24</tspan>
+</text>
+<rect x="1541" y="540" width="30" height="30" rx="0" fill="#2374a8" stroke="#2374a8" stroke-width="2"/>
+<text x="1556" y="563" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1556" dy="0">○</tspan>
+</text>
+<text x="1585" y="565" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="24" font-weight="600" fill="#2374a8" text-anchor="start">
+<tspan x="1585" dy="0">Private subnet 10.0.11.0/24</tspan>
+</text>
+<circle cx="1490" cy="218" r="39" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1490" y="223.76" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1490" dy="0">IGW</tspan>
+</text>
+<text x="1490" y="280" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#142033" text-anchor="middle">
+<tspan x="1490" dy="0">Internet gateway</tspan>
+</text>
+<path d="M184 431 H531" fill="none" stroke="#298d4b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M619 430 H670 V270 H1391 V431 H1442" fill="none" stroke="#298d4b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M1200 583 V512 H937 V483" fill="none" stroke="#db7b22" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="9 7" marker-end="url(#arrow-poster-orange)"/>
+<path d="M1490 476 V584 H1064 V664" fill="none" stroke="#298d4b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M1490 584 H1846 V664" fill="none" stroke="#298d4b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<circle cx="106" cy="410" r="48" fill="#ffffff" stroke="#142033" stroke-width="4"/>
+<path d="M60 410 H151 M106 362 V459 M72 386 H139 M72 434 H139" fill="none" stroke="#142033" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<circle cx="152" cy="424" r="17" fill="#ffffff" stroke="#142033" stroke-width="3"/>
+<path d="M124 471 C124 446 180 446 180 471" fill="none" stroke="#142033" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<text x="114" y="509" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="114" dy="0">인터넷 사용자</tspan>
+</text>
+<rect x="255" y="275" width="225" height="134" rx="0" fill="#ffffff" stroke="#142033" stroke-width="2" stroke-dasharray="3 6"/>
+<text x="367" y="312" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="600" fill="#142033" text-anchor="middle">
+<tspan x="367" dy="0">HTTPS API</tspan>
+</text>
+<text x="367" y="343" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="367" dy="0">허용 IP만</tspan>
+</text>
+<text x="367" y="374" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="600" fill="#176c39" text-anchor="middle">
+<tspan x="367" dy="0">Traefik 정책</tspan>
+</text>
+<text x="367" y="397" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="450" fill="#707988" text-anchor="middle">
+<tspan x="367" dy="0">(트래픽 홉 아님)</tspan>
+</text>
+<circle cx="575" cy="430" r="46" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="575" y="439.92" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="31" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="575" dy="0">53</tspan>
+</text>
+<text x="575" y="518" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="575" dy="0">Route 53</tspan>
+</text>
+<text x="575" y="545" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="400" fill="#142033" text-anchor="middle">
+<tspan x="575" dy="0">api.bidservice.store</tspan>
+</text>
+<circle cx="937" cy="433" r="47" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="937" y="440.04" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="937" dy="0">NAT</tspan>
+</text>
+<text x="937" y="514" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="937" dy="0">NAT Gateway ×1</tspan>
+</text>
+<text x="937" y="541" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="400" fill="#142033" text-anchor="middle">
+<tspan x="937" dy="0">사설 서브넷 outbound</tspan>
+</text>
+<circle cx="1490" cy="431" r="45" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1490" y="438.04" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1490" dy="0">NLB</tspan>
+</text>
+<text x="1570" y="433" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="23" font-weight="650" fill="#142033" text-anchor="start">
+<tspan x="1570" dy="0">Traefik NLB · 80/443</tspan>
+</text>
+<text x="1570" y="461" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="400" fill="#142033" text-anchor="start">
+<tspan x="1570" dy="0">인터넷 공개 · IP target</tspan>
+</text>
+<rect x="969" y="607" width="360" height="307" rx="0" fill="#ffffff" stroke="#2374a8" stroke-width="3"/>
+<rect x="1757" y="607" width="360" height="307" rx="0" fill="#ffffff" stroke="#2374a8" stroke-width="3"/>
+<text x="987" y="640" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="23" font-weight="550" fill="#2374a8" text-anchor="start">
+<tspan x="987" dy="0">EKS worker node</tspan>
+</text>
+<text x="1775" y="640" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="23" font-weight="550" fill="#2374a8" text-anchor="start">
+<tspan x="1775" dy="0">EKS worker node</tspan>
+</text>
+<path d="M1110 707 H1350 V782 H1370" fill="none" stroke="#298d4b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M1800 707 H1710 V782 H1690" fill="none" stroke="#298d4b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M1370 823 H1329 V852 H1113" fill="none" stroke="#298d4b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M1690 823 H1730 V852 H1800" fill="none" stroke="#298d4b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<path d="M1016 707 H832 V782" fill="none" stroke="#db7b22" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-orange)"/>
+<rect x="767" y="787" width="143" height="56" rx="3" fill="#fff6ec" stroke="#db7b22" stroke-width="2"/>
+<text x="838.5" y="816" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="838.5" dy="0">redirect-308</tspan>
+</text>
+<path d="M839 844 V863" fill="none" stroke="#db7b22" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-orange)"/>
+<rect x="767" y="868" width="143" height="63" rx="3" fill="#fff6ec" stroke="#db7b22" stroke-width="2"/>
+<text x="838.5" y="897" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="838.5" dy="0">nginx Pod</tspan>
+</text>
+<text x="838.5" y="922" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="838.5" dy="0">:8080 → 308</tspan>
+</text>
+<text x="839" y="949" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="600" fill="#af5c16" text-anchor="middle">
+<tspan x="839" dy="0">HTTP :80 분기</tspan>
+</text>
+<rect x="1377" y="614" width="305" height="118" rx="0" fill="#fffdfc" stroke="#7658b5" stroke-width="2"/>
+<text x="1529" y="642" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#7658b5" text-anchor="middle">
+<tspan x="1529" dy="0">Ingress + Middleware</tspan>
+</text>
+<text x="1529" y="671" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="550" fill="#7658b5" text-anchor="middle">
+<tspan x="1529" dy="0">IP AllowList · rate limit</tspan>
+</text>
+<text x="1529" y="695" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="550" fill="#7658b5" text-anchor="middle">
+<tspan x="1529" dy="0">avg 5/s · burst 15</tspan>
+</text>
+<text x="1529" y="717" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="450" fill="#7658b5" text-anchor="middle">
+<tspan x="1529" dy="0">TLS: cert-manager</tspan>
+</text>
+<path d="M1377 672 H1337 V658 H1110" fill="none" stroke="#7658b5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="8 7" marker-end="url(#arrow-poster-purple)"/>
+<path d="M1682 672 H1728 V658 H1800" fill="none" stroke="#7658b5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="8 7" marker-end="url(#arrow-poster-purple)"/>
+<circle cx="1064" cy="707" r="43" fill="#298d4b" stroke="#ffffff" stroke-width="3"/>
+<text x="1064" y="716.92" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="31" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1064" dy="0">T</tspan>
+</text>
+<text x="1121" y="700" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="700" fill="#142033" text-anchor="start">
+<tspan x="1121" dy="0">Traefik Ingress</tspan>
+</text>
+<text x="1121" y="728" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="1121" dy="0">Pod 1 · Ready</tspan>
+</text>
+<circle cx="1846" cy="707" r="43" fill="#298d4b" stroke="#ffffff" stroke-width="3"/>
+<text x="1846" y="716.92" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="31" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1846" dy="0">T</tspan>
+</text>
+<text x="1903" y="700" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="700" fill="#142033" text-anchor="start">
+<tspan x="1903" dy="0">Traefik Ingress</tspan>
+</text>
+<text x="1903" y="728" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="1903" dy="0">Pod 2 · Ready</tspan>
+</text>
+<rect x="1370" y="766" width="320" height="65" rx="3" fill="#e9f6ee" stroke="#298d4b" stroke-width="2"/>
+<text x="1530.0" y="795" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="1530.0" dy="0">url-shortener-svc :80</tspan>
+</text>
+<text x="1530.0" y="820" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="1530.0" dy="0">ClusterIP · API Pod 선택</tspan>
+</text>
+<circle cx="1064" cy="852" r="42" fill="#2374a8" stroke="#ffffff" stroke-width="3"/>
+<text x="1064" y="858.4" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1064" dy="0">API</tspan>
+</text>
+<text x="1121" y="843" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#142033" text-anchor="start">
+<tspan x="1121" dy="0">FastAPI Pod :8000</tspan>
+</text>
+<text x="1121" y="872" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="1121" dy="0">HPA 2–10 · CPU 50%</tspan>
+</text>
+<circle cx="1846" cy="852" r="42" fill="#2374a8" stroke="#ffffff" stroke-width="3"/>
+<text x="1846" y="858.4" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1846" dy="0">API</tspan>
+</text>
+<text x="1903" y="843" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#142033" text-anchor="start">
+<tspan x="1903" dy="0">FastAPI Pod :8000</tspan>
+</text>
+<text x="1903" y="872" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="1903" dy="0">AZ 분산 선호</tspan>
+</text>
+<path d="M1111 914 V942" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M1893 914 V942" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M950 942 H2160" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M950 942 V966" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<path d="M1850 942 V966" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<path d="M2150 942 V966" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<circle cx="950" cy="984" r="26" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="950" y="989.12" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="950" dy="0">DB</tspan>
+</text>
+<text x="950" y="1023" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="950" dy="0">RDS Primary</tspan>
+</text>
+<circle cx="1580" cy="984" r="26" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1580" y="988.8" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1580" dy="0">HA</tspan>
+</text>
+<text x="1580" y="1023" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="1580" dy="0">Multi-AZ Standby</tspan>
+</text>
+<circle cx="1850" cy="984" r="26" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1850" y="988.8" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1850" dy="0">RR</tspan>
+</text>
+<text x="1850" y="1023" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="1850" dy="0">Read Replica · async</tspan>
+</text>
+<circle cx="2150" cy="984" r="26" fill="#c8472d" stroke="#ffffff" stroke-width="3"/>
+<text x="2150" y="990.72" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="2150" dy="0">R</tspan>
+</text>
+<text x="2150" y="1023" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="2150" dy="0">Redis Pod + PVC</tspan>
+</text>
+<path d="M978 984 H1548" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="7 7" marker-end="url(#arrow-poster-muted)"/>
+<text x="1260" y="976" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="600" fill="#707988" text-anchor="middle">
+<tspan x="1260" dy="0">HA replication</tspan>
+</text>
+<text x="1480" y="1054" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="500" fill="#707988" text-anchor="middle">
+<tspan x="1480" dy="0">데이터 스토어 위치는 논리 표시 · RDS AZ는 코드에서 고정하지 않음 · Primary→Replica 비동기 · Standby는 조회 대상 아님</tspan>
+</text>
+<circle cx="149" cy="884" r="48" fill="#142033" stroke="#ffffff" stroke-width="3"/>
+<text x="149" y="891.04" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="149" dy="0">GH</tspan>
+</text>
+<text x="149" y="964" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="149" dy="0">GitHub Actions</tspan>
+</text>
+<text x="149" y="993" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="500" fill="#142033" text-anchor="middle">
+<tspan x="149" dy="0">CI/CD · Git tag 갱신</tspan>
+</text>
+<path d="M200 884 H317" fill="none" stroke="#142033" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-navy)"/>
+<text x="261" y="873" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="500" fill="#142033" text-anchor="middle">
+<tspan x="261" dy="0">image push</tspan>
+</text>
+<rect x="320" y="839" width="90" height="90" rx="0" fill="#db7b22" stroke="#db7b22" stroke-width="2"/>
+<text x="365" y="895" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="27" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="365" dy="0">ECR</tspan>
+</text>
+<text x="365" y="964" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="22" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="365" dy="0">AWS ECR</tspan>
+</text>
+<text x="365" y="992" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="365" dy="0">image registry</tspan>
+</text>
+<rect x="52" y="1135" width="720" height="174" rx="0" fill="#ffffff" stroke="#142033" stroke-width="2"/>
+<path d="M74 1168 H150" fill="none" stroke="#298d4b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-green)"/>
+<text x="166" y="1175" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="166" dy="0">실선: 실제 요청/데이터 경로</tspan>
+</text>
+<path d="M74 1209 H150" fill="none" stroke="#7658b5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="8 7" marker-end="url(#arrow-poster-purple)"/>
+<text x="166" y="1216" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="166" dy="0">점선: 설정 동기화/정책</tspan>
+</text>
+<rect x="74" y="1242" width="39" height="27" rx="0" fill="#db7b22" stroke="#db7b22" stroke-width="2"/>
+<text x="166" y="1263" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="166" dy="0">주황: AWS 네트워크/데이터</tspan>
+</text>
+<rect x="468" y="1242" width="39" height="27" rx="0" fill="#2374a8" stroke="#2374a8" stroke-width="2"/>
+<text x="522" y="1263" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="20" font-weight="500" fill="#142033" text-anchor="start">
+<tspan x="522" dy="0">파랑: Kubernetes</tspan>
+</text>
+<text x="75" y="1294" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="500" fill="#707988" text-anchor="start">
+<tspan x="75" dy="0">코드 선언 기준 · 실제 실행 상태는 별도 확인</tspan>
+</text>
+<circle cx="904" cy="1190" r="33" fill="#2c86b9" stroke="#ffffff" stroke-width="3"/>
+<text x="904" y="1195.44" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="904" dy="0">TLS</tspan>
+</text>
+<text x="904" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="904" dy="0">cert-manager</tspan>
+</text>
+<text x="904" y="1268" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="904" dy="0">Let&#x27;s Encrypt → Secret</tspan>
+</text>
+<circle cx="1038" cy="1190" r="34" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1038" y="1194.8" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1038" dy="0">NLB</tspan>
+</text>
+<text x="1038" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="600" fill="#142033" text-anchor="middle">
+<tspan x="1038" dy="0">상단 동일 NLB</tspan>
+</text>
+<path d="M1074 1190 H1108" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<rect x="1112" y="1154" width="115" height="75" rx="3" fill="#ffffff" stroke="#298d4b" stroke-width="2"/>
+<text x="1169.5" y="1183" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="19" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="1169.5" dy="0">Traefik</tspan>
+</text>
+<text x="1169.5" y="1208" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="17" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="1169.5" dy="0">TLS</tspan>
+</text>
+<path d="M1230 1190 H1251" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<rect x="1255" y="1154" width="140" height="75" rx="3" fill="#ffffff" stroke="#2374a8" stroke-width="2"/>
+<text x="1325.0" y="1183" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="21" font-weight="700" fill="#142033" text-anchor="middle">
+<tspan x="1325.0" dy="0">Argo CD</tspan>
+</text>
+<text x="1325.0" y="1208" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="1325.0" dy="0">UI / Application</tspan>
+</text>
+<text x="1325" y="1254" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="13" font-weight="450" fill="#707988" text-anchor="middle">
+<tspan x="1325" dy="0">argocd.bidservice.store</tspan>
+<tspan x="1325" dy="16.38">backend: argocd-server:80</tspan>
+</text>
+<path d="M1448 1190 H1399" fill="none" stroke="#7658b5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" stroke-dasharray="8 7" marker-end="url(#arrow-poster-purple)"/>
+<circle cx="1483" cy="1190" r="32" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1483" y="1195.12" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="16" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1483" dy="0">Git</tspan>
+</text>
+<text x="1483" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="1483" dy="0">GitOps · Helm</tspan>
+</text>
+<text x="1483" y="1268" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="1483" dy="0">Argo CD main 추적</tspan>
+</text>
+<path d="M1638 1155 V1120 H1916 V1155" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<circle cx="1638" cy="1190" r="34" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1638" y="1198.32" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="26" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1638" dy="0">P</tspan>
+</text>
+<text x="1638" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="1638" dy="0">Prometheus</tspan>
+</text>
+<text x="1638" y="1268" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="14" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="1638" dy="0">API/Traefik metrics</tspan>
+</text>
+<path d="M1720 1190 H1674" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<circle cx="1755" cy="1190" r="34" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1755" y="1198.0" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1755" dy="0">G</tspan>
+</text>
+<text x="1755" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="1755" dy="0">Grafana 조회</tspan>
+</text>
+<circle cx="1916" cy="1190" r="34" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="1916" y="1198.0" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="1916" dy="0">A</tspan>
+</text>
+<text x="1916" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="1916" dy="0">Alertmanager</tspan>
+</text>
+<path d="M1952 1190 H1996" fill="none" stroke="#707988" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1" marker-end="url(#arrow-poster-muted)"/>
+<circle cx="2030" cy="1190" r="34" fill="#7955b3" stroke="#ffffff" stroke-width="3"/>
+<text x="2030" y="1197.68" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="24" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="2030" dy="0">S</tspan>
+</text>
+<text x="2030" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="2030" dy="0">Slack 알림</tspan>
+</text>
+<circle cx="2190" cy="1190" r="34" fill="#db7b22" stroke="#ffffff" stroke-width="3"/>
+<text x="2190" y="1198.0" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="25" font-weight="750" fill="#ffffff" text-anchor="middle">
+<tspan x="2190" dy="0">K</tspan>
+</text>
+<text x="2190" y="1242" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="650" fill="#142033" text-anchor="middle">
+<tspan x="2190" dy="0">Karpenter</tspan>
+</text>
+<text x="2190" y="1268" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="15" font-weight="450" fill="#142033" text-anchor="middle">
+<tspan x="2190" dy="0">노드 확장</tspan>
+</text>
+<text x="802" y="1320" font-family="Apple SD Gothic Neo, Noto Sans CJK KR, Arial, sans-serif" font-size="18" font-weight="500" fill="#707988" text-anchor="start">
+<tspan x="802" dy="0">운영 선언: Traefik 2 Pods · API HPA 2–10 · Redis Cache Aside · Primary 쓰기/최근 읽기 · Replica 일반 읽기 · 현재 API는 /items CRUD</tspan>
+</text>
+</svg>

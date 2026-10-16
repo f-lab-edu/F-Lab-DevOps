@@ -44,4 +44,4 @@ PYTHONPATH=ai-ops/src python3 ai-ops/scripts/score_manual_baseline.py \
 
 실제 파일·CLI 시험으로 경계 밖·접두사 유사 폴더·부모 탐색·입력/출력 symlink·기본 인자 우회·덮어쓰기·허용 폴더 확장과 전체 운영자 스크립트의 초기 차단을 확인한다. Kubernetes 내부 입력 링크 허용과 개인 JSON 권한도 확인한다. 기존 합성 고정 입력과 해시는 변경하지 않았다.
 
-SonarCloud의 최종 재분석 결과와 main 반영 상태는 [이미지 main 반영 검토](B3-image-main-review.md)와 [PR #32](https://github.com/f-lab-edu/F-Lab-DevOps/pull/32)를 따른다. 합성 마스킹 표식 지적은 실제 인증값이 아니지만 분석에서 임의 제외하지 않았다.
+지정 폴더 정책은 SonarCloud 연동 제거 후에도 유지한다. 검증 결과와 main 반영 상태는 [이미지 main 반영 검토](B3-image-main-review.md)와 [PR #32](https://github.com/f-lab-edu/F-Lab-DevOps/pull/32)를 따른다. 고정 합성 마스킹 입력과 해시는 변경하지 않았다.

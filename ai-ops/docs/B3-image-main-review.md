@@ -1,6 +1,6 @@
 # B-03 이미지 workflow main 반영 검토
 
-2026-10-17 KST 기준 [PR #32](https://github.com/f-lab-edu/F-Lab-DevOps/pull/32)를 준비했다. **main 병합·수동 workflow 실행·OIDC 인증·이미지 등록은 아직 수행하지 않았다.** 경로 제한 구현과 CI 검증은 완료했으며 SonarCloud의 합성 비밀 표식 오탐 확인 1건이 남아 있다.
+2026-10-17 KST 기준 [PR #32](https://github.com/f-lab-edu/F-Lab-DevOps/pull/32)를 준비했다. **main 병합·수동 workflow 실행·OIDC 인증·이미지 등록은 아직 수행하지 않았다.** 경로 제한 구현과 CI 검증은 완료했다. 사용자가 미사용 SonarCloud 연동 제거를 선택해 자동 분석 workflow를 비활성화하고 PR에서 파일을 제거했다. 이전 오탐 확인은 더 이상 진행 조건이 아니다.
 
 ## 반영 범위
 
@@ -17,7 +17,7 @@
 | S5443 공용 실행 경로 | 1 | RUNNER_TEMP 미설정 시 `/tmp/argocd` fallback 제거, 절대 runner 경로와 프로세스 미실행 회귀 검증. 해결 |
 | S8707 에이전트 CLI 경로 주입 | 16 | 사용자 선택에 따라 모든 운영자 CLI의 명시적 경로·기본값에 지정 폴더 정책 적용. 최종 재분석에서 해결 |
 | S2083 일반 출력 경로 주입 | 2 | 동일한 경계 검사와 개인 JSON의 원자적 게시·기존 파일/링크 덮어쓰기 차단. 해결 |
-| S6739 Redis 비밀값 형태 | 1 | 테스트용 `DEMO_SECRET_SENTINEL` 표식. 실제 인증값이 아니며 Sonar의 오탐 여부 판정이 남음 |
+| S6739 Redis 비밀값 형태 | 1 | 테스트용 `DEMO_SECRET_SENTINEL` 표식. 실제 인증값이 아닌 합성 마스킹 시험 표식. 당시 분석의 미해결 지적으로 기록하며 후속 오탐 판정은 진행하지 않음 |
 
 추가 폴더의 제외 목록에 쓴 경로 리터럴도 중간 분석에서 S5443 세 건으로 탐지됐다. 이 검증은 실제 소유권·쓰기 권한·기존 폴더·저장소 분리를 검사하는 방식으로 강화했다. 최종 코드에서 경로 관련 미해결 지적은 0개다. 분석 제외·NOSONAR·품질 기준 하향은 사용하지 않았다. 고정 합성 입력과 해시도 변경하지 않았다.
 
@@ -25,7 +25,7 @@
 
 ## 최종 코드 검증
 
-검증한 코드 head는 `a7c038a695cf9ca76da56ab866e4d453ce7c5a2c`다. 이후 문서만 변경한 커밋의 상태는 PR에서 확인한다.
+검증한 코드 head는 `a7c038a695cf9ca76da56ab866e4d453ce7c5a2c`다. 이후 문서와 Sonar workflow 제거 커밋의 상태는 PR에서 확인한다. 아래 Sonar 결과는 제거 전의 분석 이력이다.
 
 | 검사 | 결과 |
 |---|---|
@@ -38,12 +38,10 @@
 
 CodeRabbit은 수동 검토가 필요하다는 이유로 검토를 생략했으므로 독립 코드 검토 완료라고 표시하지 않는다. 실제 GitHub OIDC·이미지 등록·EKS 배포를 시험한 결과도 아니다.
 
-## 남은 오탐 확인과 이후 작업
+## SonarCloud 연동 제거와 이후 작업
 
-[해당 지적](https://sonarcloud.io/project/issues?id=f-lab-edu_F-Lab-DevOps&issues=AaFFlYtaa2PiRfMY67MB&open=AaFFlYtaa2PiRfMY67MB&pullRequest=32)은 `build_dev_fixtures.py` 58행의 `redis://user:DEMO_SECRET_SENTINEL@example.invalid:6379`다. 합성 마스킹 시험을 재현하려는 공개 표식이며 실제 Redis나 발급 비밀번호가 아니다. 코드에서 표기를 우회해 숨기거나 평가 입력을 바꾸지 않았다.
+2026-10-17 사용자가 사용하지 않는 SonarCloud를 제거하도록 요청했다. GitHub의 `sonarcloud-analyze.yml` workflow를 비활성화했으며 `.github/workflows/sonarcloud-analyze.yml`을 PR에서 삭제했다. main에서 파일이 실제로 사라지는 시점은 PR 병합 후다. 외부 SonarCloud 프로젝트·과거 분석 기록·공유 Secret은 삭제하지 않았다.
 
-현재 연결 브라우저는 SonarCloud 로그아웃 상태이고 상태 변경 버튼이 비활성이었다. `Administer Issues` 권한이 있는 사용자가 로그인해 이 1건을 검토해야 한다. 오탐 판정 시 `Open → False positive → Change status`와 다음 사유를 사용할 수 있다. [공식 이슈 편집 안내](https://docs.sonarsource.com/sonarqube-cloud/managing-your-projects/issues/editing)
+과거 S6739 지적은 `build_dev_fixtures.py`의 `redis://user:DEMO_SECRET_SENTINEL@example.invalid:6379` 합성 마스킹 입력이었다. 실제 인증값이 아니며 고정 입력과 해시는 유지했다. 별도 로그인이나 오탐 상태 변경은 더 이상 요구하지 않는다. 이미 적용한 CLI 경로 제한과 `/tmp/argocd` fallback 제거는 유지한다.
 
-> Synthetic redaction-test fixture only. DEMO_SECRET_SENTINEL is a public test marker targeting example.invalid, not an issued Redis credential. It is retained to verify masking and deterministic fixture hashes.
-
-Quality Gate 재확인 후 main 반영, publish=false 빌드/artifact 확인, publish=true 환경 승인·OIDC·동일 이미지 push/digest 대조·등록 artifact 확인 순으로 이어간다. ECR/IAM·등록 환경·변수는 [이전 적용 기록](B3-registry-apply.md)의 완료 상태를 유지한다.
+남은 순서는 최신 PR의 AI·호환성 CI와 변경 범위를 검토한 뒤 main 반영, `publish=false` 빌드/artifact 확인, `publish=true` 사용자 환경 승인·OIDC·동일 이미지 push/digest 대조·등록 artifact 확인이다. ECR/IAM·등록 환경·변수는 [이전 적용 기록](B3-registry-apply.md)의 완료 상태를 유지한다. Sonar 연동 제거 자체가 코드 검토 완료나 이미지 등록 성공을 뜻하지 않는다.

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A7 · 사람의 원본 증거 분석</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; color: #183248; background: #f1f6f9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { padding: 26px max(22px, calc((100vw - 1350px)/2)); background: #173850; color: white; }
+    h1 { margin: 0 0 8px; font-size: 1.8rem; }
+    h2 { margin: 0 0 13px; font-size: 1.16rem; }
+    h3 { margin: 18px 0 8px; font-size: 1rem; }
+    p, li { line-height: 1.6; }
+    header p { margin: 0; color: #d9e8f2; }
+    main { max-width: 1400px; margin: auto; padding: 22px; display: grid; grid-template-columns: minmax(270px, 320px) minmax(0, 1fr); gap: 18px; }
+    .panel { background: white; border: 1px solid #d5e2e9; border-radius: 14px; padding: 20px; margin-bottom: 18px; box-shadow: 0 4px 14px #1738500b; }
+    .sidebar { position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow: auto; }
+    .muted { color: #5b7080; }
+    .warning { color: #9b3b28; }
+    label { display: grid; gap: 6px; margin: 12px 0; font-weight: 600; }
+    input, select, textarea, button { font: inherit; }
+    input, select, textarea { width: 100%; border: 1px solid #acc1ce; border-radius: 8px; padding: 9px 10px; background: #fff; color: #183248; }
+    textarea { min-height: 75px; resize: vertical; }
+    button { border: 1px solid #266c87; border-radius: 8px; padding: 9px 12px; color: #155c75; background: #fff; font-weight: 650; cursor: pointer; }
+    button:hover, button:focus-visible { background: #e8f4f8; }
+    button.primary { color: #fff; background: #087981; border-color: #087981; }
+    button:disabled { opacity: .48; cursor: not-allowed; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 15px 0; }
+    .case-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .case-buttons button { padding: 8px 3px; font-size: .9rem; }
+    .case-buttons button.current { background: #d9eef2; border-color: #087981; }
+    .case-buttons button.done { border-color: #40a06d; color: #176043; }
+    .timer { font-variant-numeric: tabular-nums; font-weight: 700; color: #087981; }
+    .evidence { border: 1px solid #d7e3eb; border-radius: 10px; margin: 10px 0; padding: 12px; background: #fafcfe; }
+    .evidence header { padding: 0; background: none; color: inherit; font-weight: 700; }
+    .evidence small { display: block; margin-top: 5px; color: #5b7080; line-height: 1.5; overflow-wrap: anywhere; }
+    pre { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; background: #eef4f7; border-radius: 8px; padding: 12px; font-size: .86rem; line-height: 1.5; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+    .full { grid-column: 1 / -1; }
+    .status { min-height: 24px; color: #155c75; font-weight: 650; }
+    .hidden { display: none; }
+    @media (max-width: 850px) { main { grid-template-columns: 1fr; } .sidebar { position: static; max-height: none; } .form-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header><h1>A7 · 원본 증거만 보고 분석하기</h1><p>사람의 분석 시간·판단 기준선 · 합성 사건 16건 · AI 보고서와 정답표 없음</p></header>
+  <main>
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>먼저 확인</h2>
+        <p>사건마다 <strong>조사 시작</strong>을 누른 순간 원본 증거가 열리고 KST 시작 시각이 기록됩니다. 분석 내용을 적은 뒤 <strong>판정 잠금</strong>을 누르면 종료 시각이 기록됩니다. 잠긴 판정은 이 화면에서 수정할 수 없습니다.</p>
+        <p class="muted">정상·정보 부족도 가능한 결과입니다. 누락·접근 거부 자료를 0으로 해석하지 마세요. 다른 A7 결과, Claude 검토, 정답표는 조사 중 참고하지 않습니다.</p>
+        <label>분석자 식별자<input id="analyst" type="text" placeholder="예: analyst-01" autocomplete="off"></label>
+        <label>기존 A7 결과 노출 여부
+          <select id="exposure"><option value="">선택</option><option value="seen">이미 일부 보았음</option><option value="unseen">보지 않았음</option><option value="unsure">확실하지 않음</option></select>
+        </label>
+        <p class="muted">이전에 결과를 봤다면 솔직히 표시해 주세요. 이 측정은 완전한 블라인드 결과로 해석하지 않습니다.</p>
+        <strong id="progress">완료 0/16</strong>
+        <div class="case-buttons" id="case-buttons"></div>
+        <div class="actions"><button id="draft" type="button">초안 JSON 저장</button><label style="margin:0">초안 다시 열기<input id="import" type="file" accept="application/json,.json"></label></div>
+        <button id="export" class="primary" type="button">완료 CSV 저장</button>
+        <p class="muted">초안·CSV에는 판단과 시각이 들어갑니다. 개인 보관하고 Git에 추가하지 마세요. 브라우저 임시 저장도 사용하므로 작업 중에는 같은 브라우저를 유지하세요.</p>
+      </section>
+    </aside>
+    <div>
+      <section class="panel">
+        <h2 id="case-title">case-01</h2>
+        <p id="case-meta" class="muted"></p>
+        <p id="case-status" class="status"></p>
+        <div class="actions"><button id="start" class="primary" type="button">조사 시작 · 증거 열기</button><button id="finish" type="button" class="hidden">판정 잠금 · 시간 기록</button><span id="timer" class="timer"></span></div>
+      </section>
+      <section class="panel hidden" id="evidence-panel"><h2>원본 증거</h2><p class="muted">관측 시각과 수집 시각은 다릅니다. 읽을 수 없는 항목은 상태와 사유만 표시합니다.</p><div id="evidence-list"></div></section>
+      <section class="panel hidden" id="answer-panel">
+        <h2>사람의 분석 기록</h2>
+        <div class="form-grid">
+          <label>원인 판단
+            <select id="diagnosis"><option value="">선택</option><option value="suspected_cause">원인 후보가 있음</option><option value="no_incident">확인된 장애 없음</option><option value="insufficient_evidence">증거 부족으로 유보</option></select>
+          </label>
+          <label>저장 증거 기준 상태
+            <select id="current-state"><option value="">선택</option><option value="affected">영향 있음</option><option value="recovered">복구됨</option><option value="healthy">정상</option><option value="unknown">알 수 없음</option></select>
+          </label>
+          <label class="full">첫 원인 후보 · 가능한 가장 구체적으로<textarea id="top1" placeholder="원인 후보가 없다면 비워 둡니다"></textarea></label>
+          <label class="full">근거 ID · 쉼표로 구분<input id="evidence-ids" type="text" placeholder="ev-...-1, ev-...-2"></label>
+          <label class="full">판단 이유<textarea id="rationale" placeholder="증거의 실제 문장·값·시각을 짚어 주세요"></textarea></label>
+          <label class="full">불확실성<textarea id="uncertainty" placeholder="무엇을 모르는지 적어 주세요"></textarea></label>
+          <label class="full">외부 자료 사용 여부·주소<input id="external-sources" type="text" placeholder="없음 또는 사용한 주소"></label>
+        </div>
+        <p class="muted">답을 적는 동안 타이머가 계속 갑니다. 다른 사건으로 이동하거나 새로고침하면 진행 중인 사건은 처음부터 다시 시작해야 정확한 시간이 남습니다.</p>
+      </section>
+    </div>
+  </main>
+  <script type="application/json" id="packet">__MANUAL_BASELINE_DATA__</script>
+  <script>
+  "use strict";
+  const packet = JSON.parse(document.getElementById("packet").textContent);
+  const storageKey = `a7-manual-baseline-v1-${packet.suite_hash}`;
+  const fields = {diagnosis_status: "diagnosis", current_state: "current-state", top1_cause: "top1", evidence_ids: "evidence-ids", rationale: "rationale", uncertainty: "uncertainty", external_sources: "external-sources"};
+  const empty = case_id => ({case_id, started_at_kst: "", ended_at_kst: "", diagnosis_status: "", current_state: "", top1_cause: "", evidence_ids: "", rationale: "", uncertainty: "", external_sources: ""});
+  const fresh = () => ({schema_version: 1, suite_hash: packet.suite_hash, analyst_id: "", prior_exposure: "", rows: packet.cases.map(c => empty(c.case_id))});
+  let state = fresh();
+  let selected = 0;
+  const $ = id => document.getElementById(id);
+  const kstNow = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 19) + "+09:00";
+  const row = () => state.rows[selected];
+  const running = () => state.rows.some(r => r.started_at_kst && !r.ended_at_kst);
+  const validIds = c => new Set(c.evidence.map(e => e.evidence_id));
+  const report = (message, error = false) => { $("case-status").textContent = message; $("case-status").classList.toggle("warning", error); };
+  function save() {
+    try { localStorage.setItem(storageKey, JSON.stringify(state)); }
+    catch { report("브라우저 임시 저장을 사용할 수 없습니다. 초안 JSON을 자주 저장하세요.", true); }
+  }
+  function load() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (stored && compatible(stored)) state = stored;
+    } catch { /* 손상된 임시 저장은 사용하지 않습니다. */ }
+    let interrupted = false;
+    state.rows = state.rows.map(r => {
+      if (r.started_at_kst && !r.ended_at_kst) { interrupted = true; return empty(r.case_id); }
+      return r;
+    });
+    if (interrupted) { save(); alert("이전에 진행 중이던 사건은 시간을 정확히 측정할 수 없어 초기화했습니다. 다시 조사 시작을 눌러 주세요."); }
+  }
+  function compatible(data) {
+    return data && data.schema_version === 1 && data.suite_hash === packet.suite_hash &&
+      typeof data.analyst_id === "string" && typeof data.prior_exposure === "string" &&
+      Array.isArray(data.rows) && data.rows.length === packet.cases.length &&
+      data.rows.every((r, i) => r.case_id === packet.cases[i].case_id);
+  }
+  function render() {
+    const c = packet.cases[selected], r = row(), started = Boolean(r.started_at_kst), done = Boolean(r.ended_at_kst);
+    $("analyst").value = state.analyst_id;
+    $("exposure").value = state.prior_exposure;
+    $("analyst").disabled = running() || state.rows.some(x => x.ended_at_kst);
+    $("exposure").disabled = running() || state.rows.some(x => x.ended_at_kst);
+    $("progress").textContent = `완료 ${state.rows.filter(x => x.ended_at_kst).length}/16`;
+    $("case-title").textContent = c.case_id;
+    $("case-meta").textContent = `대상 ${c.target.namespace}/${c.target.workload} · 증거 구간 ${c.window.start} ~ ${c.window.end}`;
+    $("case-buttons").replaceChildren(...packet.cases.map((item, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = item.case_id.replace("case-", "#");
+      b.classList.toggle("current", i === selected); b.classList.toggle("done", Boolean(state.rows[i].ended_at_kst));
+      b.disabled = running() && i !== selected;
+      b.addEventListener("click", () => { selected = i; render(); }); return b;
+    }));
+    $("start").classList.toggle("hidden", started); $("finish").classList.toggle("hidden", !started || done);
+    $("evidence-panel").classList.toggle("hidden", !started); $("answer-panel").classList.toggle("hidden", !started);
+    if (!started) report("조사 시작을 누르면 이 사건의 증거가 열립니다.");
+    else if (done) report(`잠금 완료 · ${r.started_at_kst} → ${r.ended_at_kst}`);
+    else report(`조사 중 · 시작 ${r.started_at_kst}`);
+    const list = $("evidence-list"); list.replaceChildren();
+    if (started) for (const e of c.evidence) {
+      const article = document.createElement("article"); article.className = "evidence";
+      const title = document.createElement("header"); title.textContent = `${e.evidence_id} · ${e.kind} · ${e.status}`; article.append(title);
+      const meta = document.createElement("small"); meta.textContent = `출처 ${e.source_ref} · 관측 ${e.observed_at || "없음"} · 수집 ${e.collected_at}`; article.append(meta);
+      const pre = document.createElement("pre"); pre.textContent = e.raw === null ? `내용 없음 · ${e.missing_reason || "사유 없음"}` : e.raw; article.append(pre);
+      list.append(article);
+    }
+    for (const [key, id] of Object.entries(fields)) { $(id).value = r[key]; $(id).disabled = done; }
+    $("export").disabled = !state.rows.every(x => x.ended_at_kst);
+    updateTimer();
+  }
+  function updateTimer() {
+    const r = row();
+    if (!r.started_at_kst) { $("timer").textContent = ""; return; }
+    const end = r.ended_at_kst ? Date.parse(r.ended_at_kst) : Date.now();
+    const seconds = Math.max(0, Math.floor((end - Date.parse(r.started_at_kst)) / 1000));
+    $("timer").textContent = `경과 ${Math.floor(seconds / 60)}분 ${String(seconds % 60).padStart(2,"0")}초`;
+  }
+  function validate(r, c) {
+    if (!r.diagnosis_status || !r.current_state || !r.rationale.trim()) return "원인 판단·상태·판단 이유를 적어 주세요.";
+    if (r.diagnosis_status === "suspected_cause" && !r.top1_cause.trim()) return "원인 후보를 선택했다면 첫 원인을 적어 주세요.";
+    if (r.diagnosis_status !== "suspected_cause" && r.top1_cause.trim()) return "원인 후보가 없는 판단이면 첫 원인 칸을 비워 주세요.";
+    const ids = r.evidence_ids.split(/[\s,;]+/).filter(Boolean), allowed = validIds(c);
+    if (ids.some(id => !allowed.has(id))) return "근거 ID는 이 사건에 표시된 ID만 적어 주세요.";
+    return "";
+  }
+  function download(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], {type}));
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function csv() {
+    const headers = ["case_id","analyst_id","started_at_kst","ended_at_kst","diagnosis_status","current_state","top1_cause","evidence_ids","rationale","uncertainty","external_sources","prior_exposure"];
+    const quote = value => `"${String(value ?? "").replaceAll('"','""')}"`;
+    return [headers.join(","), ...state.rows.map(r => headers.map(h => quote(h === "analyst_id" ? state.analyst_id : h === "prior_exposure" ? state.prior_exposure : r[h])).join(","))].join("\r\n") + "\r\n";
+  }
+  $("analyst").addEventListener("input", e => { state.analyst_id = e.target.value.trim(); save(); });
+  $("exposure").addEventListener("change", e => { state.prior_exposure = e.target.value; save(); });
+  for (const [key, id] of Object.entries(fields)) $(id).addEventListener("input", e => { row()[key] = e.target.value; save(); });
+  $("start").addEventListener("click", () => {
+    if (!state.analyst_id || !state.prior_exposure) return report("분석자 식별자와 기존 결과 노출 여부를 먼저 적어 주세요.", true);
+    if (running()) return report("진행 중인 사건을 먼저 잠가 주세요.", true);
+    row().started_at_kst = kstNow(); save(); render();
+  });
+  $("finish").addEventListener("click", () => {
+    const message = validate(row(), packet.cases[selected]);
+    if (message) return report(message, true);
+    if (!confirm("현재 판정과 종료 시간을 잠급니다. 이 화면에서 수정할 수 없습니다. 계속할까요?")) return;
+    row().ended_at_kst = kstNow(); save(); render();
+  });
+  $("draft").addEventListener("click", () => download(`a7-manual-draft-${packet.suite_hash.slice(0,8)}.json`, JSON.stringify(state, null, 2), "application/json"));
+  $("import").addEventListener("change", async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const imported = JSON.parse(await file.text());
+      if (!compatible(imported)) throw new Error("suite 또는 형식이 다릅니다");
+      if (running()) throw new Error("진행 중인 사건을 먼저 잠가 주세요");
+      if (!confirm("현재 기록을 초안으로 덮어쓸까요?")) return;
+      state = imported;
+      state.rows = state.rows.map(r => r.started_at_kst && !r.ended_at_kst ? empty(r.case_id) : r);
+      save(); render();
+    } catch (error) { report(`초안 읽기 실패: ${error.message}`, true); }
+    e.target.value = "";
+  });
+  $("export").addEventListener("click", () => {
+    if (!state.rows.every(x => x.ended_at_kst)) return report("16건을 모두 잠가야 완료 CSV를 저장할 수 있습니다.", true);
+    download(`a7-manual-baseline-${packet.suite_hash.slice(0,8)}.csv`, "\ufeff" + csv(), "text/csv;charset=utf-8");
+  });
+  window.addEventListener("beforeunload", e => { if (running()) { e.preventDefault(); e.returnValue = ""; } });
+  load(); render(); setInterval(updateTimer, 1000);
+  </script>
+</body>
+</html>

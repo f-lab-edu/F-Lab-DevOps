@@ -1,0 +1,7 @@
+{
+  "image": "registry.example.invalid/url-shortener:v14-memory",
+  "source_sha": "0000000000000000000000000000000000000008",
+  "gitops_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "ci_run_id": "holdout-v3-08",
+  "status": "failed"
+}

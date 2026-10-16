@@ -1,0 +1,6 @@
+{
+  "reason": "ImagePullBackOff",
+  "message": "registry TLS certificate signed by unknown authority during image pull",
+  "type": "Warning",
+  "involved_uid": "pod-v03"
+}

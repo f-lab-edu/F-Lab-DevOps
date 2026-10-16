@@ -1,0 +1,6 @@
+{
+  "reason": "ImagePullBackOff",
+  "message": "registry returned HTTP 429 pull rate limit; retry scheduled",
+  "type": "Warning",
+  "involved_uid": "pod-v04"
+}

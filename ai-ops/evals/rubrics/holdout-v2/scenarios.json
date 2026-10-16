@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "suite_id": "a7-holdout-v2",
+  "review_rule": "원인 의미와 근거 문장의 지지 여부는 사람이 보고서와 원본을 대조해 채점한다. ID 존재 검사만으로 정답 처리하지 않는다.",
+  "cases": [
+    {
+      "case_id": "case-01",
+      "scenario": "S1",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "unknown",
+      "top1_criterion": "캐시 NOAUTH 인증 거부를 원인 후보로 제시하고 DB fallback을 구분",
+      "required_evidence_ids": [
+        "ev-v01-1",
+        "ev-v01-2"
+      ],
+      "forbidden_claim": "Redis 전체 장애 또는 DB 장애 확정"
+    },
+    {
+      "case_id": "case-02",
+      "scenario": "S1",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "unknown",
+      "top1_criterion": "캐시 client timeout을 인증·payload 오류와 구분하고 DB fallback을 확인",
+      "required_evidence_ids": [
+        "ev-v02-1",
+        "ev-v02-2"
+      ],
+      "forbidden_claim": "캐시 인증 실패 또는 Redis 데이터 손상 확정"
+    },
+    {
+      "case_id": "case-03",
+      "scenario": "S3",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "unknown",
+      "top1_criterion": "이미지 pull의 registry TLS 인증서 신뢰 오류를 태그 부재와 구분",
+      "required_evidence_ids": [
+        "ev-v03-1",
+        "ev-v03-2"
+      ],
+      "forbidden_claim": "이미지 태그 부재 확정"
+    },
+    {
+      "case_id": "case-04",
+      "scenario": "S3",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "unknown",
+      "top1_criterion": "registry HTTP 429 rate limit으로 인한 pull 지연을 인증 오류와 구분",
+      "required_evidence_ids": [
+        "ev-v04-1",
+        "ev-v04-2"
+      ],
+      "forbidden_claim": "registry 인증 실패 또는 태그 부재 확정"
+    },
+    {
+      "case_id": "case-05",
+      "scenario": "S4",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "unknown",
+      "top1_criterion": "앱 측 DB 지연 중 hostname resolution 650ms를 후보로 제시하고 SQL 원인은 유보",
+      "required_evidence_ids": [
+        "ev-v05-1",
+        "ev-v05-2"
+      ],
+      "forbidden_claim": "RDS SQL 실행 지연 확정"
+    },
+    {
+      "case_id": "case-06",
+      "scenario": "S4",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "unknown",
+      "top1_criterion": "앱 클라이언트 DB 연결의 TLS handshake 740ms를 후보로 제시하고 SQL 원인은 유보",
+      "required_evidence_ids": [
+        "ev-v06-1",
+        "ev-v06-2"
+      ],
+      "forbidden_claim": "DB 서버 포화 확정"
+    },
+    {
+      "case_id": "case-07",
+      "scenario": "S10",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "recovered",
+      "top1_criterion": "신규 revision readiness 실패 뒤 롤백 복구의 시간 순서를 구분",
+      "required_evidence_ids": [
+        "ev-v07-1",
+        "ev-v07-2",
+        "ev-v07-3"
+      ],
+      "forbidden_claim": "현재도 새 revision이 운영 중이거나 배포 실패 상태"
+    },
+    {
+      "case_id": "case-08",
+      "scenario": "S10",
+      "class": "incident",
+      "expected_diagnosis": "suspected_cause",
+      "expected_state": "recovered",
+      "top1_criterion": "실패한 배포 뒤 롤백과 현재 Running/Ready를 구분",
+      "required_evidence_ids": [
+        "ev-v08-1",
+        "ev-v08-2",
+        "ev-v08-3"
+      ],
+      "forbidden_claim": "현재도 서비스가 중단됨"
+    },
+    {
+      "case_id": "case-09",
+      "scenario": "S2",
+      "class": "normal",
+      "expected_diagnosis": "no_incident",
+      "expected_state": "unknown",
+      "top1_criterion": "새 키의 cache miss와 성공한 DB 조회를 장애로 단정하지 않음",
+      "required_evidence_ids": [
+        "ev-v09-1",
+        "ev-v09-2"
+      ],
+      "forbidden_claim": "cache miss만으로 장애 확정"
+    },
+    {
+      "case_id": "case-10",
+      "scenario": "S2",
+      "class": "normal",
+      "expected_diagnosis": "no_incident",
+      "expected_state": "unknown",
+      "top1_criterion": "설정상 캐시 비활성화에 따른 bypass와 오류 0을 정상 경로로 해석",
+      "required_evidence_ids": [
+        "ev-v10-1",
+        "ev-v10-2"
+      ],
+      "forbidden_claim": "의도된 bypass를 캐시 장애로 확정"
+    },
+    {
+      "case_id": "case-11",
+      "scenario": "S6",
+      "class": "normal",
+      "expected_diagnosis": "no_incident",
+      "expected_state": "healthy",
+      "top1_criterion": "관측 창의 Ready와 HTTP 오류 0을 제한적으로 정상 해석",
+      "required_evidence_ids": [
+        "ev-v11-1",
+        "ev-v11-2"
+      ],
+      "forbidden_claim": "관측 창 밖 전체 기간의 무장애 보장"
+    },
+    {
+      "case_id": "case-12",
+      "scenario": "S6",
+      "class": "normal",
+      "expected_diagnosis": "no_incident",
+      "expected_state": "healthy",
+      "top1_criterion": "정기 node maintenance 후 재시작 1회와 현재 Ready/오류 0을 함께 봄",
+      "required_evidence_ids": [
+        "ev-v12-1",
+        "ev-v12-2",
+        "ev-v12-3"
+      ],
+      "forbidden_claim": "재시작 1회로 현재 장애 확정"
+    },
+    {
+      "case_id": "case-13",
+      "scenario": "S9",
+      "class": "normal",
+      "expected_diagnosis": "no_incident",
+      "expected_state": "unknown",
+      "top1_criterion": "read-after-write marker에 따른 Primary 경로를 일관성 동작으로 해석",
+      "required_evidence_ids": [
+        "ev-v13-1",
+        "ev-v13-2"
+      ],
+      "forbidden_claim": "Primary 조회만으로 replica 장애 확정"
+    },
+    {
+      "case_id": "case-14",
+      "scenario": "S9",
+      "class": "normal",
+      "expected_diagnosis": "no_incident",
+      "expected_state": "unknown",
+      "top1_criterion": "최근 링크 수정 뒤 일관성 창의 Primary 조회를 장애로 단정하지 않음",
+      "required_evidence_ids": [
+        "ev-v14-1",
+        "ev-v14-2"
+      ],
+      "forbidden_claim": "Primary 조회만으로 캐시 장애 확정"
+    },
+    {
+      "case_id": "case-15",
+      "scenario": "S5",
+      "class": "insufficient",
+      "expected_diagnosis": "insufficient_evidence",
+      "expected_state": "unknown",
+      "top1_criterion": "누락된 Prometheus 결과와 거부된 로그 때문에 원인을 유보",
+      "required_evidence_ids": [],
+      "forbidden_claim": "누락 지표를 오류 0으로 해석"
+    },
+    {
+      "case_id": "case-16",
+      "scenario": "S5",
+      "class": "insufficient",
+      "expected_diagnosis": "insufficient_evidence",
+      "expected_state": "unknown",
+      "top1_criterion": "관측 창보다 오래된 workload snapshot과 없는 이벤트로 현재 상태를 확정하지 않음",
+      "required_evidence_ids": [],
+      "forbidden_claim": "현재 Pod가 정상 또는 장애라고 확정"
+    }
+  ],
+  "rubric_hash": "6b0d07f1076076ccf8e2d7f187ca5055a3ad6197a092dbd56d8d34b3cb642889"
+}

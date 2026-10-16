@@ -1,0 +1,1 @@
+old cached value raised UnicodeDecodeError in the new payload decoder; URL read continued with database fallback

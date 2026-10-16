@@ -1,0 +1,108 @@
+# 정적 렌더링 전용 가상 값이다. 실제 클러스터에 적용하지 않는다.
+{
+  "enabled": true,
+  "image": {
+    "repository": "registry.validation.invalid/ai-ops",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "persistence": {
+    "storageClassName": "validation-only-csi"
+  },
+  "config": {
+    "bindings": {
+      "schema_version": 1,
+      "bindings": [
+        {
+          "alias": "url-shortener-practice",
+          "target": {
+            "cluster_id": "practice-eks-example",
+            "namespace": "url-shortener",
+            "workload": "url-shortener-api",
+            "service": "url-shortener-svc",
+            "environment": "practice"
+          },
+          "pod_selector": {
+            "app": "url-shortener-api"
+          },
+          "container": "api",
+          "kubernetes_connection": "practice-kubernetes",
+          "prometheus_connection": "practice-prometheus",
+          "argo": {
+            "namespace": "argocd",
+            "application": "url-shortener",
+            "repo_url": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+            "path": "url-shortener/url-shortener-chart",
+            "destination_server": "https://kubernetes.default.svc"
+          },
+          "routes": [
+            "/items",
+            "/items/{item_id}",
+            "/items/_db"
+          ],
+          "operations": [
+            "select_one",
+            "select_all",
+            "insert",
+            "delete"
+          ]
+        }
+      ]
+    },
+    "runtime": {
+      "schema_version": 1,
+      "collector_version": "captured-snapshot-v1",
+      "llm_enabled": false,
+      "per_incident_budget_usd": 0.1,
+      "daily_budget_usd": 1.0,
+      "connections": {
+        "practice-kubernetes": {
+          "kind": "kubernetes",
+          "base_url": "https://kubernetes.default.svc:443",
+          "ca_file": "/var/run/ai-ops/kubernetes/ca.crt",
+          "token_file": "/var/run/ai-ops/kubernetes/token"
+        },
+        "practice-prometheus": {
+          "kind": "prometheus",
+          "base_url": "http://prometheus.validation.invalid:9090",
+          "ca_file": null,
+          "token_file": null
+        }
+      },
+      "limits": {
+        "lookback_seconds": 900,
+        "deadline_seconds": 60,
+        "request_timeout_seconds": 5,
+        "max_pods": 12,
+        "max_events": 20,
+        "log_lines_per_pod": 200,
+        "raw_log_bytes": 65536,
+        "response_bytes": 262144,
+        "total_response_bytes": 4194304,
+        "payload_bytes": 65536,
+        "bundle_bytes": 4194304,
+        "max_items": 256,
+        "future_tolerance_seconds": 30
+      },
+      "scrape": {
+        "interval_seconds": 30,
+        "minimum_samples": 8,
+        "max_age_seconds": 60
+      }
+    }
+  },
+  "network": {
+    "apiServerCIDRs": [
+      "192.0.2.10/32"
+    ],
+    "dns": {
+      "podLabels": {
+        "k8s-app": "kube-dns"
+      }
+    },
+    "prometheus": {
+      "podLabels": {
+        "app.kubernetes.io/name": "prometheus"
+      }
+    }
+  }
+}

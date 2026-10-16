@@ -1,0 +1,102 @@
+name: AI 에이전트 이미지 수동 검증·등록
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 검토한 main 이미지를 독립 ECR에 등록
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-ops-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # 이 환경의 main 제한·검토자 설정과 전용 OIDC 역할은 실제 등록 전에 준비한다.
+    environment: ${{ inputs.publish && 'ai-ops-image' || 'ai-ops-image-build' }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PUBLISH: ${{ inputs.publish }}
+      AWS_ACCOUNT_ID: ${{ vars.AI_OPS_AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AI_OPS_AWS_REGION }}
+      ECR_REPOSITORY: ${{ vars.AI_OPS_ECR_REPOSITORY }}
+      IMAGE_ROLE_ARN: ${{ vars.AI_OPS_IMAGE_ROLE_ARN }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+        with:
+          persist-credentials: false
+      - name: 등록 조건과 입력 확인
+        run: |
+          if [[ "$PUBLISH" == true ]]; then
+            [[ "$GITHUB_REF" == refs/heads/main ]]
+            [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]
+            [[ "$AWS_REGION" =~ ^[a-z]{2}-[a-z]+-[0-9]$ ]]
+            [[ "$ECR_REPOSITORY" =~ ^[a-z0-9][a-z0-9._/-]*-ai-ops$ ]]
+            [[ "$IMAGE_ROLE_ARN" =~ ^arn:aws:iam::${AWS_ACCOUNT_ID}:role/[a-zA-Z0-9+=,.@_-]+-ai-ops-image-role$ ]]
+          fi
+      - name: 단위 시험과 실행 이미지 검증
+        run: |
+          python3 -m venv /tmp/ai-ops-venv
+          /tmp/ai-ops-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
+          PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python -m unittest discover -s ai-ops/tests -p 'test_*.py' -v
+          docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag ai-ops:verified ai-ops
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m ai-ops:verified --help
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m --entrypoint python ai-ops:verified -c \
+            'import os; from ai_ops.replay_tools import _runbook; assert os.getuid() == 10001; [_runbook(name) for name in ("cache", "database", "deployment")]'
+          echo "IMAGE_ID=$(docker image inspect ai-ops:verified --format '{{.Id}}')" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=sha-${GITHUB_SHA}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+      - name: 독립 ECR 전용 OIDC 인증
+        if: inputs.publish
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
+        with:
+          role-to-assume: ${{ env.IMAGE_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+      - name: 독립 ECR 로그인
+        if: inputs.publish
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # 버전 2
+      - name: 검증한 같은 이미지를 등록하고 digest 확인
+        if: inputs.publish
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          repository = json.loads(subprocess.check_output(["aws", "ecr", "describe-repositories", "--repository-names", os.environ["ECR_REPOSITORY"], "--output", "json"]))["repositories"][0]
+          assert repository["registryId"] == os.environ["AWS_ACCOUNT_ID"]
+          assert repository["imageTagMutability"] == "IMMUTABLE"
+          assert repository["imageScanningConfiguration"]["scanOnPush"] is True
+          assert repository["encryptionConfiguration"]["encryptionType"] == "AES256"
+          PY
+          IMAGE_REPOSITORY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+          docker tag "$IMAGE_ID" "$IMAGE_REPOSITORY:$IMAGE_TAG"
+          docker push "$IMAGE_REPOSITORY:$IMAGE_TAG"
+          IMAGE_DIGEST=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker pull "$IMAGE_REPOSITORY@$IMAGE_DIGEST"
+          [[ "$(docker image inspect "$IMAGE_REPOSITORY@$IMAGE_DIGEST" --format '{{.Id}}')" == "$IMAGE_ID" ]]
+          echo "IMAGE_REPOSITORY=$IMAGE_REPOSITORY" >> "$GITHUB_ENV"
+          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          echo 'IMAGE_PUBLISHED=true' >> "$GITHUB_ENV"
+      - name: 이미지 identity 기록
+        env:
+          IMAGE_RECORD_PATH: ${{ runner.temp }}/ai-ops-image/image-registration.json
+        run: python3 .github/scripts/write-ai-ops-image-record.py
+      - name: 등록 기록 보존
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        with:
+          name: ai-ops-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ai-ops-image/image-registration.json
+          if-no-files-found: error
+          retention-days: 30

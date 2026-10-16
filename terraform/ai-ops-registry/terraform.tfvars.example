@@ -1,0 +1,6 @@
+# 비밀값은 필요 없다. 검토 후 이 폴더의 terraform.tfvars로 복사한다.
+aws_region             = "ap-northeast-2"
+expected_account_id    = "716174522908"
+project_name           = "urlshortener-practice"
+environment            = "practice"
+enable_ai_ops_registry = true

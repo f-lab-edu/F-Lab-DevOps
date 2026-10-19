@@ -214,6 +214,24 @@ class LiveCollectorsTest(unittest.TestCase):
         self.assertEqual([dict(request.params)["previous"] for request in logs], ["false", "true"])
         self.assertTrue(all("/secrets" not in request.path for request, _ in self.api.calls))
 
+    def test_typed_list_items_can_omit_kind_without_weakening_scope(self):
+        for key in ("rs", "pod", "event"):
+            self.api.docs[key].pop("kind")
+            self.api.docs[key].pop("apiVersion")
+        snapshot = self.snapshot()
+        self.assertEqual(self.item(snapshot, "pod-0-status").status, "available")
+        self.assertEqual(self.item(snapshot, "event-0").status, "available")
+        self.assertTrue(self.item(snapshot, "pod-0-status").payload["ready"])
+        self.assertNotIn("kind", self.api.docs["pod"])
+        for key, mutation in (("pod", {"kind": "Secret"}),
+                              ("rs", {"kind": "Deployment"})):
+            with self.subTest(key=key):
+                self.api = API(self.settings, self.clock)
+                self.api.docs[key].update(mutation)
+                rejected = self.snapshot()
+                self.assertEqual(self.item(rejected, "workload-scope").missing_reason, "scope_mismatch")
+                self.assertFalse(any(request.path.endswith("/log") for request, _ in self.api.calls))
+
     def test_foreign_replicaset_pod_and_service_are_rejected_before_logs(self):
         mutations = [lambda api: api.docs["rs"]["metadata"]["ownerReferences"][0].update(uid="other-dep"),
                      lambda api: api.docs["pod"]["metadata"]["ownerReferences"][0].update(uid="other-rs"),

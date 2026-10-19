@@ -8,6 +8,7 @@ import shutil
 import stat
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -82,6 +83,31 @@ class BInvestigationTest(unittest.TestCase):
         transport.assert_not_called()
         token_counter.assert_not_called()
         self.assertFalse((self.store_root / "ai-budget.json").exists())
+
+    def test_stale_history_keeps_audit_time_and_saves_partial_report(self):
+        clock = Clock()
+        builder = SnapshotBuilder(self.settings, self.target, clock=clock)
+        old = AT - timedelta(hours=1)
+        old_text = old.isoformat().replace("+00:00", "Z")
+        add(builder, "old-history", "deployment", at=old_text,
+            time_field="history_deployed_at", payload={"gitops_revision": "a" * 40, "status": "unknown"})
+        snapshot = builder.finish()
+        record = self.investigate(snapshot, request_id="stale-history")
+        shown = self.store.show(record.incident_id, record.run_id)
+        self.assertEqual(shown.metadata["status"], "partial")
+        self.assertEqual(shown.metadata["failure_reason"], "collection_incomplete")
+        item = shown.bundle.evidence[0]
+        self.assertEqual((item.status, item.missing_reason), ("stale", "outside_window"))
+        self.assertIsNone(item.observed_at)
+        self.assertIsNone(item.payload)
+        self.assertEqual(shown.collection_audit.entries[0].observed_raw, old_text)
+        self.assertEqual(shown.collection_audit.entries[0].observed_offset, "Z")
+        # 시각을 다시 끼워 넣은 묶음은 여전히 시간 계약 위반으로 거부한다.
+        altered = build_evidence_bundle(target=shown.bundle.target, window=shown.bundle.window,
+            created_at=shown.bundle.created_at,
+            evidence=[item.model_copy(update={"observed_at": old})])
+        with self.assertRaises(ValueError):
+            validate_snapshot(CapturedSnapshot(altered, shown.collection_audit), self.settings)
 
     def complete_snapshot(self, *, ready=True, expected=2, observed=2, missing=False):
         clock = Clock()

@@ -33,14 +33,17 @@ def render(*args: str, success: bool = True) -> list[dict]:
     return parse_yaml(result.stdout)
 
 
-def verify(documents: list[dict]) -> None:
+def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False) -> None:
     by_kind: dict[str, list[dict]] = {}
     for doc in documents:
         by_kind.setdefault(doc["kind"], []).append(doc)
-    assert {key: len(value) for key, value in by_kind.items()} == {
+    expected = {
         "ConfigMap": 1, "ServiceAccount": 1, "Role": 2, "RoleBinding": 2,
         "NetworkPolicy": 2, "Service": 1, "StatefulSet": 1,
-    }, "예상하지 않은 리소스가 포함됐다"
+    }
+    if observability:
+        expected.update(NetworkPolicy=3, Service=2, ServiceMonitor=1)
+    assert {key: len(value) for key, value in by_kind.items()} == expected, "예상하지 않은 리소스가 포함됐다"
     config = by_kind["ConfigMap"][0]["data"]
     with tempfile.TemporaryDirectory() as directory:
         paths = []
@@ -81,23 +84,23 @@ def verify(documents: list[dict]) -> None:
         "fsGroup": 10001, "fsGroupChangePolicy": "OnRootMismatch", "seccompProfile": {"type": "RuntimeDefault"}}
     assert len(pod["containers"]) == 1 and not pod.get("initContainers")
     container = pod["containers"][0]
-    assert container["command"] == ["python", "-m", "ai_ops.deployment_check"] and container["args"] == ["--serve"]
+    assert container["command"] == ["python", "-m", "ai_ops.deployment_check"] and container["args"] == (["--serve", "--metrics"] if observability else ["--serve"])
     assert container["securityContext"] == {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}}
     assert "@sha256:" in container["image"] and "envFrom" not in container
     volumes = {v["name"]: v for v in pod["volumes"]}
     assert set(volumes) == {"config", "tmp", "kubernetes-identity"}
     identity = volumes["kubernetes-identity"]["projected"]
     assert identity["defaultMode"] == 0o440
-    assert identity["sources"] == [{"serviceAccountToken": {"path": "token", "expirationSeconds": 3600}},
+    assert identity["sources"] == [{"serviceAccountToken": {"path": "token", "expirationSeconds": token_expiration_seconds}},
         {"configMap": {"name": "kube-root-ca.crt", "items": [{"key": "ca.crt", "path": "ca.crt"}]}}]
     claim = stateful["volumeClaimTemplates"][0]["spec"]
     assert claim["accessModes"] == ["ReadWriteOnce"] and claim["storageClassName"]
     selectors = stateful["selector"]["matchLabels"]
-    assert by_kind["Service"][0]["spec"] == {"clusterIP": "None", "selector": selectors}
+    assert next(s for s in by_kind["Service"] if s["metadata"]["name"] == "ai-ops-headless")["spec"] == {"clusterIP": "None", "selector": selectors}
     for policy in by_kind["NetworkPolicy"]:
         assert policy["metadata"]["namespace"] == "ai-ops"
         assert policy["spec"]["podSelector"] == {"matchLabels": selectors}
-    deny = next(p["spec"] for p in by_kind["NetworkPolicy"] if "Ingress" in p["spec"]["policyTypes"])
+    deny = next(p["spec"] for p in by_kind["NetworkPolicy"] if p["spec"]["policyTypes"] == ["Ingress", "Egress"])
     assert deny["ingress"] == [] and deny["egress"] == []
     allow = next(p["spec"] for p in by_kind["NetworkPolicy"] if p["spec"]["policyTypes"] == ["Egress"])
     assert len(allow["egress"]) == 3
@@ -112,6 +115,21 @@ def verify(documents: list[dict]) -> None:
     prom_port = urlsplit(settings.runtime.connections[binding.prometheus_connection].base_url).port or 80
     assert prom["ports"] == [{"protocol": "TCP", "port": prom_port}]
     assert all("0.0.0.0/0" not in json.dumps(p) for p in by_kind["NetworkPolicy"])
+
+    if observability:
+        assert container["ports"] == [{"name": "metrics", "containerPort": 9091, "protocol": "TCP"}]
+        service = next(s for s in by_kind["Service"] if s["metadata"]["name"] == "ai-ops-metrics")
+        assert service["spec"] == {"selector": selectors, "ports": [{"name": "metrics", "port": 9091, "targetPort": "metrics", "protocol": "TCP"}]}
+        metric_labels = {**selectors, "ai-ops-component": "metrics"}
+        assert service["metadata"]["labels"] == metric_labels
+        assert by_kind["ServiceMonitor"][0]["spec"] == {
+            "namespaceSelector": {"matchNames": ["ai-ops"]}, "selector": {"matchLabels": metric_labels},
+            "sampleLimit": 50, "targetLimit": 1,
+            "endpoints": [{"port": "metrics", "path": "/metrics", "interval": "30s", "scrapeTimeout": "5s", "honorLabels": False}]}
+        ingress = next(p["spec"] for p in by_kind["NetworkPolicy"] if p["spec"]["policyTypes"] == ["Ingress"])
+        assert ingress["ingress"] == [{"from": prom["to"], "ports": [{"protocol": "TCP", "port": 9091}]}]
+    else:
+        assert not container.get("ports")
 
 
 def main() -> None:
@@ -131,7 +149,7 @@ def main() -> None:
     assert "automated" not in application["syncPolicy"]
     assert project["clusterResourceWhitelist"] == []
     assert {d["namespace"] for d in project["destinations"]} == {"ai-ops", "url-shortener", "argocd"}
-    assert {r["kind"] for r in project["namespaceResourceWhitelist"]} == {"ConfigMap", "Service", "ServiceAccount", "PersistentVolumeClaim", "StatefulSet", "Role", "RoleBinding", "NetworkPolicy"}
+    assert {r["kind"] for r in project["namespaceResourceWhitelist"]} == {"ConfigMap", "Service", "ServiceAccount", "PersistentVolumeClaim", "StatefulSet", "Role", "RoleBinding", "NetworkPolicy", "ServiceMonitor"}
     for extra in ([], ["-f", str(ROOT / "chart/values.validation.yaml")]):
         subprocess.run(["helm", "lint", str(ROOT / "chart"), "--namespace", "ai-ops", "--strict", *extra], check=True)
     assert render() == [], "기본값에서 리소스를 생성했다"
@@ -143,7 +161,24 @@ def main() -> None:
     verify(production)
     config = next(doc for doc in production if doc["kind"] == "ConfigMap")["data"]
     assert json.loads(config["bindings.json"])["bindings"][0]["target"]["environment"] == "production"
+    # 단기 토큰도 동일한 권한·통신 경계를 유지하며 수명 범위 밖은 거부한다.
+    verify(render(*args, "--set", "identity.tokenExpirationSeconds=600"), token_expiration_seconds=600)
+    monitored = render(*args, "--set", "observability.enabled=true")
+    verify(monitored, observability=True)
+    # 관측 기능이 열려도 발신자 제한·포트·대상 범위가 넓어지면 거부한다.
+    for mutate in (
+        lambda docs: next(d for d in docs if d["metadata"]["name"] == "ai-ops-metrics-ingress")["spec"]["ingress"][0]["from"][0].pop("podSelector"),
+        lambda docs: next(d for d in docs if d["kind"] == "ServiceMonitor")["spec"].update(namespaceSelector={"any": True}),
+    ):
+        changed = json.loads(json.dumps(monitored)); mutate(changed)
+        try:
+            verify(changed, observability=True)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError("관측 권한 확대를 놓쳤다")
     rejected = [
+        ("identity.tokenExpirationSeconds=599",), ("identity.tokenExpirationSeconds=3601",),
         ("replicaCount=2",), ("mode=worker",), ("image.digest=latest",),
         ("config.runtime.llm_enabled=true",), ("persistence.storageClassName=",),
         ("network.apiServerCIDRs[0]=0.0.0.0/0",), ("network.dns.podLabels=null",),
@@ -166,7 +201,7 @@ def main() -> None:
             pass
         else:
             raise AssertionError("위험한 manifest 변경을 놓쳤다")
-    print("B-03 정적 검사 통과: 기본 비활성·실습/운영 읽기 전용 리소스 10개·잘못된 설정 11종 거부·위험 변경 3종 검출. 실환경은 미검증.")
+    print("B-03 정적 검사 통과: 기본 비활성·실습/운영 읽기 전용 리소스 10개·관측 활성 13개·잘못된 설정 거부·위험 변경 5종 검출. 실환경은 미검증.")
 
 
 if __name__ == "__main__":

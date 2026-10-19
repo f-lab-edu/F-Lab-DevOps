@@ -1,0 +1,55 @@
+{{- if and .Values.enabled .Values.observability.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ai-ops.selector" . | nindent 4 }}
+    ai-ops-component: metrics
+spec:
+  selector:
+    {{- include "ai-ops.selector" . | nindent 4 }}
+  ports:
+    - {name: metrics, port: 9091, targetPort: metrics, protocol: TCP}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames: [{{ .Release.Namespace | quote }}]
+  selector:
+    matchLabels:
+      {{- include "ai-ops.selector" . | nindent 6 }}
+      ai-ops-component: metrics
+  sampleLimit: 50
+  targetLimit: 1
+  endpoints:
+    - {port: metrics, path: /metrics, interval: 30s, scrapeTimeout: 5s, honorLabels: false}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-metrics-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ai-ops.selector" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.network.prometheus.namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- .Values.network.prometheus.podLabels | toYaml | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: 9091}
+{{- end }}

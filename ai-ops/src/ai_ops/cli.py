@@ -21,6 +21,7 @@ from ai_ops.evidence import load_evidence_bundle, redact_text
 from ai_ops.incidents import IncidentStore, RunStopped
 from ai_ops.openai_engine import AIConfig, analyze_ai, api_key_from_environment
 from ai_ops.reports import DIAGNOSIS, format_kst
+from ai_ops.observability import observe
 
 
 DEFAULT_STORE = Path.home() / ".local/share/url-shortener-ai-ops"
@@ -116,10 +117,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             binding = next((item for item in settings.bindings.bindings if item.alias == args.target), None)
             if binding is None:
                 raise ValueError("target alias is not registered")
-            snapshot = collect_snapshot(settings, binding.target, route=args.route, operation=args.operation)
-            store = IncidentStore(args.store)
-            record = store.investigate_snapshot(snapshot=snapshot, settings=settings,
-                                                question=args.question, request_id=args.request_id)
+            with observe(args.store, "collection") as observation:
+                snapshot = collect_snapshot(settings, binding.target, route=args.route, operation=args.operation)
+                observation["result"] = {"complete": "success", "partial": "partial", "unavailable": "failure"}[snapshot.audit.collection_status]
+            with observe(args.store, "report") as observation:
+                store = IncidentStore(args.store)
+                record = store.investigate_snapshot(snapshot=snapshot, settings=settings,
+                                                    question=args.question, request_id=args.request_id)
+                observation["result"] = "success" if record.metadata["status"] == "completed" else "partial"
             return _print_record(record)
         if args.command == "investigate":
             registry = load_target_registry(args.registry)

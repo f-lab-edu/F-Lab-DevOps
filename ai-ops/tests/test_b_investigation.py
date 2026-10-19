@@ -292,6 +292,10 @@ class BInvestigationTest(unittest.TestCase):
             self.assertNotIn("AI 실패", output.getvalue())
             key.assert_not_called()
             collect.assert_called_once()
+        from ai_ops.observability import Telemetry
+        metrics = Telemetry(self.store_root).render().decode()
+        self.assertIn('stage="collection",result="partial"} 1', metrics)
+        self.assertIn('stage="report",result="partial"} 1', metrics)
         incident = next(path for path in self.store_root.glob("inc-*"))
         run = next(path for path in incident.glob("run-*"))
         output = io.StringIO()

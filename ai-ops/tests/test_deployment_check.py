@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from ai_ops.deployment_check import check_local, main
 from ai_ops import replay_tools
+from ai_ops.observability import Telemetry
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,6 +96,23 @@ class DeploymentCheckTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertNotIn("secret-key-value", output.getvalue())
         self.assertNotIn(str(self.config), output.getvalue())
+
+    def test_serve_metrics_records_heartbeat_and_stops_without_removing_store(self):
+        class StopAfterOneCheck:
+            def wait(self, _):
+                return True
+            def set(self):
+                pass
+        output = io.StringIO()
+        with patch("ai_ops.deployment_check.threading.Event", return_value=StopAfterOneCheck()), \
+                patch("ai_ops.deployment_check.signal.signal"), \
+                patch("ai_ops.deployment_check.metrics_server", return_value=contextlib.nullcontext()), \
+                contextlib.redirect_stderr(output):
+            code = main(["--config", str(self.config), "--store", str(self.store), "--serve", "--metrics"])
+        self.assertEqual(code, 0)
+        self.assertIn('stage="diagnostic",result="success"} 1', Telemetry(self.store).render().decode())
+        self.assertEqual([json.loads(line)["event"] for line in output.getvalue().splitlines()],
+                         ["process_started", "operation_finished", "process_stopped"])
 
     def test_runbook_tamper_and_unwritable_storage_fail(self):
         books = self.root / "runbooks"

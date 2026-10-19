@@ -49,7 +49,13 @@ spec:
           image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: [python, -m, ai_ops.deployment_check]
-          args: [--serve]
+          args:
+            - --serve
+            {{- if .Values.observability.enabled }}
+            - --metrics
+          ports:
+            - {name: metrics, containerPort: 9091, protocol: TCP}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -91,7 +97,7 @@ spec:
             sources:
               - serviceAccountToken:
                   path: token
-                  expirationSeconds: 3600
+                  expirationSeconds: {{ .Values.identity.tokenExpirationSeconds }}
               - configMap:
                   name: kube-root-ca.crt
                   items:

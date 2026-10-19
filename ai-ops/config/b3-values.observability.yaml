@@ -1,0 +1,7 @@
+# 현재 클러스터의 Prometheus selector와 네트워크 정책을 확인한 뒤 명시적으로 적용한다.
+# 수신기·worker·외부 모델 대신 진단·수동 수집 호출의 자체 관측만 활성화한다.
+enabled: true
+identity:
+  tokenExpirationSeconds: 600
+observability:
+  enabled: true

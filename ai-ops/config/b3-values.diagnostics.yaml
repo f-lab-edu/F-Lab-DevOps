@@ -1,0 +1,5 @@
+# b3-values.preflight.yaml과 함께 명시적으로 사용해야 하는 실제 진단 배포 덮어쓰기다.
+# 수신기·worker·외부 모델은 활성화하지 않는다.
+enabled: true
+identity:
+  tokenExpirationSeconds: 600

@@ -1,0 +1,324 @@
+{
+  "record_type": "ai_ops_actual_diagnostics_deployment",
+  "status": "verified",
+  "observed_at": "2026-10-19T08:29:52.692501Z",
+  "source": {
+    "base_worktree_commit": "c8aa7fe",
+    "image_source_commit": "b6548b82e588b09efee925a2c663ee71d3b91f1d",
+    "deployment_method": "manual_helm",
+    "local_chart_change": "projected_token_expiration_parameter_600_to_3600",
+    "gitops_application_enabled": false
+  },
+  "namespace": "ai-ops",
+  "release": "ai-ops",
+  "image_digest": "sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+  "initial_pod": {
+    "name": "ai-ops-0",
+    "uid": "06cec17f-20dc-458e-a72c-16473ccc9394",
+    "node": "ip-10-0-10-42.ap-northeast-2.compute.internal",
+    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+    "image_id": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+    "ready": true
+  },
+  "relocated_pod": {
+    "name": "ai-ops-0",
+    "uid": "e3cfd4df-064d-4176-b59e-8149fe8e9c68",
+    "node": "ip-10-0-10-244.ap-northeast-2.compute.internal",
+    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+    "image_id": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+    "ready": true
+  },
+  "storage": {
+    "pvc_name": "data-ai-ops-0",
+    "pvc_uid": "b48ef65f-b2b3-4594-a717-54432e66d9b3",
+    "pv_name": "pvc-b48ef65f-b2b3-4594-a717-54432e66d9b3",
+    "pv_uid": "a589bd5c-a756-4f9e-8a02-e40f866f78cf",
+    "storage_class": "ai-ops-gp3-encrypted",
+    "volume_id": "vol-037d3068cc25c23ef",
+    "encrypted": true,
+    "kms_key_id": "arn:aws:kms:ap-northeast-2:716174522908:key/b14ad45b-3895-410f-956b-829d0bf72789",
+    "size_gib": 5,
+    "volume_type": "gp3",
+    "zone": "ap-northeast-2a",
+    "pv_reclaim_policy": "Delete",
+    "original_attachment": [
+      {
+        "DeleteOnTermination": false,
+        "EbsCardIndex": 0,
+        "VolumeId": "vol-037d3068cc25c23ef",
+        "InstanceId": "i-05eb9c665e164f2be",
+        "Device": "/dev/xvdac",
+        "State": "attached",
+        "AttachTime": "2026-10-19T08:25:24+00:00"
+      }
+    ],
+    "relocated_attachment": [
+      {
+        "DeleteOnTermination": false,
+        "EbsCardIndex": 0,
+        "VolumeId": "vol-037d3068cc25c23ef",
+        "InstanceId": "i-09fb05db8a958d6a6",
+        "Device": "/dev/xvdab",
+        "State": "attached",
+        "AttachTime": "2026-10-19T08:27:21+00:00"
+      }
+    ],
+    "before": {
+      "record_type": "ai_ops_deployed_diagnostics_probe",
+      "observed_at": "2026-10-19T08:27:14.353848Z",
+      "mode": "storage-write",
+      "checks": {
+        "sqlite_marker": {
+          "passed": true,
+          "journal_mode": "wal",
+          "private_permissions": true
+        }
+      },
+      "passed": true
+    },
+    "after_node_change": {
+      "record_type": "ai_ops_deployed_diagnostics_probe",
+      "observed_at": "2026-10-19T08:28:13.922280Z",
+      "mode": "storage-read",
+      "checks": {
+        "sqlite_marker": {
+          "passed": true,
+          "journal_mode": "wal",
+          "private_permissions": true
+        }
+      },
+      "passed": true
+    },
+    "after_final_restart": {
+      "record_type": "ai_ops_deployed_diagnostics_probe",
+      "observed_at": "2026-10-19T08:38:00.972806Z",
+      "mode": "storage-read",
+      "checks": {
+        "sqlite_marker": {
+          "passed": true,
+          "journal_mode": "wal",
+          "private_permissions": true
+        }
+      },
+      "passed": true
+    }
+  },
+  "runtime_authorization": {
+    "record_type": "ai_ops_deployed_diagnostics_probe",
+    "observed_at": "2026-10-19T08:26:32.882878Z",
+    "mode": "runtime",
+    "checks": {
+      "target_deployment": {
+        "status": 200,
+        "passed": true
+      },
+      "target_service": {
+        "status": 200,
+        "passed": true
+      },
+      "argo_application": {
+        "status": 200,
+        "passed": true
+      },
+      "secret_denied": {
+        "status": 403,
+        "passed": true
+      },
+      "other_namespace_denied": {
+        "status": 403,
+        "passed": true
+      },
+      "pods_list": {
+        "allowed": true,
+        "passed": true
+      },
+      "pod_logs": {
+        "allowed": true,
+        "passed": true
+      },
+      "deployment_patch_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "deployment_delete_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "pod_create_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "exec_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "own_namespace_secret_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "other_deployment_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "cluster_nodes_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "role_update_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "token_create_denied": {
+        "allowed": false,
+        "passed": true
+      },
+      "uid": {
+        "value": 10001,
+        "passed": true
+      },
+      "root_read_only": {
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "allowed_network": {
+    "record_type": "ai_ops_temporary_network_probe",
+    "observed_at": "2026-10-19T08:26:29.213931Z",
+    "phase": "allow",
+    "checks": {
+      "dns_api": {
+        "addresses": [
+          "172.20.0.1"
+        ],
+        "passed": true
+      },
+      "api_kubernetes.default.svc": {
+        "status": 200,
+        "passed": true
+      },
+      "api_10.0.10.162": {
+        "status": 200,
+        "passed": true
+      },
+      "api_10.0.11.228": {
+        "status": 200,
+        "passed": true
+      },
+      "secrets_denied": {
+        "status": 403,
+        "passed": true
+      },
+      "prometheus_ready": {
+        "status": 200,
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "egress_comparison": {
+    "observed_at": "2026-10-19T08:28:50.560840Z",
+    "baseline": {
+      "other_namespace_service": {
+        "result": "connected",
+        "ip": "172.20.163.68",
+        "port": 8080
+      },
+      "other_namespace_pod": {
+        "result": "connected",
+        "ip": "10.0.11.218",
+        "port": 8080
+      },
+      "external_tcp": {
+        "result": "connected",
+        "ip": "1.1.1.1",
+        "port": 443
+      }
+    },
+    "ai_pod": {
+      "other_namespace_service": {
+        "result": "timeout",
+        "ip": "172.20.163.68",
+        "port": 8080
+      },
+      "other_namespace_pod": {
+        "result": "timeout",
+        "ip": "10.0.11.218",
+        "port": 8080
+      },
+      "external_tcp": {
+        "result": "timeout",
+        "ip": "1.1.1.1",
+        "port": 443
+      }
+    },
+    "passed": true
+  },
+  "ingress_comparison": {
+    "observed_at": "2026-10-19T08:29:12.141546Z",
+    "loopback_baseline": {
+      "result": "connected"
+    },
+    "different_node_peer": {
+      "result": "timeout"
+    },
+    "listener_stopped": true,
+    "passed": true
+  },
+  "token_rotation": {
+    "expiration_seconds": 600,
+    "same_pod_uid_verified": true,
+    "pod_uid": "e3cfd4df-064d-4176-b59e-8149fe8e9c68",
+    "result": {
+      "record_type": "ai_ops_deployed_diagnostics_probe",
+      "observed_at": "2026-10-19T08:36:18.071328Z",
+      "mode": "rotation",
+      "checks": {
+        "rotation": {
+          "passed": true,
+          "status": 200,
+          "elapsed_seconds": 480
+        }
+      },
+      "passed": true
+    }
+  },
+  "cleanup": {
+    "temporary_listener_stopped": true,
+    "temporary_reference_namespace_removed": true,
+    "temporary_node_selector_removed": true
+  },
+  "limits": [
+    "CNI standard 모드의 시작 시 기본 허용 구간은 유지한다.",
+    "쓰기·exec 거부는 SelfSubjectAccessReview로 검사했으며 앱 변경 요청은 실행하지 않았다.",
+    "송신 거부는 선택한 내부 Service/Pod와 외부 TCP 목적지에 대한 대조 결과다.",
+    "자동 경보·큐·실자료 외부 AI·조치 실행·앱 배포/롤백 이력 import는 미구현/미완료다."
+  ],
+  "file_sha256": {
+    "ai-ops/config/b3-values.preflight.yaml": "c1968c4b24da82e45440fa4d0cf9954cf14323483f1da29e448a7191e124dfcb",
+    "ai-ops/config/b3-values.diagnostics.yaml": "b999fcde83a456551de5255275d9fa7c577e60e2a648d3c994c9b4e3ecd56693",
+    "ai-ops/kubernetes/namespace.yaml": "1bf56c4deaf378390381c6bb7593528cb6fc41d785fcf177246ec39283a84b66",
+    "ai-ops/scripts/probe_deployed_diagnostics.py": "525548cd57bdf16c3a23812742d6dc552598604ed6c774486f36f2a7ee4eeae7",
+    "ai-ops/chart/templates/statefulset.yaml": "e953791d7a9bfa95fbb1c72d7e86bb277b665ba90c7993abb51c251155279169",
+    "ai-ops/chart/values.yaml": "777ee0d8b3a36b242cc3d407f4fa462a1ac793990232fee08d7f5b940425a524",
+    "ai-ops/chart/values.schema.json": "259995fbd6e0a49e6f9126afd1387cc422d8230c12af34d47b3e29764e211803"
+  },
+  "completed_at": "2026-10-19T08:38:14.218963Z",
+  "final_state": {
+    "observed_at": "2026-10-19T08:38:03.381399Z",
+    "pod_name": "ai-ops-0",
+    "pod_uid": "6cf48f32-8b75-452a-a6a6-dca739187139",
+    "node": "ip-10-0-10-42.ap-northeast-2.compute.internal",
+    "ready": true,
+    "helm_status": "deployed",
+    "helm_revision": 1,
+    "same_pvc_uid": true,
+    "same_pv_name": true,
+    "temporary_node_selector_removed": true,
+    "temporary_reference_namespace_removed": true,
+    "api_get": 200,
+    "app_uid_and_generation_unchanged": true,
+    "app_ready_replicas": 2,
+    "passed": true
+  }
+}

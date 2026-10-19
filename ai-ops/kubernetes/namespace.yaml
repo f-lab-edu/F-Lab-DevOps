@@ -1,0 +1,10 @@
+# AI 리소스만 배치하며 기존 앱 namespace의 보안 정책은 바꾸지 않는다.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-ops
+  labels:
+    app.kubernetes.io/part-of: ai-ops
+    app.kubernetes.io/managed-by: ai-ops-cluster-prerequisites
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.35

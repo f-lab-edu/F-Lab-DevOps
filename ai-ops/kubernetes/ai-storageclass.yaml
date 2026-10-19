@@ -1,0 +1,21 @@
+# AI 전용 저장소 정의다. 기본 StorageClass와 기존 앱 PVC는 바꾸지 않는다.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ai-ops-gp3-encrypted
+  labels:
+    app.kubernetes.io/part-of: ai-ops
+    app.kubernetes.io/managed-by: ai-ops-cluster-prerequisites
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+  csi.storage.k8s.io/fstype: ext4
+  tagSpecification_1: "Project=urlshortener"
+  tagSpecification_2: "Component=ai-ops"
+# StatefulSet 삭제 시 PVC는 보존한다. 운영자가 PVC를 명시 삭제하면 EBS도 정리한다.
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true

@@ -1,6 +1,6 @@
 # B-03 자체 관측·중지·복구
 
-현재 상태: 로컬 Python 162건과 Helm 정적 검증 통과. 실제 새 이미지 등록·Prometheus 수집·중지 후 복구 검증은 대기 중이다. 기존 진단 배포는 그대로 유지한다.
+현재 상태: 2026-10-19 19:28:15 KST 자체 관측·중지/복구 실환경 검증 완료. PR #36·main e1b30b5의 새 이미지 등록 성공, ECR 검사 전체 0건과 코드 해시 일치를 확인했다. Helm revision 4에서 Prometheus up=1·진단 갱신·수동 수집/보고서 partial 각 1회 증가를 확인했다. AI StatefulSet 0→1 복구 후 동일 PVC·기존/신규 보고서 재조회와 해시·집계 보존, 앱 UID/generation 불변·Ready 2개를 확인했다. 외부 모델은 호출하지 않았다. [본문 없는 검증 기록](assets/B3-observability-validation.json).
 
 ## 무엇을 하는 단계인가
 
@@ -77,3 +77,26 @@ kubectl -n ai-ops rollout status statefulset/ai-ops --timeout=180s
 - `tests/test_observability.py`, `tests/test_deployment_check.py`, `tests/test_b_investigation.py`: 영속성·유출 방지·HTTP 경계·중지·부분 결과 검증.
 
 Prometheus 노출 형식과 label 기준은 [공식 계측 가이드](https://prometheus.io/docs/practices/instrumentation/), ServiceMonitor 필드는 [Prometheus Operator API](https://prometheus-operator.dev/docs/api-reference/api/)를 따른다.
+
+## 실제 적용·검증 결과
+
+검증 시각은 **2026-10-19 19:28:15 KST**다. 로컬 Python 162건·원격 CI 5개 통과 후 사용자 환경 승인을 받아 [등록 실행 39235754071](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39235754071)을 완료했다.
+
+| 항목 | 확인 결과 |
+| --- | --- |
+| 소스 | main `e1b30b510e49774ce25d54c79abc7ea21f221ec7` |
+| 이미지 | `716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:8f716e93ce4d51fa5c310840d9084533b8265565639182c220f4e4cc55baff76` |
+| identity | artifact·ECR manifest config/image ID·소스 해시·실제 Pod의 관측/진단/CLI 코드 해시 일치 |
+| ECR 검사 | COMPLETE, 전체 0건 |
+| 배포 | server dry-run 13개 리소스 통과, Helm revision 4 deployed·Pod Ready |
+| Prometheus | `/metrics` 19개 값, `up=1`, 마지막 진단 성공 시각 갱신 |
+| 수집·보고서 | 일반 CLI 한 번 실행 후 collection/report partial counter 각각 0→1. 종료 코드 1은 부분 결과 저장을 의미하며 저장 실패가 아님 |
+| 실제 자료 | available 7·invalid 2·missing 7·stale 2. 규칙 부분 보고서이며 원인 확정·앱 정상 판정을 하지 않음 |
+| 수신 제한 | Prometheus 수집 성공과 같은 namespace의 Prometheus label 없는 검사 Pod의 직접 TCP 9091 timeout을 대조. 임시 Pod 삭제 완료 |
+| 중지 | AI StatefulSet만 0개로 축소·Pod 삭제 확인, PVC UID·PV 유지. 앱 UID/generation 불변·Ready 2개 유지 |
+| 복구 | 1개로 복원·새 Pod Ready, 동일 이미지/PVC/PV. 기존/신규 보고서 show·해시 불변, 수집/보고서 집계 보존·진단 갱신·Prometheus up=1 재확인 |
+| 모델·권한 | 키·모델·예산 경로 호출 금지 검사 통과. 기존 읽기 RBAC·모델 차단 유지 |
+
+신규 검증 실행은 `b2-live-20261019102600-observability`이며 정제된 입력·보고서·감사는 암호화 PVC에 보관한다. 삭제 기한은 **2026-10-26 19:26:01 KST**, 책임자는 운영자이며 자동 삭제는 아직 없다. 집계 DB에는 이 본문이나 사건 ID가 들어가지 않는다.
+
+이 결과는 진단·수동 CLI와 정상적인 0→1 복구의 검증이다. 강제 종료·노드 장애·다른 AZ 복구·큐의 진행 중 작업 재개·Helm rollback 실패 주입은 실행하지 않았다. 전체 B-03 완료로 확대하지 않으며, 다음 미착수 구현은 B-04 영속 큐·lease·중복/재시도·worker 복구다.

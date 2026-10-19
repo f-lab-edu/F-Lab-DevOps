@@ -52,6 +52,12 @@ aws rds wait db-instance-available --db-instance-identifier urlshortener-postgre
 
 실습용 backend.practice.hcl을 운영 작업 디렉터리에서 -migrate-state와 함께 사용하지 않는다. 세부 내용은 31-terraform-remote-state.md와 32-rds-password-rotation.md를 따른다.
 
+### 1-1. AI 이미지 등록 전용 Terraform root
+
+기존 production root가 **GitHub OIDC provider를 생성·검증한 뒤**, Kubernetes 단계 전에 [AI 전용 root 설치·정리 절차](ai-ops-registry-lifecycle.md)의 설치 단계를 수행한다. `terraform/ai-ops-registry/`는 같은 state bucket의 `urlshortener/ai-ops/practice/terraform.tfstate`를 사용하지만 별도 root·잠금이다. 이 root의 `enable_ai_ops_registry` 기본값은 `false`이므로 설치 계획과 적용에서 `true`를 명시한다. ECR·lifecycle policy·IAM Role·inline policy 네 개와 별도 state를 확인한 뒤 2절로 넘어간다. 기존 OIDC는 AI root에서 **조회만** 하며 재생성·state 이전을 하지 않는다.
+
+현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
+
 ## 2. kubeconfig와 노드
 
 ~~~bash
@@ -59,6 +65,14 @@ aws eks update-kubeconfig --region ap-northeast-2 --name urlshortener
 kubectl config current-context
 kubectl get nodes
 ~~~
+
+### 2-1. AI 전용 암호화 StorageClass
+
+AI 진단 배포를 준비할 때 계정·CSI를 확인하고 `ai-ops/kubernetes/ai-storageclass.yaml` 원본을 검토한다. 실제 적용은 11-1절에서 함께 수행한다. `ai-ops-gp3-encrypted`는 기본 StorageClass가 아니며 ECR/IAM Terraform state 소유 리소스도 아니다. EKS 재생성 시 별도 재적용해야 한다. 원본 manifest가 사용할 원격 revision에 포함돼 있는지 먼저 확인한다. 선언은 encrypted=true·gp3·WaitForFirstConsumer·reclaim Delete이며 실제 EBS 암호화는 향후 PVC 생성 후 조회한다. API Service/Endpoint 주소는 이전 설치 값을 재사용하지 않고 다시 대조한다. 현재 AI chart의 enabled=false는 유지하며 StorageClass 생성만으로 Pod/PVC를 배포하지 않는다.
+
+### 2-2. AI 진단 StatefulSet·PVC 재배포 시점
+
+실제 진단·자체 관측 배포는 필요한 앱·Argo·Prometheus 준비 뒤 **11-1절**에서 수행한다. [AI 설치·정리 절차](ai-ops-cluster-lifecycle.md)의 준비 도구가 새 API 주소·승인 이미지·StorageClass 입력을 생성하므로 과거 IP/digest를 그대로 재사용하지 않는다.
 
 ## 3. AWS Load Balancer Controller
 
@@ -396,6 +410,12 @@ kubectl -n monitoring get pods
 NodeClaim이 생겼다면 해당 노드가 `Ready`가 될 때까지 기다리고, API·Prometheus Pod가 다시 정상인지 확인한다. NodeClaim이 없다면 강제로 만들 필요는 없다.
 
 과거 문서의 Pod 이름과 노드 이름은 재사용하지 않는다. 현재 저장소에는 Loki/로그 수집기를 배포하는 선언이 없으므로, 로그 수집 설치는 별도의 설계와 검증 대상으로 기록한다. 예전 Promtail 설치 명령을 그대로 실행하지 않는다.
+
+### 11-1. AI 진단·자체 관측 재설치 — 필수
+
+앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 관측 overlay를 이용해 진단 StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다.
+
+이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. 경보 수신·B-04 worker·외부 모델은 이 재설치로 활성화하지 않는다.
 
 ## 12. 미뤄 둔 개선 항목 검증
 

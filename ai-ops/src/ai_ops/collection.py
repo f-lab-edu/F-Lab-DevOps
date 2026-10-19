@@ -272,6 +272,8 @@ class SnapshotBuilder:
                     observed = None
                 elif not window.start <= observed <= window.end:
                     status, reason = "stale", "outside_window"
+                    # 범위 밖 원시 시각은 감사에 보존하고 분석용 관측 시각은 비운다.
+                    observed = None
             if status == "available":
                 try:
                     candidate_bytes = len(canonical_json_bytes(payload))

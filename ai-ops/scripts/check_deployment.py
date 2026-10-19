@@ -138,11 +138,17 @@ def main() -> None:
     args = ["-f", str(ROOT / "chart/values.validation.yaml")]
     documents = render(*args)
     verify(documents)
+    # 운영 대상을 등록해도 실습과 동일한 읽기 권한·통신·모델 비활성 경계를 적용한다.
+    production = render(*args, "--set", "config.bindings.bindings[0].target.environment=production")
+    verify(production)
+    config = next(doc for doc in production if doc["kind"] == "ConfigMap")["data"]
+    assert json.loads(config["bindings.json"])["bindings"][0]["target"]["environment"] == "production"
     rejected = [
         ("replicaCount=2",), ("mode=worker",), ("image.digest=latest",),
         ("config.runtime.llm_enabled=true",), ("persistence.storageClassName=",),
         ("network.apiServerCIDRs[0]=0.0.0.0/0",), ("network.dns.podLabels=null",),
         ("network.prometheus.podLabels=null",), ("config.runtime.connections.practice-kubernetes.token_file=/tmp/key",),
+        ("config.bindings.bindings[0].target.environment=staging",),
     ]
     for (setting,) in rejected:
         render(*args, "--set", setting, success=False)
@@ -160,7 +166,7 @@ def main() -> None:
             pass
         else:
             raise AssertionError("위험한 manifest 변경을 놓쳤다")
-    print("B-03 정적 검사 통과: 기본 비활성·리소스 10개·잘못된 설정 10종 거부·위험 변경 3종 검출. 실환경은 미검증.")
+    print("B-03 정적 검사 통과: 기본 비활성·실습/운영 읽기 전용 리소스 10개·잘못된 설정 11종 거부·위험 변경 3종 검출. 실환경은 미검증.")
 
 
 if __name__ == "__main__":

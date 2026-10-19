@@ -94,3 +94,9 @@ AI 호출이 인증·네트워크·시간·예산 문제로 실패하면 검증�
 B-03의 [AWS 적용 전 점검·비교 계획](docs/B3-aws-preflight.md) 후 별도 AI state를 선택했다. [AI 등록 전용 Terraform](../terraform/ai-ops-registry/README.md)으로 ECR/IAM을 분리하고 기존 OIDC는 조회만 한다. AWS 읽기 plan에서 전용 root는 생성 4개·수정/삭제 없음, AI 정의를 제거한 기존 production root는 변경 없음이었다. 2026-10-17 후속 작업에서 별도 state에 4개를 실제 생성하고 GitHub 등록 환경·변수를 설정했다. 적용 후 plan은 변경 없음이다. 실제 OIDC 인증·이미지 등록·main 반영은 대기 중이며 [적용 기록](docs/B3-registry-apply.md)을 따른다.
 
 운영자 CLI의 파일 인자와 기본값은 [지정 폴더 정책](docs/cli-file-policy.md)을 적용한다. 기존 임의 경로는 기본 개인 저장 폴더로 옮기거나 운영자 환경변수 `AI_OPS_FILES_ROOT`에 전용 폴더를 등록해야 한다. 일반 결과는 기존 파일을 덮어쓰지 않는다.
+
+
+B-03 현재 클러스터 연결(2026-10-19): 사용자가 production 읽기 전용 조사를 선택했다. [대상 등록](config/targets.production.json)의 명시적 운영 대상과 [비활성 설정 초안](config/b3-values.preflight.yaml)을 준비했으며 수집·규칙 보고서·저장/재조회 경로에서 실제 production 환경을 보존한다. production 자료의 외부 모델 전송은 계속 차단한다. 로컬 Python 154건·실습/운영 Helm 읽기 경계 검증을 통과했다. [사전 점검 기록](docs/B3-cluster-preflight.md)에 선택과 검증을 반영했으며 수정 코드의 이미지 등록·AI Pod 배포는 아직 남아 있다.
+
+
+B-03-SEC-01 진행(2026-10-19): AI 베이스를 공식 Python 3.11.17-alpine3.24 digest로 고정하고 zlib를 보안 수정 패키지로 갱신했다. runtime 빌드 도구 제거 후 로컬 Trivy 0건·runtime 34건·호스트 154건을 확인했다. 현재 production 읽기 전용 지원과 함께 새 이미지 반영을 준비하며 **ECR 재등록·재스캔 전에는 완료가 아니다**. [대응·검증 기록](docs/B3-image-security.md)을 따른다.

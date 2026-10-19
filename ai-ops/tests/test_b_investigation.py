@@ -50,6 +50,39 @@ class BInvestigationTest(unittest.TestCase):
         return self.store.investigate_snapshot(snapshot=snapshot or self.snapshot, settings=self.settings,
             question="상태를 설명해줘 token=" + SENTINEL, request_id=request_id)
 
+    def test_registered_production_collects_rules_report_but_never_calls_models(self):
+        runtime = self.settings.runtime.model_dump()
+        runtime["connections"] = {
+            "eks-kubernetes": runtime["connections"]["practice-kubernetes"],
+            "eks-prometheus": runtime["connections"]["practice-prometheus"],
+        }
+        runtime_path = Path(self.directory.name) / "runtime.json"
+        runtime_path.write_text(json.dumps(runtime))
+        self.settings = load_b_settings(ROOT / "config/targets.production.json", runtime_path,
+                                        ROOT / "config/metric-queries.json")
+        self.target = self.settings.bindings.bindings[0].target
+        self.assertEqual((self.target.cluster_id, self.target.environment), ("urlshortener", "production"))
+        for changes in ({"cluster_id": "other-cluster"}, {"environment": "practice"}):
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "not registered"):
+                SnapshotBuilder(self.settings, self.target.model_copy(update=changes), clock=Clock())
+        clock = Clock()
+        with patch("socket.create_connection", side_effect=AssertionError("실제 통신하면 안 된다")):
+            snapshot = collect_snapshot(self.settings, self.target, transport=API(self.settings, clock), clock=clock)
+            validate_snapshot(snapshot, self.settings)
+            record = self.investigate(snapshot, request_id="production-rules")
+            shown = self.store.show(record.incident_id, record.run_id)
+        self.assertEqual(shown.request.target.environment, "production")
+        self.assertEqual(shown.bundle.target, self.target)
+        self.assertEqual(shown.report.execution.engine, "rules-captured-v1")
+        transport, token_counter = Mock(), Mock()
+        for engine in (analyze_ai, analyze_fixed_summary):
+            with self.subTest(engine=engine.__name__), self.assertRaisesRegex(AIAnalysisError, "captured_data_not_approved"):
+                engine(record.request, snapshot.bundle, record.run_id, AIConfig(account_label="production-test"),
+                       "unused-key", transport, token_counter)
+        transport.assert_not_called()
+        token_counter.assert_not_called()
+        self.assertFalse((self.store_root / "ai-budget.json").exists())
+
     def complete_snapshot(self, *, ready=True, expected=2, observed=2, missing=False):
         clock = Clock()
         builder = SnapshotBuilder(self.settings, self.target, clock=clock)

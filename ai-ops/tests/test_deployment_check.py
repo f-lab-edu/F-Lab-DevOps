@@ -61,6 +61,14 @@ class DeploymentCheckTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_local(self.config, self.store)
 
+    def test_production_local_diagnostics_remain_offline(self):
+        path = self.config / "bindings.json"
+        bindings = json.loads(path.read_text())
+        bindings["bindings"][0]["target"]["environment"] = "production"
+        path.write_text(json.dumps(bindings))
+        with patch("socket.create_connection", side_effect=AssertionError("실제 통신하면 안 된다")):
+            check_local(self.config, self.store)
+
     def test_projected_token_rotation_and_invalid_value(self):
         target = self.root / "token-generation-1"
         target.write_text("first-token")

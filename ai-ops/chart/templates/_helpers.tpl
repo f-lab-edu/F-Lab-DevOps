@@ -18,7 +18,7 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{- $bindings := required "등록 대상 설정이 필요합니다" .Values.config.bindings.bindings -}}
 {{- if ne (len $bindings) 1 }}{{ fail "첫 배포는 등록 대상 하나만 허용합니다" }}{{ end -}}
 {{- $binding := first $bindings -}}
-{{- if ne $binding.target.environment "practice" }}{{ fail "practice 환경만 허용합니다" }}{{ end -}}
+{{- if not (has $binding.target.environment (list "practice" "production")) }}{{ fail "명시적으로 등록한 practice 또는 production 환경만 허용합니다" }}{{ end -}}
 {{- if or (eq $binding.target.namespace "ai-ops") (eq $binding.argo.namespace "ai-ops") (eq $binding.target.namespace $binding.argo.namespace) }}{{ fail "조사·대상·Argo namespace는 분리해야 합니다" }}{{ end -}}
 {{- if not (hasKey .Values.config.runtime "llm_enabled") }}{{ fail "모델 비활성 설정이 필요합니다" }}{{ end -}}
 {{- if .Values.config.runtime.llm_enabled }}{{ fail "이번 배포는 모델을 활성화할 수 없습니다" }}{{ end -}}

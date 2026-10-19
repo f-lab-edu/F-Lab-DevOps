@@ -1,12 +1,18 @@
 # B-03 첫 묶음 — 배포 진단 기반
 
+최신 사전 점검: **2026-10-19 KST** 실제 대상·Prometheus/DNS·CNI/CSI·저장소를 확인하고 [점검 기록](B3-cluster-preflight.md)과 [기본 비활성 values](../config/b3-values.preflight.yaml)를 준비했다. 사용자 선택에 따라 현재 production 읽기 전용 대상 등록과 로컬 계약 검증을 완료했다. 암호화 StorageClass, HIGH 8건 수정 이미지와 실제 통신/PVC 검증이 남아 있다.
+
+최신 이미지 실행 상태: **2026-10-19 KST** main의 수동 이미지 빌드와 사용자 승인 후 실제 ECR 등록이 성공했다. OIDC·push/digest·등록 artifact를 대조했으며 ECR 스캔은 HIGH 8·MEDIUM 14·LOW 7을 보고했다. 스캔 지적 검토와 AI Pod 배포는 아직 미완료다. [실행 기록](B3-image-registration.md)을 참고한다.
+
+최신 재설치 확인: **2026-10-19 KST** ECR/IAM 4개가 이미 재생성돼 있으며 전용 state와 plan 변경 0개를 확인했다. 추가 apply는 하지 않았다. 이미지 등록·AI Pod 배포는 미완료다. [재설치 확인 기록](B3-registry-reinstall-check.md)을 참고한다.
+
 최신 후속 상태: **2026-10-17 AI 전용 ECR/IAM 4개 생성과 GitHub 등록 환경·변수 설정 완료**, 적용 후 plan 변경 없음. 실제 OIDC 인증·이미지 등록·클러스터 배포는 대기 중이다. [적용 기록](B3-registry-apply.md)을 참고한다.
 
 2026-10-16 기준 **진행 중**이다. 독립 이미지 정의, 진단 모드 chart, 읽기 RBAC, 통신 정책, PVC와 수동 GitOps 정의를 작성했다. 후속 로컬 검증에서 Docker를 시작해 linux/amd64 이미지 실제 빌드·기본 실행까지 통과했다. 원격 CI 결과는 아래 Actions 링크에서 확인하며 실제 배포·권한/통신/PVC 재연결은 미검증이다. B-02의 실환경 대기와 A5/A7 미완료도 유지한다.
 
 ## 목적과 처리 순서
 
-1. `Dockerfile`이 잠긴 의존성·Python 소스·검증된 런북·고정 지표 목록만 패키징한다. 앱과 같은 Python 3.11.16-slim digest를 사용하고 UID/GID 10001로 실행한다. 키·사이트·평가 결과·실제 자료는 포함하지 않는다. 빌드 문맥은 `ai-ops/`다.
+1. `Dockerfile`이 잠긴 의존성·Python 소스·검증된 런북·고정 지표 목록만 패키징한다. 공식 Python 3.11.17-alpine3.24 digest와 zlib 보안 수정 버전을 고정하고 UID/GID 10001로 실행한다. runtime 빌드 도구는 제거한다. [HIGH 대응 기록](B3-image-security.md)을 참고한다. 키·사이트·평가 결과·실제 자료는 포함하지 않는다. 빌드 문맥은 `ai-ops/`다.
 2. chart는 기본 `enabled: false`라 리소스를 생성하지 않는다. 활성 렌더링에는 image digest, 정확한 대상·연결, DNS/Prometheus Pod label, API 도착 IPv4 /32, StorageClass가 필요하다. `values.validation.yaml`은 `.invalid` 주소·문서용 IP·가상 digest/StorageClass를 쓰는 **렌더링 전용** 자료이며 배포하지 않는다.
 3. 활성 상태는 **diagnostics 모드의 StatefulSet 한 Pod·한 컨테이너·한 replica**다. `python -m ai_ops.deployment_check --serve`는 네트워크나 AI를 호출하지 않고 로컬 검사 뒤 대기한다. startup/readiness도 같은 로컬 검사다. 수신기·worker·queue가 동작하거나 서비스가 정상이라고 표시하는 health endpoint가 아니다. headless Service는 StatefulSet 식별용이며 외부 수신 포트는 없다.
 4. 로컬 검사는 B 설정·연결 참조·CA 파싱·token 파일 가독성·세 런북 해시·저장소 쓰기와 임시 SQLite WAL commit/재읽기를 확인한다. 기존 사건·예산 장부를 열지 않으며 검사 DB는 제거한다. CA/token 원문·예외 메시지는 출력하지 않고 projected token은 매번 다시 읽는다. 임시 WAL 확인은 실제 큐 구현·재시작 복구 시험이 아니다.

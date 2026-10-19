@@ -1,0 +1,16 @@
+{
+  "query_id": "db_latency",
+  "unit": "seconds",
+  "samples": [
+    {
+      "at": "2026-08-05T00:33:00Z",
+      "outcome": "p99",
+      "value": 0.84
+    },
+    {
+      "at": "2026-08-05T00:33:00Z",
+      "outcome": "count",
+      "value": 180
+    }
+  ]
+}

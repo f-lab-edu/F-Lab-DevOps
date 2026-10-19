@@ -1,0 +1,16 @@
+# 필요한 파일만 빌드 문맥에 포함한다.
+**
+!Dockerfile
+!requirements.lock
+!src/
+!src/ai_ops/
+!src/ai_ops/**
+!runbooks/
+!runbooks/index.yaml
+!runbooks/cache.md
+!runbooks/database.md
+!runbooks/deployment.md
+!config/
+!config/metric-queries.json
+**/__pycache__/
+**/*.py[cod]

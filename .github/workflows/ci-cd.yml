@@ -188,7 +188,38 @@ jobs:
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
           GITOPS_COMMIT: ${{ steps.push-gitops.outputs.commit }}
         run: |
+          echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          trap 'result=$?; echo "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"; exit "$result"' EXIT
           bash .github/scripts/verify-gitops-deployment.sh
+
+      # 롤백 전에 허용 필드만 보존한다. 수집·업로드 실패가 복구를 막지 않게 한다.
+      - name: 배포 검증 직후 관측 자료 정제
+        id: observe-deployment
+        if: always() && (steps.verify-deployment.outcome == 'success' || steps.verify-deployment.outcome == 'failure')
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          OBS_STAGE: deployment_verification
+          OBS_RESULT: ${{ steps.verify-deployment.outcome }}
+          OBS_STARTED_AT: ${{ steps.verify-deployment.outputs.started_at }}
+          OBS_FINISHED_AT: ${{ steps.verify-deployment.outputs.finished_at }}
+          OBS_EXPECTED_REVISION: ${{ steps.push-gitops.outputs.commit }}
+          OBS_EXPECTED_IMAGE: ${{ steps.build-push.outputs.full_image }}
+          OBS_IMAGE_REPOSITORY: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          OBS_OUTPUT: ${{ runner.temp }}/deployment-observation/deployment.json
+        run: python3 .github/scripts/capture-deployment-observation.py
+      - name: 롤백 전 배포 관측 자료 보존
+        if: always() && (steps.verify-deployment.outcome == 'success' || steps.verify-deployment.outcome == 'failure')
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        with:
+          name: deployment-observation-${{ github.run_id }}-${{ github.run_attempt }}-deployment
+          path: ${{ runner.temp }}/deployment-observation/deployment.json
+          if-no-files-found: error
+          retention-days: 30
 
       # 검증을 통과한 이미지에만 별도 release 태그를 붙여 롤백 후보로 보존한다.
       # ECR 태그를 변경할 수 없으므로 같은 release 태그를 덮어쓰지 않는다.
@@ -232,6 +263,7 @@ jobs:
 
       # Argo CD self-heal과 충돌하지 않도록 kubectl rollback 대신 Git desired state를 되돌린다.
       - name: 이전 이미지로 GitOps 롤백 및 복구 검증
+        id: rollback-deployment
         if: steps.verify-deployment.outcome == 'failure' && steps.previous-image.outputs.available == 'true'
         env:
           PREVIOUS_TAG: ${{ steps.previous-image.outputs.tag }}
@@ -252,10 +284,41 @@ jobs:
           fi
 
           export GITOPS_COMMIT="$(git rev-parse HEAD)"
+          echo "commit=$GITOPS_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          trap 'result=$?; echo "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"; exit "$result"' EXIT
           bash .github/scripts/verify-gitops-deployment.sh
 
+      - name: 롤백 검증 직후 관측 자료 정제
+        id: observe-rollback
+        if: always() && (steps.rollback-deployment.outcome == 'success' || steps.rollback-deployment.outcome == 'failure')
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          OBS_STAGE: rollback_verification
+          OBS_RESULT: ${{ steps.rollback-deployment.outcome }}
+          OBS_STARTED_AT: ${{ steps.rollback-deployment.outputs.started_at }}
+          OBS_FINISHED_AT: ${{ steps.rollback-deployment.outputs.finished_at }}
+          OBS_EXPECTED_REVISION: ${{ steps.rollback-deployment.outputs.commit }}
+          OBS_EXPECTED_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.previous-image.outputs.tag }}
+          OBS_IMAGE_REPOSITORY: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          OBS_OUTPUT: ${{ runner.temp }}/deployment-observation/rollback.json
+        run: python3 .github/scripts/capture-deployment-observation.py
+      - name: 롤백 후 배포 관측 자료 보존
+        if: always() && (steps.rollback-deployment.outcome == 'success' || steps.rollback-deployment.outcome == 'failure')
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        with:
+          name: deployment-observation-${{ github.run_id }}-${{ github.run_attempt }}-rollback
+          path: ${{ runner.temp }}/deployment-observation/rollback.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: 배포 실패 처리
-        if: steps.verify-deployment.outcome == 'failure'
+        if: always() && steps.verify-deployment.outcome == 'failure'
         run: |
           if [[ "${{ steps.previous-image.outputs.available }}" == "true" ]]; then
             echo "배포 검증이 실패했습니다. 이전 이미지 복구 단계를 확인하세요."

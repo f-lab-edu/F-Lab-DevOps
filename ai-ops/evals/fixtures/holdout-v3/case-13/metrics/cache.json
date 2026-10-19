@@ -1,0 +1,16 @@
+{
+  "query_id": "cache_outcomes",
+  "unit": "requests",
+  "samples": [
+    {
+      "at": "2026-09-23T00:29:00Z",
+      "outcome": "consistency_primary",
+      "value": 4
+    },
+    {
+      "at": "2026-09-23T00:29:00Z",
+      "outcome": "error",
+      "value": 0
+    }
+  ]
+}

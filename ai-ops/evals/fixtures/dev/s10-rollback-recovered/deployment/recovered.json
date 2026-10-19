@@ -1,0 +1,8 @@
+{
+  "image": "example.invalid/url-shortener:previous",
+  "source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "gitops_revision": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "rollback_revision": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "ci_run_id": "synthetic-100",
+  "status": "healthy_after_rollback"
+}

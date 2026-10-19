@@ -1,0 +1,6 @@
+{
+  "reason": "ImagePullBackOff",
+  "message": "manifest for the selected tag was not found",
+  "type": "Warning",
+  "involved_uid": "pod-h03"
+}

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: ai-ops
+version: 0.1.0
+appVersion: "0.1.0"
+description: URL 단축 서비스 AI 운영 조사의 읽기 전용 배포 진단
+kubeVersion: ">=1.29.0-0"
+type: application

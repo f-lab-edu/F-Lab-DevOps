@@ -1,0 +1,17 @@
+{
+  "query_id": "cache_outcomes",
+  "unit": "requests",
+  "samples": [
+    {
+      "at": "2026-09-28T09:20:00+09:00",
+      "outcome": "error",
+      "value": 3
+    },
+    {
+      "at": "2026-09-28T00:20:00Z",
+      "outcome": "miss",
+      "value": 0
+    }
+  ],
+  "ignored_raw_field": "do not pass this field to the model"
+}

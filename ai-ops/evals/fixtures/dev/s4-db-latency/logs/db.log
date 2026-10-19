@@ -1,0 +1,2 @@
+synthetic app-side latency includes ORM and injected delay
+DB server time was not collected

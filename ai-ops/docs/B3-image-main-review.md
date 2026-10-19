@@ -1,5 +1,7 @@
 # B-03 이미지 workflow main 반영 검토
 
+최신 후속 상태: **2026-10-19 KST** PR #32는 `c2169f7`로 main에 병합됐다. 이후 수동 빌드 및 사용자 승인 후 실제 OIDC·ECR 등록·digest·artifact 확인도 성공했다. 아래 내용은 병합 전 검토 이력이다. 현재 스캔 결과와 미완료 배포 항목은 [이미지 실행 기록](B3-image-registration.md)을 따른다.
+
 2026-10-17 KST 기준 [PR #32](https://github.com/f-lab-edu/F-Lab-DevOps/pull/32)를 준비했다. **main 병합·수동 workflow 실행·OIDC 인증·이미지 등록은 아직 수행하지 않았다.** 경로 제한 구현과 CI 검증은 완료했다. 사용자가 미사용 SonarCloud 연동 제거를 선택해 자동 분석 workflow를 비활성화하고 PR에서 파일을 제거했다. 이전 오탐 확인은 더 이상 진행 조건이 아니다.
 
 ## 반영 범위

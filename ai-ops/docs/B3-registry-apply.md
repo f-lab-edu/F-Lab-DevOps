@@ -1,5 +1,9 @@
 # B-03 AI 전용 ECR·IAM 적용과 GitHub 등록 환경
 
+최신 이미지 실행 상태: **2026-10-19 KST** main의 수동 이미지 빌드와 사용자 승인 후 실제 ECR 등록이 성공했다. OIDC·push/digest·등록 artifact를 대조했으며 ECR 스캔은 HIGH 8·MEDIUM 14·LOW 7을 보고했다. 스캔 지적 검토와 AI Pod 배포는 아직 미완료다. [실행 기록](B3-image-registration.md)을 참고한다.
+
+최신 재설치 확인: **2026-10-19 KST** ECR/IAM 4개가 이미 재생성돼 있으며 전용 state와 plan 변경 0개를 확인했다. 추가 apply는 하지 않았다. 이미지 등록·AI Pod 배포는 미완료다. [재설치 확인 기록](B3-registry-reinstall-check.md)을 참고한다.
+
 최신 후속 상태: AI 전용 [PR #32](https://github.com/f-lab-edu/F-Lab-DevOps/pull/32)에 AI root가 원격 등록됐다. 사용자 요청으로 미사용 SonarCloud 자동 분석을 비활성화하고 workflow를 제거했다. main 병합·수동 이미지 등록 검증은 아직 수행하지 않았다. [main 반영 검토 기록](B3-image-main-review.md)을 참고한다.
 
 2026-10-17 KST 기준 AI 이미지 등록 기반을 실제 AWS에 생성했다. **Terraform 적용은 생성 4개·수정 0개·삭제 0개**, 적용 후 plan은 종료 코드 0의 `No changes`였다. 이미지 등록이나 EKS 배포가 완료된 단계는 아니다. B-03 전체는 진행 중이다.

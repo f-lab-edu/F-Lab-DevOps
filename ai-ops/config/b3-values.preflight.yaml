@@ -1,0 +1,114 @@
+# 2026-10-19 현재 production 클러스터의 읽기 전용 조사 대상으로 등록한 비활성 초안이다.
+# 수정 이미지 digest·암호화 StorageClass·API 도착 IP 검증 뒤 빈 값을 채운다.
+{
+  "enabled": false,
+  "mode": "diagnostics",
+  "replicaCount": 1,
+  "image": {
+    "repository": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
+    "digest": ""
+  },
+  "config": {
+    "bindings": {
+      "schema_version": 1,
+      "bindings": [
+        {
+          "alias": "url-shortener-production",
+          "target": {
+            "cluster_id": "urlshortener",
+            "namespace": "url-shortener",
+            "workload": "url-shortener-api",
+            "service": "url-shortener-svc",
+            "environment": "production"
+          },
+          "pod_selector": {
+            "app": "url-shortener-api"
+          },
+          "container": "api",
+          "kubernetes_connection": "eks-kubernetes",
+          "prometheus_connection": "eks-prometheus",
+          "argo": {
+            "namespace": "argocd",
+            "application": "url-shortener",
+            "repo_url": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+            "path": "url-shortener/url-shortener-chart",
+            "destination_server": "https://kubernetes.default.svc"
+          },
+          "routes": [
+            "/items",
+            "/items/{item_id}",
+            "/items/_db"
+          ],
+          "operations": [
+            "select_one",
+            "select_all",
+            "insert",
+            "delete"
+          ]
+        }
+      ]
+    },
+    "runtime": {
+      "schema_version": 1,
+      "collector_version": "captured-snapshot-v1",
+      "llm_enabled": false,
+      "per_incident_budget_usd": 0.1,
+      "daily_budget_usd": 1.0,
+      "connections": {
+        "eks-kubernetes": {
+          "kind": "kubernetes",
+          "base_url": "https://kubernetes.default.svc:443",
+          "ca_file": "/var/run/ai-ops/kubernetes/ca.crt",
+          "token_file": "/var/run/ai-ops/kubernetes/token"
+        },
+        "eks-prometheus": {
+          "kind": "prometheus",
+          "base_url": "http://kube-prometheus-stack-prometheus.monitoring.svc:9090",
+          "ca_file": null,
+          "token_file": null
+        }
+      },
+      "limits": {
+        "lookback_seconds": 900,
+        "deadline_seconds": 60,
+        "request_timeout_seconds": 5,
+        "max_pods": 12,
+        "max_events": 20,
+        "log_lines_per_pod": 200,
+        "raw_log_bytes": 65536,
+        "response_bytes": 262144,
+        "total_response_bytes": 4194304,
+        "payload_bytes": 65536,
+        "bundle_bytes": 4194304,
+        "max_items": 256,
+        "future_tolerance_seconds": 30
+      },
+      "scrape": {
+        "interval_seconds": 30,
+        "minimum_samples": 8,
+        "max_age_seconds": 60
+      }
+    }
+  },
+  "persistence": {
+    "storageClassName": "",
+    "size": "5Gi"
+  },
+  "network": {
+    "apiServerCIDRs": [],
+    "dns": {
+      "namespace": "kube-system",
+      "podLabels": {
+        "k8s-app": "kube-dns"
+      }
+    },
+    "prometheus": {
+      "namespace": "monitoring",
+      "podLabels": {
+        "app.kubernetes.io/name": "prometheus",
+        "operator.prometheus.io/name": "kube-prometheus-stack-prometheus"
+      },
+      "port": 9090
+    }
+  }
+}

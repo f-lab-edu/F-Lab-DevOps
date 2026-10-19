@@ -41,8 +41,7 @@ class TargetBinding(StrictModel):
 
     @model_validator(mode="after")
     def check_scope(self) -> TargetBinding:
-        if self.target.environment != "practice":
-            raise ValueError("first B bindings require practice environment")
+        # 환경은 Target 계약으로 제한하고 실제 수집 대상은 등록 목록과 정확히 대조한다.
         for key, value in self.pod_selector.items():
             # 첫 수집기는 앱의 단순한 동등 일치 label만 지원한다.
             if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}", key):

@@ -40,7 +40,7 @@ def _parser() -> argparse.ArgumentParser:
     investigate.add_argument("--question", required=True)
     investigate.add_argument("--request-id", required=True)
     investigate.add_argument("--ai-account", default="personal-openai", help="AI 예산을 묶을 계정 별칭이다")
-    collect = commands.add_parser("collect-investigate", help="등록 실습 대상의 자료를 읽고 규칙 보고서를 저장한다")
+    collect = commands.add_parser("collect-investigate", help="등록 대상의 자료를 읽고 규칙 보고서를 저장한다")
     collect.add_argument("--bindings", type=Path, required=True)
     collect.add_argument("--runtime", type=Path, required=True)
     collect.add_argument("--metric-queries", type=Path, required=True)

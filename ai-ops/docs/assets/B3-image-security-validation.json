@@ -1,0 +1,37 @@
+{
+  "record_type": "local_image_security_validation",
+  "status": "local_verified_ecr_pending",
+  "base": "python:3.11.17-alpine3.24@sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929",
+  "docker_descriptor": {
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "digest": "sha256:8563a2f3164cb9e961a9e4a13ea3867c0fe61fdd33d599cf00417ced2abd6dbd",
+    "size": 856
+  },
+  "archive_config_digest": "sha256:c8be021090b2f9ad2fcd8e10d36c81fb14131b8a95989dfb641e5d8339367de5",
+  "archive_rootfs_and_config_match": true,
+  "dockerfile_sha256": "a0cf9187337e1c7eb51a2328cd6cf308b6af9ac5521af58b30432c32034f2c96",
+  "trivy_image": "aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222",
+  "scan_created_at": "2026-10-19T07:50:39.731360635Z",
+  "vulnerability_counts": {},
+  "total_findings": 0,
+  "runtime_checks": {
+    "uid": 10001,
+    "tls": "OpenSSL 3.5.9 29 Sep 2026",
+    "tls_trusted_handshake": true,
+    "tls_wrong_hostname_rejected": true,
+    "localhost_dns": true,
+    "sqlite": "3.53.4",
+    "zlib": "1.3.2",
+    "pydantic_core": "2.46.5",
+    "runtime_build_tools_absent": true,
+    "packages": {
+      "musl": "1.2.6-r2",
+      "libssl3": "3.5.9-r0",
+      "libcrypto3": "3.5.9-r0",
+      "zlib": "1.3.2-r1"
+    }
+  },
+  "host_unit_tests": 154,
+  "runtime_unit_tests": 34,
+  "ecr_verification": "pending_user_environment_approval_and_scan"
+}

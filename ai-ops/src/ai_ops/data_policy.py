@@ -49,7 +49,7 @@ def validate_snapshot(snapshot: CapturedSnapshot, settings: BSettings | None = N
         target = snapshot.bundle.target
         bundle = validate_local_bundle(snapshot.bundle, TargetRegistry(schema_version=1, targets=[target]))
         audit = CollectionAudit.model_validate_json(snapshot.audit.model_dump_json())
-        if target.environment != "practice" or audit.collector_version != "captured-snapshot-v1":
+        if audit.collector_version != "captured-snapshot-v1":
             raise ValueError("unsupported snapshot scope")
         if settings is not None:
             settings.bindings.resolve(target)

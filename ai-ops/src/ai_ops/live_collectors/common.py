@@ -60,7 +60,12 @@ def list_items(value: dict, *, kind: str, limit: int) -> list[dict]:
         raise OverflowError("resource list was truncated")
     if any(not isinstance(item, dict) for item in value["items"]):
         raise ValueError("invalid list item")
-    return value["items"]
+    item_kind = {"PodList": "Pod", "ReplicaSetList": "ReplicaSet", "EventList": "Event"}.get(kind)
+    if item_kind is None or any("kind" in item and item["kind"] != item_kind for item in value["items"]):
+        raise ValueError("list item kind mismatch")
+    # 실제 API는 목록 항목의 kind를 생략할 수 있다. 검증한 상위 목록 타입으로만 보완한다.
+    # 원본은 바꾸지 않으며 namespace·UID·선택자·소유 관계 검사는 호출부에서 유지한다.
+    return [{**item, "kind": item_kind} for item in value["items"]]
 
 
 def add(builder: SnapshotBuilder, key: str, kind: str, *, at: str | None = None,

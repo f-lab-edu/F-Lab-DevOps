@@ -52,6 +52,12 @@ aws rds wait db-instance-available --db-instance-identifier urlshortener-postgre
 
 실습용 backend.practice.hcl을 운영 작업 디렉터리에서 -migrate-state와 함께 사용하지 않는다. 세부 내용은 31-terraform-remote-state.md와 32-rds-password-rotation.md를 따른다.
 
+### 1-1. AI 이미지 등록 전용 Terraform root
+
+기존 production root가 **GitHub OIDC provider를 생성·검증한 뒤**, Kubernetes 단계 전에 [AI 전용 root 설치·정리 절차](ai-ops-registry-lifecycle.md)의 설치 단계를 수행한다. `terraform/ai-ops-registry/`는 같은 state bucket의 `urlshortener/ai-ops/practice/terraform.tfstate`를 사용하지만 별도 root·잠금이다. 이 root의 `enable_ai_ops_registry` 기본값은 `false`이므로 설치 계획과 적용에서 `true`를 명시한다. ECR·lifecycle policy·IAM Role·inline policy 네 개와 별도 state를 확인한 뒤 2절로 넘어간다. 기존 OIDC는 AI root에서 **조회만** 하며 재생성·state 이전을 하지 않는다.
+
+현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
+
 ## 2. kubeconfig와 노드
 
 ~~~bash

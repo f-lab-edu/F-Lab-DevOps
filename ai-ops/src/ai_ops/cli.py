@@ -8,6 +8,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from ai_ops.path_policy import cli_paths
 from typing import Sequence
 
 from pydantic import ValidationError
@@ -83,7 +84,8 @@ def _print_record(record) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = cli_paths(parser, parser.parse_args(argv), {'bundle': 'directory', 'registry': 'input', 'bindings': 'input', 'runtime': 'input', 'metric_queries': 'input', 'store': 'store'})
     try:
         if args.command == "validate-bundle":
             bundle = load_evidence_bundle(args.bundle, load_target_registry(args.registry))

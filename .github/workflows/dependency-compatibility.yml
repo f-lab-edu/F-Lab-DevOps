@@ -47,6 +47,11 @@ jobs:
           terraform fmt -check -recursive
           terraform init -backend=false -lockfile=readonly -input=false
           terraform validate
+      - name: AI 등록 전용 Terraform 검증
+        working-directory: terraform/ai-ops-registry
+        run: |
+          terraform init -backend=false -lockfile=readonly -input=false
+          terraform validate
 
   application:
     runs-on: ubuntu-24.04

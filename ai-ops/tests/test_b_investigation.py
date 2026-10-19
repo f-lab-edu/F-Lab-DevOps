@@ -1,5 +1,6 @@
 """B snapshot의 규칙 조사·개인 저장·재조회·모델 전송 거부를 검증한다."""
 
+import os
 import contextlib
 import io
 import json
@@ -31,6 +32,9 @@ class BInvestigationTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
+        policy = patch.dict(os.environ, {"AI_OPS_FILES_ROOT": self.directory.name})
+        policy.start()
+        self.addCleanup(policy.stop)
         self.store_root = Path(self.directory.name) / "store"
         self.store = IncidentStore(self.store_root)
         config = ROOT / "config"

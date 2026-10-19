@@ -90,3 +90,7 @@ git diff --exit-code -- ai-ops/schemas
 키는 Git 저장소 밖 `~/.local/share/url-shortener-ai-ops/.openai-api-key`에 사용자 전용 권한(0600)으로 보관된다. 기본 저장소를 바꾸려면 설정·조사 명령에 같은 `--store` 경로를 지정한다. 기존 `OPENAI_API_KEY` 환경변수가 설정되어 있으면 저장된 키보다 우선한다. 키 값은 채팅·명령행 인자·프로젝트 파일에 입력하지 않는다. 이 컴퓨터의 Python 실행 환경은 `aiops-local`이 자동으로 찾는다. 다른 환경에서는 Python 3.11 이상에 `requirements.lock` 의존성을 설치하고 `AI_OPS_PYTHON`으로 경로를 지정하면 된다. 비용·출처 제한, 실행 예시 및 실제 점검 결과는 [A5 문서](docs/A5-engine-decision.md)에 있다. Plus 플랜 사용 경로는 선택하지 않았으며 [검토 기록](docs/A5-plus-feasibility.md)만 보관한다.
 
 AI 호출이 인증·네트워크·시간·예산 문제로 실패하면 검증된 저장 증거의 규칙 분석을 `partial`로 저장한다. CLI는 실패 이유를 보여주고 종료 코드 1을 반환한다. 보고서 형식·근거·보안 검증을 통과하지 못한 모델 초안은 부분 결과로 위장하지 않고 실패 상태로 남긴다. 자세한 조건은 [A6 검증 기록](docs/A6-report-failure-validation.md)을 참고한다.
+
+B-03의 [AWS 적용 전 점검·비교 계획](docs/B3-aws-preflight.md) 후 별도 AI state를 선택했다. [AI 등록 전용 Terraform](../terraform/ai-ops-registry/README.md)으로 ECR/IAM을 분리하고 기존 OIDC는 조회만 한다. AWS 읽기 plan에서 전용 root는 생성 4개·수정/삭제 없음, AI 정의를 제거한 기존 production root는 변경 없음이었다. 2026-10-17 후속 작업에서 별도 state에 4개를 실제 생성하고 GitHub 등록 환경·변수를 설정했다. 적용 후 plan은 변경 없음이다. 실제 OIDC 인증·이미지 등록·main 반영은 대기 중이며 [적용 기록](docs/B3-registry-apply.md)을 따른다.
+
+운영자 CLI의 파일 인자와 기본값은 [지정 폴더 정책](docs/cli-file-policy.md)을 적용한다. 기존 임의 경로는 기본 개인 저장 폴더로 옮기거나 운영자 환경변수 `AI_OPS_FILES_ROOT`에 전용 폴더를 등록해야 한다. 일반 결과는 기존 파일을 덮어쓰지 않는다.

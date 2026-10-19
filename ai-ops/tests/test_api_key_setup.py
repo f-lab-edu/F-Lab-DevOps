@@ -23,6 +23,9 @@ class APIKeySetupTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
+        policy = patch.dict(os.environ, {"AI_OPS_FILES_ROOT": self.temporary.name})
+        policy.start()
+        self.addCleanup(policy.stop)
         self.root = Path(self.temporary.name) / "store"
 
     def test_interactive_setup_saves_key_privately_without_api_call_or_output_leak(self):

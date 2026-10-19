@@ -1,10 +1,14 @@
 # B-03 두 번째 묶음 — 독립 이미지 등록과 배포 관측 보존
 
+최신 후속 상태: **2026-10-17 AI 전용 ECR/IAM 4개 생성과 GitHub 등록 환경·변수 설정 완료**, 적용 후 plan 변경 없음. 실제 OIDC 인증·이미지 등록·클러스터 배포는 대기 중이다. [적용 기록](B3-registry-apply.md)을 참고한다.
+
 2026-10-16 기준 코드와 로컬 검증을 마쳤으며 **B-03 전체는 진행 중**이다. Terraform apply·AWS 조회·이미지 등록·새 원격 workflow 실행·실환경 배포는 하지 않았다. 첫 묶음의 이미지 실제 빌드와 권한/통신/PVC 검증도 여전히 대기 중이다.
 
 ## 1. 독립 ECR과 등록 identity
 
-[terraform/ai_ops.tf](../../terraform/ai_ops.tf)는 기존 앱 ECR/배포 Role을 수정하지 않고 `${project_name}-ai-ops` 저장소와 `${project_name}-ai-ops-image-role`을 별도로 정의한다. `enable_ai_ops_registry`의 기본값은 false라 이번 추가 리소스는 명시 활성화 전에는 생성되지 않는다.
+[AI 등록 전용 Terraform](../../terraform/ai-ops-registry/README.md)은 별도 root·state에서 기존 앱 ECR/배포 Role을 수정하지 않고 `${project_name}-ai-ops` 저장소와 `${project_name}-ai-ops-image-role`을 별도로 정의한다. `enable_ai_ops_registry`의 기본값은 false라 이번 추가 리소스는 명시 활성화 전에는 생성되지 않는다.
+
+기본 접두사는 `urlshortener-practice`이고 새 state key는 `urlshortener/ai-ops/practice/terraform.tfstate`다. 기존 GitHub OIDC는 data 조회로만 참조한다. 기존 root의 미적용 AI 정의는 제거했으며 state 이동·import는 필요 없다. 이 분리는 클러스터 환경 변경이나 새 EKS 생성을 뜻하지 않는다.
 
 저장소는 IMMUTABLE·scan-on-push·AES256·force_delete=false다. 태그가 있는 이미지는 자동 만료하지 않고 태그 없는 이미지만 1일 뒤 만료한다. 역할은 GitHub OIDC의 `sts.amazonaws.com` audience와 `repo:f-lab-edu/F-Lab-DevOps:environment:ai-ops-image` subject만 신뢰한다. 인증 token 발급만 Resource `*`, 나머지 push/pull/조회 권한은 해당 AI 저장소 ARN으로 제한한다. 삭제·저장소 생성·앱 저장소·EKS·Git 쓰기 권한은 없다. [AWS ECR push 권한 안내](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-push-iam.html)
 
@@ -68,3 +72,5 @@ GitHub environment를 사용하면 OIDC subject는 브랜치가 아닌 environme
 - 후속 로컬 검증에서 linux/amd64 이미지 실제 build/run·통신 없는 합성 규칙 조사/재조회·배포 로컬 진단을 통과했다. B3-deployment.md의 후속 기록을 참고한다. 새 workflow·보호 environment·OIDC·push/digest 확인·artifact 업로드는 원격 실행 전이다.
 
 실제 적용 전에는 별도 state/환경·ECR/IAM plan 검토, GitHub environment 보호 규칙·variables, 이미지 빌드·등록을 확인해야 한다. 이어 실제 EKS 대상·API/DNS/Prometheus·CA/token·CNI·StorageClass를 대조하고 읽기 허용/거부·PVC 재연결을 검증한다. 모델 proxy·내부 수신 TLS·자체 관측과 worker/queue도 아직 연결하지 않았다. [첫 묶음 배포 진단 안내](B3-deployment.md), [AI 작업 리스트](../../실습%20가이드%20문서%20모음/AI/구현계획/AI%20작업%20리스트.md)를 함께 참고한다.
+
+후속 실제 AWS 읽기 점검과 비교 plan은 [AWS 적용 전 점검 기록](B3-aws-preflight.md)에 별도로 기록했다. 새 리소스 적용은 하지 않았다.

@@ -113,6 +113,16 @@ class ReleaseObservationTest(unittest.TestCase):
         path.chmod(0o700)
         return dict(self.env, ARGOCD_CLI=str(path))
 
+    def test_missing_runner_directory_never_launches_a_shared_temporary_binary(self):
+        env = dict(self.env)
+        env.pop("ARGOCD_CLI", None)
+        env.pop("RUNNER_TEMP", None)
+        with patch.object(observe.subprocess, "Popen") as start:
+            self.assertEqual(observe.read_argo(env), ("unconfigured", None))
+            env["RUNNER_TEMP"] = "relative-runner-directory"
+            self.assertEqual(observe.read_argo(env), ("unconfigured", None))
+            start.assert_not_called()
+
     def test_bounded_cli_passes_token_only_in_environment(self):
         body = "import os,sys\nassert os.environ['ARGOCD_AUTH_TOKEN'] not in sys.argv\nprint(" + repr(json.dumps(self.doc)) + ")\n"
         status, raw = observe.read_argo(self.cli(body))

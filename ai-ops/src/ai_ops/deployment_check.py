@@ -10,6 +10,7 @@ import ssl
 import tempfile
 import threading
 from pathlib import Path
+from ai_ops.path_policy import cli_paths
 
 from ai_ops.b_contracts import load_b_settings
 from ai_ops.replay_tools import _runbook
@@ -59,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=Path("/etc/ai-ops"))
     parser.add_argument("--store", type=Path, default=Path("/data/incidents"))
     parser.add_argument("--serve", action="store_true", help="진단 상태만 주기적으로 확인하며 대기한다")
-    args = parser.parse_args(argv)
+    args = cli_paths(parser, parser.parse_args(argv), {'config': 'directory', 'store': 'store'})
     os.umask(0o077)
     stopped = threading.Event()
     if args.serve:

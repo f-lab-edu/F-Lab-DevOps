@@ -1,5 +1,6 @@
 """A3 CLI·사건 저장·규칙 보고서의 로컬 전체 흐름 시험."""
 
+import os
 import contextlib
 import io
 import json
@@ -27,6 +28,9 @@ class LocalInvestigationTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
+        policy = patch.dict(os.environ, {"AI_OPS_FILES_ROOT": self.temporary.name})
+        policy.start()
+        self.addCleanup(policy.stop)
         self.store_root = Path(self.temporary.name) / "store"
         self.store = IncidentStore(self.store_root)
         self.registry = load_target_registry(REGISTRY)

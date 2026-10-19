@@ -1,5 +1,7 @@
 """A7 고정 평가 입력의 분리·해시와 채점 경계를 확인한다."""
 
+import os
+from unittest.mock import patch
 import hashlib
 import json
 import runpy
@@ -30,6 +32,13 @@ V3_RUBRIC_HASH = "49082d809e0a7f76c42e4eab1e99f87ab0d6b5cad67dc2adb65acba345c66f
 
 
 class HoldoutEvaluationTest(unittest.TestCase):
+    def setUp(self):
+        self.file_root = tempfile.TemporaryDirectory()
+        self.addCleanup(self.file_root.cleanup)
+        policy = patch.dict(os.environ, {"AI_OPS_FILES_ROOT": self.file_root.name})
+        policy.start()
+        self.addCleanup(policy.stop)
+
     def test_v3_inputs_and_rubric_are_frozen_before_model_calls(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts/build_holdout_v3_fixtures.py"), "--check"],
@@ -81,7 +90,7 @@ class HoldoutEvaluationTest(unittest.TestCase):
             self.assertTrue(all(item.provenance.origin == "a7-holdout-v2" for item in bundle.evidence))
 
     def test_v2_runner_and_scorer_use_separate_suite(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.file_root.name) as directory:
             command = [sys.executable, str(ROOT / "scripts/run_holdout.py"),
                        "--suite", str(HOLDOUT_V2 / "suite.json"), "--mode", "rules",
                        "--repeats", "1", "--store", directory, "--case", "case-01"]
@@ -116,7 +125,7 @@ class HoldoutEvaluationTest(unittest.TestCase):
             self.assertIsNone(blanks["reviews"][0]["top1_correct"])
 
     def test_v3_runner_and_scorer_keep_the_new_suite_separate(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.file_root.name) as directory:
             result = subprocess.run(
                 [sys.executable, str(ROOT / "scripts/run_holdout.py"),
                  "--suite", str(HOLDOUT_V3 / "suite.json"), "--mode", "rules",
@@ -181,7 +190,7 @@ class HoldoutEvaluationTest(unittest.TestCase):
         self.assertIn(runner["CONTEXT_VERSION"], runner["_request_id"]("ai", "case-02", 1, 1))
         self.assertIn("fixed-v2", runner["_request_id"]("fixed", "case-09", 1, 1,
                                                         "a7-holdout-v2"))
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.file_root.name) as directory:
             store = IncidentStore(Path(directory))
             ledger = {"schema_version": 1,
                       "days": {datetime.now(timezone.utc).date().isoformat(): 1.0}}
@@ -198,7 +207,7 @@ class HoldoutEvaluationTest(unittest.TestCase):
         self.assertIn("$0.10~$30", result.stderr)
 
     def test_runner_can_select_cases_without_changing_frozen_suite(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.file_root.name) as directory:
             command = [sys.executable, str(ROOT / "scripts/run_holdout.py"),
                        "--mode", "rules", "--repeats", "1", "--store", directory]
             for case in ("case-03", "case-05"):
@@ -210,7 +219,7 @@ class HoldoutEvaluationTest(unittest.TestCase):
             self.assertEqual(len(runs["input_hashes"]), 16)
 
     def test_runner_can_expand_repeat_target_without_repeating_completed_runs(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.file_root.name) as directory:
             command = [sys.executable, str(ROOT / "scripts/run_holdout.py"),
                        "--mode", "rules", "--case", "case-03", "--store", directory]
             for repeats in ("1", "3"):
@@ -367,7 +376,7 @@ class HoldoutEvaluationTest(unittest.TestCase):
             analyze_fixed_summary(request, bundle, run_id, AIConfig("eval-test"), "fake-key",
                                   transport=malformed, token_counter=lambda *_: 100)
 
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.file_root.name) as directory:
             store = IncidentStore(Path(directory))
             saved = store.investigate(
                 bundle_root=HOLDOUT / "case-01", registry=registry, question=request.question,

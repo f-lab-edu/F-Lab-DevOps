@@ -1,5 +1,7 @@
 # B-03 첫 묶음 — 배포 진단 기반
 
+최신 후속 상태: **2026-10-17 AI 전용 ECR/IAM 4개 생성과 GitHub 등록 환경·변수 설정 완료**, 적용 후 plan 변경 없음. 실제 OIDC 인증·이미지 등록·클러스터 배포는 대기 중이다. [적용 기록](B3-registry-apply.md)을 참고한다.
+
 2026-10-16 기준 **진행 중**이다. 독립 이미지 정의, 진단 모드 chart, 읽기 RBAC, 통신 정책, PVC와 수동 GitOps 정의를 작성했다. 후속 로컬 검증에서 Docker를 시작해 linux/amd64 이미지 실제 빌드·기본 실행까지 통과했다. 원격 CI 결과는 아래 Actions 링크에서 확인하며 실제 배포·권한/통신/PVC 재연결은 미검증이다. B-02의 실환경 대기와 A5/A7 미완료도 유지한다.
 
 ## 목적과 처리 순서
@@ -79,3 +81,7 @@ Docker Desktop 29.2.1에서 `docker build --platform linux/amd64 --tag ai-ops:b0
 합성 S1 입력을 read-only로 마운트해 규칙 조사→보고서 저장→재조회·KST 표시와 모의 연결값의 로컬 배포 진단/SQLite WAL도 통과했다. API·AI·AWS는 호출하지 않았다. 첫 추가 확인 명령은 Markdown 함수 인자를 잘못 지정해 실패했으나 검증 명령을 고친 재실행은 통과했고 제품 코드는 수정하지 않았다.
 
 로컬 이미지 config ID는 `sha256:422d949300ea4c84de24ac6b6b09dd714558900009466b3de5d359d3cb0a15e6`이다. ECR registry digest나 배포 완료를 뜻하지 않는다. 전체 Python 142건과 Helm 정적 검사도 같은 작업 트리에서 통과했다. 원격 실행 결과는 [현재 작업 브랜치 AI CI](https://github.com/f-lab-edu/F-Lab-DevOps/actions/workflows/ai-ops-ci.yml?query=branch%3Acodex%2Fai-incident-copilot)에서 확인한다. 독립 이미지 등록 workflow·AWS 적용·ECR push·실환경 artifact 보존은 이번 검증에 포함하지 않는다.
+
+후속 실제 AWS 읽기 점검과 비교 plan은 [AWS 적용 전 점검 기록](B3-aws-preflight.md)에 별도로 기록했다. 새 리소스 적용은 하지 않았다.
+
+AI ECR/IAM은 [전용 Terraform root](../../terraform/ai-ops-registry/README.md)와 별도 state key로 분리했다. AWS 읽기 plan 결과 새 4개 생성만 있고 기존 production 변경은 없다. 실제 적용·GitHub 등록 환경·이미지 등록·클러스터 검증은 아직 남아 있다.

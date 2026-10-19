@@ -6,10 +6,13 @@
 - 리전: `ap-northeast-2`
 - 운영 state: `urlshortener/production/terraform.tfstate`
 - 실습 state: `urlshortener/practice/terraform.tfstate`
+- AI 이미지 등록 전용 state: `urlshortener/ai-ops/practice/terraform.tfstate` (`terraform/ai-ops-registry/` root; 운영 root와 별도)
 - 잠금: 같은 key에 대한 S3 `.tflock` 파일 (`use_lockfile = true`)
 - 버킷 보호: 퍼블릭 접근 차단, ACL 비활성화, 기본 SSE-S3 암호화, 버전 관리, 비 TLS 요청 거부
 
 버킷은 [bootstrap-state-bucket.sh](../../terraform/bootstrap-state-bucket.sh)로 애플리케이션 Terraform root와 별도로 준비한다. 버킷을 관리 대상 root 안에 넣으면 최초 `terraform init` 시 버킷이 아직 없는 순환 의존성이 생긴다. 스크립트는 예상 AWS 계정을 확인한 뒤 버킷 설정을 적용한다.
+
+AI root는 기존 운영 root가 만든 GitHub OIDC를 data source로 조회한다. 설치에서는 bucket → 운영 root/OIDC → AI root 순서, 전체 삭제에서는 AI root → 운영 root → 두 state의 버전·삭제 마커 → 비어 있는 bucket 순서다. 두 root의 S3 잠금은 서로 다른 key이므로 작업자가 동시 실행을 별도로 막아야 한다. 안전한 조회·삭제 조건은 [AI root 수명주기 절차](ai-ops-registry-lifecycle.md)를 따른다. Route53은 전체 정리에서도 보존한다.
 
 2026-09-23 이전 시점에 사용자는 모든 관리 리소스가 제거됐다고 확인했다. 이전 직전 로컬 `terraform.tfstate`는 리소스 0개였으며, 오래된 `terraform.tfstate.backup`에는 리소스 113개가 있었다. **현재 빈 state만 운영 S3 key로 이전했다.** 오래된 백업은 최신 상태로 간주하거나 원격 state에 덮어쓰지 않는다.
 

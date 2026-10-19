@@ -1,0 +1,149 @@
+{
+  "record_type": "ai_ops_storage_and_api_preparation",
+  "observed_at": "2026-10-19T08:17:40.890052Z",
+  "account_id": "716174522908",
+  "region": "ap-northeast-2",
+  "cluster": "urlshortener",
+  "storage_class": {
+    "provisioner": "ebs.csi.aws.com",
+    "parameters": {
+      "csi.storage.k8s.io/fstype": "ext4",
+      "encrypted": "true",
+      "tagSpecification_1": "Project=urlshortener",
+      "tagSpecification_2": "Component=ai-ops",
+      "type": "gp3"
+    },
+    "reclaimPolicy": "Delete",
+    "volumeBindingMode": "WaitForFirstConsumer",
+    "allowVolumeExpansion": true
+  },
+  "storage_class_name": "ai-ops-gp3-encrypted",
+  "storage_class_uid": "b02d26ab-4c01-44a7-85c8-b9abab38652d",
+  "storage_class_is_default": false,
+  "storage_class_manifest_sha256": "49b67b5714ddca7b72c6ca3fde6843a1e07ab0f4916a75eda1bf1dd8992636b1",
+  "volume_created": false,
+  "probe": {
+    "namespace": "ai-ops-netcheck",
+    "controller": "Deployment",
+    "pod_name": "network-check-57f76c779b-6gfrb",
+    "pod_uid": "4d3787b2-bede-40c7-a465-0a20505e99b0",
+    "node": "ip-10-0-10-42.ap-northeast-2.compute.internal",
+    "pod_ip": "10.0.10.71",
+    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+    "image_id": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+    "script_sha256": "ad8b0edbe228e9a72c8b219f66dae3d33673bcb76438864436d01c29edfaf348",
+    "policy_enforcing_mode": "standard",
+    "deny": {
+      "record_type": "ai_ops_temporary_network_probe",
+      "observed_at": "2026-10-19T08:15:28.871098Z",
+      "phase": "deny",
+      "checks": {
+        "api_172.20.0.1": {
+          "result": "timeout",
+          "passed": true
+        },
+        "api_10.0.10.162": {
+          "result": "timeout",
+          "passed": true
+        },
+        "api_10.0.11.228": {
+          "result": "timeout",
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    "endpoints_only": {
+      "record_type": "ai_ops_temporary_network_probe",
+      "observed_at": "2026-10-19T08:16:16.191726Z",
+      "phase": "allow",
+      "checks": {
+        "dns_api": {
+          "addresses": [
+            "172.20.0.1"
+          ],
+          "passed": true
+        },
+        "api_kubernetes.default.svc": {
+          "error_type": "TimeoutError",
+          "passed": false
+        },
+        "api_10.0.10.162": {
+          "status": 200,
+          "passed": true
+        },
+        "api_10.0.11.228": {
+          "status": 200,
+          "passed": true
+        },
+        "incomplete": {
+          "error_type": "TimeoutError",
+          "passed": false
+        }
+      },
+      "passed": false
+    },
+    "service_and_endpoints": {
+      "record_type": "ai_ops_temporary_network_probe",
+      "observed_at": "2026-10-19T08:16:36.859827Z",
+      "phase": "allow",
+      "checks": {
+        "dns_api": {
+          "addresses": [
+            "172.20.0.1"
+          ],
+          "passed": true
+        },
+        "api_kubernetes.default.svc": {
+          "status": 200,
+          "passed": true
+        },
+        "api_10.0.10.162": {
+          "status": 200,
+          "passed": true
+        },
+        "api_10.0.11.228": {
+          "status": 200,
+          "passed": true
+        },
+        "secrets_denied": {
+          "status": 403,
+          "passed": true
+        },
+        "prometheus_ready": {
+          "status": 200,
+          "passed": true
+        }
+      },
+      "passed": true
+    }
+  },
+  "configured_api_cidrs": [
+    "172.20.0.1/32",
+    "10.0.10.162/32",
+    "10.0.11.228/32"
+  ],
+  "target_after_probe": {
+    "uid": "2e924b98-e8a9-4f98-b704-02762e1c4682",
+    "ready_replicas": 2
+  },
+  "cleanup": {
+    "verified": true,
+    "namespace_absent": true,
+    "role_absent": true,
+    "rolebinding_absent": true,
+    "ai_namespace_absent": true,
+    "ai_storageclass_pvc_count": 0
+  },
+  "limitations": [
+    "임시 Deployment 한 Pod·한 노드의 점검이며 실제 진단 StatefulSet 검증은 별도다.",
+    "PVC/EBS 암호화·AZ·attach·자료 보존은 실제 볼륨 생성 후 확인해야 한다.",
+    "CNI standard 시작 시 기본 허용 구간을 제거하지 않았다. 실제 수집 전 정책 준비와 허용/거부를 다시 검증한다.",
+    "외부 송신·다른 namespace·쓰기/exec 전체 거부와 token 교체는 후속이다."
+  ],
+  "render_validation": {
+    "enabled_by_default": false,
+    "active_resource_count": 10,
+    "boundary_check_passed": true
+  }
+}

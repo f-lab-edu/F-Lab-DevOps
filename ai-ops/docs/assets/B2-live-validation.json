@@ -1,0 +1,939 @@
+{
+  "record_type": "ai_ops_live_rules_validation_progress",
+  "status": "verified_partial_collection",
+  "observed_at": "2026-10-19T09:04:31.720720Z",
+  "target_environment": "production",
+  "previous_image_digest": "sha256:bbfa1859831b5811d4bfe3057adf25141ed1c66b38c9165d235952059ef286be",
+  "attempts": [
+    {
+      "record_type": "ai_ops_live_rules_validation",
+      "passed": false,
+      "error_type": "ValueError"
+    },
+    {
+      "record_type": "ai_ops_live_rules_validation",
+      "passed": false,
+      "error_type": "ValueError",
+      "diagnostics": {
+        "collect_snapshot": {
+          "returned": true
+        },
+        "investigate_snapshot": {
+          "returned": false,
+          "error_type": "ValueError",
+          "frames": [
+            {
+              "file": "incidents.py",
+              "function": "investigate_snapshot",
+              "line": 344
+            },
+            {
+              "file": "incidents.py",
+              "function": "investigate_bundle",
+              "line": 356
+            },
+            {
+              "file": "data_policy.py",
+              "function": "validate_local_bundle",
+              "line": 42
+            }
+          ],
+          "fields": []
+        }
+      }
+    },
+    {
+      "record_type": "ai_ops_live_rules_validation",
+      "passed": false,
+      "error_type": "ValueError",
+      "diagnostics": {
+        "collect_snapshot": {
+          "returned": true
+        },
+        "investigate_snapshot": {
+          "cause_type": null,
+          "cause_fields": [],
+          "known_integrity_errors": [],
+          "returned": false,
+          "error_type": "ValueError",
+          "frames": [
+            {
+              "file": "incidents.py",
+              "function": "investigate_snapshot",
+              "line": 344
+            },
+            {
+              "file": "incidents.py",
+              "function": "investigate_bundle",
+              "line": 356
+            },
+            {
+              "file": "data_policy.py",
+              "function": "validate_local_bundle",
+              "line": 42
+            }
+          ],
+          "fields": []
+        }
+      }
+    }
+  ],
+  "root_cause": "stale_observation_outside_bundle_window",
+  "fix_pr": "https://github.com/f-lab-edu/F-Lab-DevOps/pull/34",
+  "fix_head": "7b2befa9245a9f7c4990950050d14045e59680d8",
+  "regression_failed_before_fix": true,
+  "unit_tests_after_fix": 155,
+  "successful_live_saved_reports": 2,
+  "retention_days": 7,
+  "retention_owner": "repository_operator",
+  "automatic_deletion_enabled": false,
+  "operational_bodies_exported": false,
+  "fix_merge_commit": "9377065a8cd5998aff2d9a489ae10e89b0520ac3",
+  "ci_url": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39225208699",
+  "ci_contracts": "success",
+  "ci_image": "success",
+  "image_registration_run": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39225399903",
+  "post_stale_fix_result": {
+    "record_type": "ai_ops_live_rules_validation",
+    "observed_at": "2026-10-19T09:00:30.681649Z",
+    "incident_id": "inc-103f3066fbe94f69ba79f4635d4dc6b9",
+    "run_id": "run-e4876b43ec8148909256edb86f8010f4",
+    "status": "partial",
+    "failure_reason": "collection_incomplete",
+    "collection_status": "partial",
+    "engine": "rules-captured-v1",
+    "current_state": "unknown",
+    "diagnosis_status": "insufficient_evidence",
+    "analysis_status": "partial",
+    "evidence_count": 15,
+    "evidence_status_counts": {
+      "invalid": 4,
+      "available": 3,
+      "stale": 2,
+      "missing": 6
+    },
+    "audit_reason_counts": {
+      "scope_mismatch": 4,
+      "collected": 3,
+      "outside_window": 2,
+      "missing_history": 1,
+      "empty_response": 2,
+      "no_traffic": 3
+    },
+    "entries": [
+      {
+        "evidence_id": "ev-workload-scope",
+        "status": "invalid",
+        "reason": "scope_mismatch",
+        "time_field": "response_received_at",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-workload-logs",
+        "status": "invalid",
+        "reason": "scope_mismatch",
+        "time_field": "log_timestamp",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-workload-events",
+        "status": "invalid",
+        "reason": "scope_mismatch",
+        "time_field": "eventTime",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-workload-config",
+        "status": "invalid",
+        "reason": "scope_mismatch",
+        "time_field": "response_received_at",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-argo",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "status_reconciled_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-history-0",
+        "status": "stale",
+        "reason": "outside_window",
+        "time_field": "history_deployed_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-history-1",
+        "status": "stale",
+        "reason": "outside_window",
+        "time_field": "history_deployed_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history",
+        "time_field": "response_received_at",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "evaluation_time",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-metric-cache_hit_ratio",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-api_latency",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-db_latency",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      }
+    ],
+    "expected_pods": 2,
+    "raw_bytes_read": 36830,
+    "redaction_count": 0,
+    "log_event_projection_count": 0,
+    "duration_seconds": 0.508307,
+    "bundle_hash": "3dd15cbc354ae1efefdd15c528eeee8b80ccfcd9787b4b4aaa39e5063fd57185",
+    "file_sha256": {
+      "input.json": "75de1450798c3db846039480138327bd83b613a225403543f954dc39f1434417",
+      "metadata.json": "443afc5ccf016dcc209c7364f6b45d142db615c0bf5b5c055ebb58a0b8f90f5d",
+      "report.json": "fda43e0cbea0b90c82f62f6ac9e96495be1b9661112692d367721b5e190db478",
+      "report.md": "1b81ac919cc8d992025ecf52efb148eab01b5b8007f9cb9915c1a809b96f18bd",
+      "collection-audit.json": "80d734064804801c265ad425609cf0acd83eea6b3cb395046bef33b5f41b8f7f"
+    },
+    "private_permissions": true,
+    "show_matches_stored": true,
+    "utc_internal": true,
+    "kst_markdown": true,
+    "external_model_denied": true,
+    "ai_budget_file_absent": true,
+    "passed": true,
+    "retention": {
+      "request_id": "b2-live-20261019090028-fixed",
+      "created_at": "2026-10-19T09:00:30.028618Z",
+      "delete_after": "2026-10-26T09:00:30.028618Z",
+      "scope": "sanitized_input_report_collection_audit_and_request_index",
+      "owner": "repository_operator",
+      "automatic_deletion_enabled": false
+    },
+    "cli_exit_code": 1,
+    "provider_key_and_budget_guards_not_called": true
+  },
+  "list_shape_diagnostic": {
+    "deployment_selector_matches": true,
+    "service_selector_matches": true,
+    "replicaset_list_kind": "ReplicaSetList",
+    "replicaset_list_continues": false,
+    "replicasets": [
+      {
+        "kind_present": false,
+        "kind_matches": false,
+        "metadata_valid": false,
+        "selector_matches": true
+      },
+      {
+        "kind_present": false,
+        "kind_matches": false,
+        "metadata_valid": false,
+        "selector_matches": true
+      }
+    ],
+    "pod_list_kind": "PodList",
+    "pods": [
+      {
+        "kind_present": false,
+        "kind_matches": false,
+        "metadata_valid": false,
+        "selector_matches": true
+      },
+      {
+        "kind_present": false,
+        "kind_matches": false,
+        "metadata_valid": false,
+        "selector_matches": true
+      }
+    ]
+  },
+  "log_projection_diagnostic": {
+    "logs": [
+      {
+        "line_count": 195,
+        "bytes": 18225,
+        "normalization_result": "captured log has no allowed diagnostic fields"
+      },
+      {
+        "line_count": 195,
+        "bytes": 18360,
+        "normalization_result": "captured log has no allowed diagnostic fields"
+      }
+    ]
+  },
+  "pending_list_normalizer_predeployment_check": {
+    "record_type": "ai_ops_live_rules_validation",
+    "observed_at": "2026-10-19T09:02:56.491524Z",
+    "incident_id": "inc-65b9c024614c444d90b3b7e1953baded",
+    "run_id": "run-7a2394891bcd45f69bf28f37bb5ac419",
+    "status": "partial",
+    "failure_reason": "collection_incomplete",
+    "collection_status": "partial",
+    "engine": "rules-captured-v1",
+    "current_state": "unknown",
+    "diagnosis_status": "insufficient_evidence",
+    "analysis_status": "partial",
+    "evidence_count": 18,
+    "evidence_status_counts": {
+      "available": 7,
+      "invalid": 2,
+      "missing": 7,
+      "stale": 2
+    },
+    "audit_reason_counts": {
+      "collected": 7,
+      "invalid_payload": 2,
+      "empty_response": 3,
+      "outside_window": 2,
+      "missing_history": 1,
+      "no_traffic": 3
+    },
+    "entries": [
+      {
+        "evidence_id": "ev-pod-0-status",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-0-log",
+        "status": "invalid",
+        "reason": "invalid_payload",
+        "time_field": "log_timestamp",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-0-config",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-1-status",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-1-log",
+        "status": "invalid",
+        "reason": "invalid_payload",
+        "time_field": "log_timestamp",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-1-config",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-events-empty",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "eventTime",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-argo",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "status_reconciled_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-history-0",
+        "status": "stale",
+        "reason": "outside_window",
+        "time_field": "history_deployed_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-history-1",
+        "status": "stale",
+        "reason": "outside_window",
+        "time_field": "history_deployed_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history",
+        "time_field": "response_received_at",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "evaluation_time",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-metric-cache_hit_ratio",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-api_latency",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-db_latency",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      }
+    ],
+    "expected_pods": 2,
+    "raw_bytes_read": 120577,
+    "redaction_count": 0,
+    "log_event_projection_count": 0,
+    "duration_seconds": 0.637895,
+    "bundle_hash": "9dec8a7f87d75a05e12568b6b2612bb6de6abb1ff1ce06364251328f68930a16",
+    "file_sha256": {
+      "input.json": "c2855dbf88c656adf2295def4cbe0662805befb0047ad9772ba6a3f87f2b9a44",
+      "metadata.json": "b061ab695b600952fc5e930b7379a18171b39d4ae2ba7d4aacc65d3e31183cd8",
+      "report.json": "8256ce991923980b1eba6e60e679a2fe221c26a76910b29c72aad9c0a04d59c2",
+      "report.md": "4093553f3a461f46fe89a03af5cc95bc7ba9d4c237bd7e70a833fe459d81366e",
+      "collection-audit.json": "8d3f8c898b31ec34dd60ad1b3620c891305075e492ccb29927cbbd098bedbaaf"
+    },
+    "private_permissions": true,
+    "show_matches_stored": true,
+    "utc_internal": true,
+    "kst_markdown": true,
+    "external_model_denied": true,
+    "ai_budget_file_absent": true,
+    "passed": true,
+    "retention": {
+      "request_id": "b2-live-20261019090254-list-precheck",
+      "created_at": "2026-10-19T09:02:55.739605Z",
+      "delete_after": "2026-10-26T09:02:55.739605Z",
+      "scope": "sanitized_input_report_collection_audit_and_request_index",
+      "owner": "repository_operator",
+      "automatic_deletion_enabled": false
+    },
+    "cli_exit_code": 1,
+    "provider_key_and_budget_guards_not_called": true,
+    "pending_normalizer_used": true
+  },
+  "list_shape_fix_unit_tests": 156,
+  "stale_fix_image_registration": {
+    "record": {
+      "schema_version": 1,
+      "record_type": "ai_ops_image_registration",
+      "source_revision": "9377065a8cd5998aff2d9a489ae10e89b0520ac3",
+      "image_id": "sha256:e19fa9d56854ef313b70c15fd75b3c0514870b580c16e5ebc9d64ff75640931c",
+      "tag": "sha-9377065a8cd5998aff2d9a489ae10e89b0520ac3-r39225399903-a1",
+      "published": true,
+      "repository": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
+      "registry_digest": "sha256:0a732c5474ea6b08fa2b6ab3b0268247a0b14638d9185840ec7a8e528703fb8d",
+      "source_hashes": {
+        "ai-ops/Dockerfile": "a0cf9187337e1c7eb51a2328cd6cf308b6af9ac5521af58b30432c32034f2c96",
+        "ai-ops/requirements.lock": "628955a48213d5adfc435c5676f05fb4459c0b27ed2d6586441aa6b88002ea7a",
+        "ai-ops/runbooks/index.yaml": "c794f91bd51e15c8c28e0177bf2e9e5a798b74db9a401274205af68a8ba9968c"
+      },
+      "recorded_at": "2026-10-19T08:56:54.313665Z"
+    },
+    "run_url": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39225399903",
+    "source_hashes_verified": true,
+    "manifest_and_config_verified": true,
+    "scan_status": "COMPLETE",
+    "scan_counts": {},
+    "scan_completed_at": "2026-10-19T17:56:59+09:00"
+  },
+  "stale_fix_rollout": {
+    "helm_revision": 2,
+    "pod_uid_before": "6cf48f32-8b75-452a-a6a6-dca739187139",
+    "pod_uid_after": "bb9017e0-6c1b-45db-9d91-dbdb11445c05",
+    "ready": true,
+    "same_pvc_uid": true,
+    "running_collection_source_hash_verified": true
+  },
+  "list_shape_fix": {
+    "pr": "https://github.com/f-lab-edu/F-Lab-DevOps/pull/35",
+    "head": "380f101a204b35e749d198ff8f65a2d320cec1d9",
+    "merge_commit": "5d432f5e96a01357bf7efa711bb600197a13c95b",
+    "ci_url": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39227268149",
+    "contracts": "success",
+    "image": "success",
+    "registration_run": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39227539145",
+    "registration_status": "success",
+    "unit_tests": 156,
+    "registration_record": {
+      "schema_version": 1,
+      "record_type": "ai_ops_image_registration",
+      "source_revision": "5d432f5e96a01357bf7efa711bb600197a13c95b",
+      "image_id": "sha256:db65c914df8078552242f9d8432338ae6ccd1426d52259dc0d5809d8fa2f7e95",
+      "tag": "sha-5d432f5e96a01357bf7efa711bb600197a13c95b-r39227539145-a1",
+      "published": true,
+      "repository": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
+      "registry_digest": "sha256:49d1775ba0ebf1c2500e8cb7dfe6f46b40b955e08293954c86073123983080c5",
+      "source_hashes": {
+        "ai-ops/Dockerfile": "a0cf9187337e1c7eb51a2328cd6cf308b6af9ac5521af58b30432c32034f2c96",
+        "ai-ops/requirements.lock": "628955a48213d5adfc435c5676f05fb4459c0b27ed2d6586441aa6b88002ea7a",
+        "ai-ops/runbooks/index.yaml": "c794f91bd51e15c8c28e0177bf2e9e5a798b74db9a401274205af68a8ba9968c"
+      },
+      "recorded_at": "2026-10-19T09:09:51.619926Z"
+    },
+    "scan_status": "COMPLETE",
+    "scan_counts": {},
+    "scan_completed_at": "2026-10-19T09:09:56Z",
+    "manifest_config_source_hashes_verified": true,
+    "deployed": true,
+    "plain_collector_path_verified": true
+  },
+  "completed_at": "2026-10-19T09:20:57.635022Z",
+  "final_result": {
+    "record_type": "ai_ops_live_rules_validation",
+    "observed_at": "2026-10-19T09:12:11.696561Z",
+    "incident_id": "inc-27497815cea545489762bac366e38048",
+    "run_id": "run-2918cb4a079249508df93449e6cae0f1",
+    "status": "partial",
+    "failure_reason": "collection_incomplete",
+    "collection_status": "partial",
+    "engine": "rules-captured-v1",
+    "current_state": "unknown",
+    "diagnosis_status": "insufficient_evidence",
+    "analysis_status": "partial",
+    "evidence_count": 18,
+    "evidence_status_counts": {
+      "available": 7,
+      "invalid": 2,
+      "missing": 7,
+      "stale": 2
+    },
+    "audit_reason_counts": {
+      "collected": 7,
+      "invalid_payload": 2,
+      "empty_response": 3,
+      "outside_window": 2,
+      "missing_history": 1,
+      "no_traffic": 3
+    },
+    "entries": [
+      {
+        "evidence_id": "ev-pod-0-status",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-0-log",
+        "status": "invalid",
+        "reason": "invalid_payload",
+        "time_field": "log_timestamp",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-0-config",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-1-status",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-1-log",
+        "status": "invalid",
+        "reason": "invalid_payload",
+        "time_field": "log_timestamp",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-pod-1-config",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-events-empty",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "eventTime",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "response_received_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-argo",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "status_reconciled_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-history-0",
+        "status": "stale",
+        "reason": "outside_window",
+        "time_field": "history_deployed_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-history-1",
+        "status": "stale",
+        "reason": "outside_window",
+        "time_field": "history_deployed_at",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history",
+        "time_field": "response_received_at",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected",
+        "time_field": "evaluation_time",
+        "observed_offset": "Z"
+      },
+      {
+        "evidence_id": "ev-metric-cache_hit_ratio",
+        "status": "missing",
+        "reason": "empty_response",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-api_latency",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      },
+      {
+        "evidence_id": "ev-metric-db_latency",
+        "status": "missing",
+        "reason": "no_traffic",
+        "time_field": "evaluation_time",
+        "observed_offset": null
+      }
+    ],
+    "expected_pods": 2,
+    "raw_bytes_read": 120486,
+    "redaction_count": 0,
+    "log_event_projection_count": 0,
+    "duration_seconds": 0.593202,
+    "bundle_hash": "a1aeac3e099fd46d9a5ba1c1020e6dc04e57e418b560cce70e4e15fb6de61d0b",
+    "file_sha256": {
+      "input.json": "670c9fadcc1d7c702012fe059964ad342acc3dc436921d6793b491854b9d7f87",
+      "metadata.json": "7d673e8dfe53b2f465bbf2344da5bea8f4c73a931f80df56587ad34dc1e06523",
+      "report.json": "10543d9ccb38897dedde431c90a404a8e018ffd03a9298855e0d31cfc0937d7d",
+      "report.md": "bbc237f771483b01950d52f4b50e89655cbc61777a679098250d6c2447782cb6",
+      "collection-audit.json": "d8c0188de995f4a6687f5f082876eec812bcce56cc3b7269719eeb037e2c397c"
+    },
+    "private_permissions": true,
+    "show_matches_stored": true,
+    "utc_internal": true,
+    "kst_markdown": true,
+    "external_model_denied": true,
+    "ai_budget_file_absent": true,
+    "passed": true,
+    "retention": {
+      "request_id": "b2-live-20261019091132-final",
+      "created_at": "2026-10-19T09:12:10.980587Z",
+      "delete_after": "2026-10-26T09:12:10.980587Z",
+      "scope": "sanitized_input_report_collection_audit_and_request_index",
+      "owner": "repository_operator",
+      "automatic_deletion_enabled": false
+    },
+    "cli_exit_code": 1,
+    "provider_key_and_budget_guards_not_called": true
+  },
+  "previous_saved_report_after_rollout": {
+    "passed": true,
+    "file_sha256_unchanged": true,
+    "result": {
+      "record_type": "ai_ops_live_rules_validation",
+      "observed_at": "2026-10-19T09:12:09.854518Z",
+      "incident_id": "inc-103f3066fbe94f69ba79f4635d4dc6b9",
+      "run_id": "run-e4876b43ec8148909256edb86f8010f4",
+      "status": "partial",
+      "failure_reason": "collection_incomplete",
+      "collection_status": "partial",
+      "engine": "rules-captured-v1",
+      "current_state": "unknown",
+      "diagnosis_status": "insufficient_evidence",
+      "analysis_status": "partial",
+      "evidence_count": 15,
+      "evidence_status_counts": {
+        "invalid": 4,
+        "available": 3,
+        "stale": 2,
+        "missing": 6
+      },
+      "audit_reason_counts": {
+        "scope_mismatch": 4,
+        "collected": 3,
+        "outside_window": 2,
+        "missing_history": 1,
+        "empty_response": 2,
+        "no_traffic": 3
+      },
+      "entries": [
+        {
+          "evidence_id": "ev-workload-scope",
+          "status": "invalid",
+          "reason": "scope_mismatch",
+          "time_field": "response_received_at",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-workload-logs",
+          "status": "invalid",
+          "reason": "scope_mismatch",
+          "time_field": "log_timestamp",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-workload-events",
+          "status": "invalid",
+          "reason": "scope_mismatch",
+          "time_field": "eventTime",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-workload-config",
+          "status": "invalid",
+          "reason": "scope_mismatch",
+          "time_field": "response_received_at",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-deployment-object",
+          "status": "available",
+          "reason": "collected",
+          "time_field": "response_received_at",
+          "observed_offset": "Z"
+        },
+        {
+          "evidence_id": "ev-deployment-argo",
+          "status": "available",
+          "reason": "collected",
+          "time_field": "status_reconciled_at",
+          "observed_offset": "Z"
+        },
+        {
+          "evidence_id": "ev-deployment-history-0",
+          "status": "stale",
+          "reason": "outside_window",
+          "time_field": "history_deployed_at",
+          "observed_offset": "Z"
+        },
+        {
+          "evidence_id": "ev-deployment-history-1",
+          "status": "stale",
+          "reason": "outside_window",
+          "time_field": "history_deployed_at",
+          "observed_offset": "Z"
+        },
+        {
+          "evidence_id": "ev-deployment-ci-history",
+          "status": "missing",
+          "reason": "missing_history",
+          "time_field": "response_received_at",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-metric-cache-outcome-gaps",
+          "status": "missing",
+          "reason": "empty_response",
+          "time_field": "evaluation_time",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-metric-cache_outcomes",
+          "status": "available",
+          "reason": "collected",
+          "time_field": "evaluation_time",
+          "observed_offset": "Z"
+        },
+        {
+          "evidence_id": "ev-metric-cache_hit_ratio",
+          "status": "missing",
+          "reason": "empty_response",
+          "time_field": "evaluation_time",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-metric-http_error_ratio",
+          "status": "missing",
+          "reason": "no_traffic",
+          "time_field": "evaluation_time",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-metric-api_latency",
+          "status": "missing",
+          "reason": "no_traffic",
+          "time_field": "evaluation_time",
+          "observed_offset": null
+        },
+        {
+          "evidence_id": "ev-metric-db_latency",
+          "status": "missing",
+          "reason": "no_traffic",
+          "time_field": "evaluation_time",
+          "observed_offset": null
+        }
+      ],
+      "expected_pods": 2,
+      "raw_bytes_read": 36830,
+      "redaction_count": 0,
+      "log_event_projection_count": 0,
+      "duration_seconds": 0.508307,
+      "bundle_hash": "3dd15cbc354ae1efefdd15c528eeee8b80ccfcd9787b4b4aaa39e5063fd57185",
+      "file_sha256": {
+        "input.json": "75de1450798c3db846039480138327bd83b613a225403543f954dc39f1434417",
+        "metadata.json": "443afc5ccf016dcc209c7364f6b45d142db615c0bf5b5c055ebb58a0b8f90f5d",
+        "report.json": "fda43e0cbea0b90c82f62f6ac9e96495be1b9661112692d367721b5e190db478",
+        "report.md": "1b81ac919cc8d992025ecf52efb148eab01b5b8007f9cb9915c1a809b96f18bd",
+        "collection-audit.json": "80d734064804801c265ad425609cf0acd83eea6b3cb395046bef33b5f41b8f7f"
+      },
+      "private_permissions": true,
+      "show_matches_stored": true,
+      "utc_internal": true,
+      "kst_markdown": true,
+      "external_model_denied": true,
+      "ai_budget_file_absent": true,
+      "passed": true
+    }
+  },
+  "final_deployment": {
+    "helm_revision": 3,
+    "helm_status": "deployed",
+    "pod_name": "ai-ops-0",
+    "pod_uid": "6b6ac01d-6991-467b-886e-4115fa23d8d7",
+    "node": "ip-10-0-10-42.ap-northeast-2.compute.internal",
+    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:49d1775ba0ebf1c2500e8cb7dfe6f46b40b955e08293954c86073123983080c5",
+    "image_id": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:49d1775ba0ebf1c2500e8cb7dfe6f46b40b955e08293954c86073123983080c5",
+    "image_source": "5d432f5e96a01357bf7efa711bb600197a13c95b",
+    "running_collection_and_common_code_hashes_verified": true,
+    "ready": true,
+    "pvc_name": "data-ai-ops-0",
+    "pvc_uid": "b48ef65f-b2b3-4594-a717-54432e66d9b3",
+    "same_pvc_uid": true,
+    "app_uid_and_generation_unchanged": true,
+    "app_ready_replicas": 2
+  },
+  "scope": {
+    "completed": "limited_live_collection_rules_report_pvc_store_show_utc_kst",
+    "b2_whole_stage_complete": false,
+    "b3_whole_stage_complete": false,
+    "real_incident_cause_identified": false,
+    "remaining": [
+      "실제 이벤트·로그의 허용 진단 표식과 출처별 시각/사건 순서 대조",
+      "배포 실패·자동 롤백 전후 artifact 수집과 import",
+      "에이전트 자체 관측·중지/복구 절차",
+      "자동 경보·영속 큐·worker·실자료 외부 AI·승인 후 조치"
+    ]
+  },
+  "probe_script_sha256": "642946a9a580dde07ae3cef2d9057d6019f89c57c4cb5ff7672b729ab28388a9"
+}

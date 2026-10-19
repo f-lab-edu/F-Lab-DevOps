@@ -31,7 +31,7 @@ aws ec2 describe-nat-gateways --region "$AWS_REGION" \
   --query 'NatGateways[].NatGatewayAddresses[].AllocationId' --output text
 ```
 
-현재 컨텍스트가 `urlshortener`, AWS 계정이 `716174522908`인지 확인한 뒤 진행한다. Terraform은 `1.14.7`과 운영용 S3 backend key(`urlshortener/production/terraform.tfstate`)를 사용해야 한다. `vpc_id` output이 없거나 state의 리소스가 예상과 다르면 삭제를 진행하기 전에 실제 AWS 리소스와 state를 대조한다. 실습용 state 또는 다른 `project_name`으로 운영 리소스를 정리하지 않는다. NAT Gateway에 연결된 Elastic IP 할당 ID도 삭제 전 기록해 최종 검증에 사용한다. 진행 중인 main 배포 Actions가 끝났는지 확인하고 정리 중에는 새 배포를 시작하지 않는다. 현재 배포 이미지, 이전 안정 이미지, RDS 백업·최종 스냅샷 보존 결정을 먼저 기록한다. 상세 정책은 `docs/runbooks/30-rds-ecr-retention.md`를 따른다.
+현재 컨텍스트가 `urlshortener`, AWS 계정이 `716174522908`인지 확인한 뒤 진행한다. Terraform은 `1.14.7`과 운영용 S3 backend key(`urlshortener/production/terraform.tfstate`)를 사용해야 한다. **AI 전용 root의 key는 `urlshortener/ai-ops/practice/terraform.tfstate`로 별도**다. 두 state와 각 AWS 실물을 먼저 대조한다. 어느 state가 사라졌는데 관리 대상 AWS 리소스가 남아 있다면 삭제를 멈추고 복구/import를 판단한다. `vpc_id` output이 없거나 state의 리소스가 예상과 달라도 중단한다. NAT Gateway에 연결된 Elastic IP 할당 ID도 삭제 전 기록해 최종 검증에 사용한다. 진행 중인 main 배포·AI 이미지 등록 Actions가 끝났는지 확인하고 정리 중에는 새 배포를 시작하지 않는다. 현재 배포 이미지, 이전 안정 이미지, AI ECR 이미지, RDS 백업·최종 스냅샷 보존 결정을 먼저 기록한다. 상세 정책은 `docs/runbooks/30-rds-ecr-retention.md`를 따른다.
 
 ### 0-1. CI 배포 중지 확인
 
@@ -40,7 +40,10 @@ aws ec2 describe-nat-gateways --region "$AWS_REGION" \
 ```bash
 gh run list --repo f-lab-edu/F-Lab-DevOps --workflow ci-cd.yml --limit 10 \
   --json databaseId,status,conclusion,headBranch
+gh workflow list --repo f-lab-edu/F-Lab-DevOps --json name,path,state
 ```
+
+`ai-ops-image.yml`이 아직 `main`에 없다면 AI 등록 workflow는 실행할 수 없으므로 그 사실을 기록한다. 목록에 있으면 `gh run list --repo f-lab-edu/F-Lab-DevOps --workflow ai-ops-image.yml --limit 10`으로 실행 중·대기 중인 작업이 없는지 추가 확인한다. GitHub API 권한 오류를 workflow 부재로 간주하지 않는다.
 
 이 저장소의 배포 워크플로를 정리 기간 동안 중지하기로 승인했다면 다음 명령을 **별도로** 실행한다. 다른 팀의 배포에도 쓰이는 저장소라면 비활성화하지 말고 합의된 배포 동결 방법을 따른다. 재설치 후 CI를 다시 사용하려면 워크플로를 재활성화해야 한다.
 
@@ -48,6 +51,16 @@ gh run list --repo f-lab-edu/F-Lab-DevOps --workflow ci-cd.yml --limit 10 \
 gh workflow disable ci-cd.yml --repo f-lab-edu/F-Lab-DevOps
 gh workflow view ci-cd.yml --repo f-lab-edu/F-Lab-DevOps
 ```
+
+---
+
+### 0-2. AI Helm·PVC/EBS 선행 정리 — 필수
+
+[AI 클러스터 정리 절차](ai-ops-cluster-lifecycle.md)를 **Karpenter·앱·Prometheus·Argo·CSI 제거 전에** 먼저 수행한다. 현재 AI Helm release, metrics Service/ServiceMonitor·NetworkPolicy·전용 RBAC, namespace·StorageClass와 5Gi PVC/EBS가 대상이다. 전체 삭제 요청에서 AI 자료도 삭제하며, 로컬 소스·개인 API 키는 AWS 정리와 별개로 유지한다.
+
+실제 AI PV/Volume ID를 기록 → Helm uninstall → 남은 `data-ai-ops-0` PVC 명시 삭제 → PV와 EBS 실제 부재 확인 → 전용 Role/RoleBinding 잔존 확인 → AI StorageClass/namespace 제거 순서다. StatefulSet의 PVC 보존 Retain 때문에 EKS destroy나 namespace 삭제만으로 완료 처리하지 않는다. 같은 태그의 잔여 AI EBS도 대조하고 EBS가 남으면 CSI/EKS 제거 전에 중지한다. 이미 클러스터가 사라진 재개 상황의 소유권·unattached 볼륨 정리도 연결 절차를 따른다.
+
+이후 14-0절에서 AI ECR의 모든 digest·AI root 네 리소스를 먼저 destroy하고 production root를 처리한다. AI state와 bucket 버전/삭제 마커는 두 root와 실물 삭제 확인 후 마지막에 정리한다. Route53은 계속 보존한다.
 
 ---
 
@@ -323,6 +336,8 @@ helm list -A
 
 ## 9. PVC와 EBS 볼륨 정리
 
+0-2절의 [AI 선행 정리](ai-ops-cluster-lifecycle.md)에서 AI PVC/PV·EBS·전용 namespace/StorageClass가 제거됐는지 기록을 확인한다. 아래 monitoring/url-shortener 명령은 AI 볼륨 삭제를 대신하지 않는다. 누락됐으면 EKS/CSI 삭제 전에 0-2절을 완료한다.
+
 Application·Helm 정리 이후 남은 PVC를 삭제한다. 먼저 `gp2` StorageClass, PVC/PV의 실제 소유권, reclaim policy와 EBS Volume ID를 조회해 **삭제 전에 기록**한다. `Delete`는 PVC 삭제 후 CSI 드라이버가 EBS 볼륨을 삭제해야 하고, `Retain`은 볼륨이 남으므로 별도 보관·비용 결정을 기록한다. 필요한 데이터는 먼저 백업한다.
 
 ```bash
@@ -462,6 +477,8 @@ Controller 삭제 후 12절에서 Namespace를 정리한다. Route53은 조회�
 
 ## 12. 실습 Namespace 삭제
 
+AI namespace는 0-2절에서 PVC/EBS 정리를 확인한 뒤 삭제했어야 한다. `kubectl get namespace ai-ops --ignore-not-found`가 비어 있는지 확인하고 남아 있으면 원인을 조사한다.
+
 ```bash
 kubectl delete namespace monitoring --ignore-not-found
 kubectl delete namespace url-shortener --ignore-not-found
@@ -497,7 +514,11 @@ aws route53 list-resource-record-sets --hosted-zone-id "$HOSTED_ZONE_ID" \
 
 ## 14. Terraform 리소스 삭제
 
-Kubernetes 리소스, Load Balancer, Target Group, PVC 정리가 끝난 뒤 실행한다. 운영 DB와 ECR의 보존 정책 때문에 아래 사전 단계를 먼저 마쳐야 한다. 운영 state에서 `environment=practice`로 바꾸거나 S3 state 객체를 지워서 보호 장치를 우회하지 않는다.
+Kubernetes 리소스, Load Balancer, Target Group, PVC 정리가 끝난 뒤 실행한다. **14-0절에서 AI 전용 root를 먼저 destroy하고 AWS 실물 부재를 확인한 뒤에만** 기존 production root의 삭제 보호 변경과 destroy를 수행한다. production root가 소유한 GitHub OIDC와 공용 state bucket이 AI root 종료까지 남아 있어야 한다. 운영 DB와 ECR의 보존 정책 때문에 아래 사전 단계를 먼저 마쳐야 한다. 운영 state에서 `environment=practice`로 바꾸거나 S3 state 객체를 지워서 보호 장치를 우회하지 않는다.
+
+### 14-0. AI 전용 ECR·IAM과 별도 state의 소유권 확인·선행 destroy
+
+[AI 전용 root 설치·정리 절차](ai-ops-registry-lifecycle.md)의 공통 확인과 정리 단계를 실행한다. AI ECR `urlshortener-practice-ai-ops`는 `force_delete=false`다. 이미지가 있다면 보존 결정을 기록하고 **전체 삭제 승인 후** 태그 없는 이미지를 포함해 digest로 비운다. AI root의 `enable_ai_ops_registry=true`를 명시한 `plan -destroy`에서 ECR·lifecycle policy·IAM Role·inline policy 네 개만 삭제 대상인지 확인한 뒤 별도로 destroy한다. AI state가 빈 상태이고 ECR·IAM Role이 AWS에서 없어졌음을 확인하기 전에는 14-1절 또는 production destroy로 넘어가지 않는다. AI state 객체 자체는 이 단계에서 지우지 않는다. production OIDC·bucket·Route53도 변경하지 않는다.
 
 ### 14-1. RDS 삭제 보호를 별도 변경으로 해제
 
@@ -614,7 +635,7 @@ terraform state list
 - Karpenter IAM Role, SQS, EventBridge, Spot 서비스 연결 역할
 - ALB Controller와 GitHub Actions IAM 리소스
 
-`terraform/bootstrap-state-bucket.sh`가 만든 S3 state 버킷과 버전, Terraform이 관리하지 않는 Route53 Hosted Zone과 모든 DNS 레코드는 남는다. state 버킷은 추후 복구·감사를 위해 삭제하지 않는다. Spot 서비스 연결 역할을 다른 워크로드도 사용 중이면 Terraform 삭제가 실패할 수 있으므로 다른 사용처를 확인한다.
+`terraform/bootstrap-state-bucket.sh`가 만든 S3 state 버킷과 버전은 **이 destroy 직후까지는 남는다**. 이번 전체 정리에서 backend까지 삭제하기로 한 경우 두 root의 최종 검증 후 17절에서만 정리한다. Route53 Hosted Zone과 모든 DNS 레코드는 계속 남긴다. Spot 서비스 연결 역할을 다른 워크로드도 사용 중이면 Terraform 삭제가 실패할 수 있으므로 다른 사용처를 확인한다.
 
 ### 14-4. RDS 상태·ECR 이미지로 destroy가 부분 실패했을 때
 
@@ -695,7 +716,7 @@ aws sqs list-queues --region "$AWS_REGION" \
 
 EKS, VPC, ECR 명령은 `ResourceNotFound` 또는 해당 리소스가 없다는 오류가 정상이다. RDS와 Load Balancer 조회 결과는 빈 배열이어야 한다. Karpenter EC2·활성 NAT Gateway 목록은 비어 있어야 하며, Karpenter SQS 큐도 없어야 한다. 다른 워크로드가 쓰는 서비스 연결 역할은 보존 대상으로 별도 기록한다.
 
-운영 Primary의 최종 스냅샷과 원격 state 버킷은 삭제 대상이 아니다. 아래 목록에는 과거 스냅샷도 포함될 수 있으므로 **이번 destroy에서 생성된 정확한 식별자**를 구분해 기록한다. 스냅샷 상태, 보관 기간, state 객체와 버전이 남아 있는지 확인한다. state 원문은 터미널 로그나 이슈에 출력하지 않는다.
+운영 Primary의 최종 스냅샷은 보존 대상이다. 원격 state 버킷은 **두 root의 삭제 완료와 AWS 실물 부재 확인까지 유지**하고, 이번 전체 정리에서 backend까지 삭제하기로 한 경우에만 17절에서 처리한다. 아래 목록에는 과거 스냅샷도 포함될 수 있으므로 **이번 destroy에서 생성된 정확한 식별자**를 구분해 기록한다. 스냅샷 상태, 보관 기간, 두 root의 state 객체와 버전을 확인한다. state 원문은 터미널 로그나 이슈에 출력하지 않는다.
 
 ```bash
 aws rds describe-db-snapshots --region "$AWS_REGION" --snapshot-type manual \
@@ -706,6 +727,10 @@ aws s3api head-bucket --bucket urlshortener-tfstate-716174522908-ap-northeast-2
 aws s3api list-object-versions \
   --bucket urlshortener-tfstate-716174522908-ap-northeast-2 \
   --prefix urlshortener/production/terraform.tfstate \
+  --query 'Versions[*].[Key,VersionId,IsLatest,LastModified]' --output table
+aws s3api list-object-versions \
+  --bucket urlshortener-tfstate-716174522908-ap-northeast-2 \
+  --prefix urlshortener/ai-ops/practice/terraform.tfstate \
   --query 'Versions[*].[Key,VersionId,IsLatest,LastModified]' --output table
 ```
 
@@ -771,9 +796,17 @@ gh variable list --repo f-lab-edu/F-Lab-DevOps
 
 ---
 
+## 17. 두 Terraform root 종료 후 backend state·bucket 정리
+
+이번 요청처럼 backend까지 완전 정리할 때만 [AI 전용 root 설치·정리 절차의 backend 정리](ai-ops-registry-lifecycle.md#모든-root-삭제-후-backend-정리)를 따른다. **14-0절 AI state와 14-3절 production state가 모두 비고 AWS 관리 리소스의 부재가 검증된 뒤** 버전 관리 bucket의 모든 허용된 state 버전·삭제 마커를 검토한다. 다른 팀·실습 state가 있으면 bucket 삭제를 중단한다. 지울 정확한 key·version을 확인한 뒤 버전별로 정리하고 bucket이 빈 것을 다시 확인한 후에만 bucket을 삭제한다. state를 먼저 삭제하거나 AI state만 지우고 production OIDC를 먼저 삭제하지 않는다. RDS 최종 스냅샷과 Route53은 보존한다. backend 보존을 선택한 정리라면 이 절은 건너뛴다.
+
+---
+
 ## 핵심 삭제 순서
 
 ```text
+0-2. AI Helm·PVC/PV·EBS·전용 권한·StorageClass/namespace 선행 정리
+   ↓
 1. Karpenter NodePool·NodeClaim 정리
    ↓
 2. 애플리케이션 Application (url-shortener)
@@ -796,9 +829,13 @@ gh variable list --repo f-lab-edu/F-Lab-DevOps
    ↓
 13. Route53 Hosted Zone·모든 레코드 보존 (조회만 수행)
    ↓
-14. RDS 삭제 보호를 별도 apply로 해제, ECR 이미지 보존·정리 후 terraform destroy
+14-0. AI ECR 이미지 승인·정리 → AI 전용 root destroy → state/AWS 실물 부재 확인
    ↓
-15. 최종 스냅샷과 S3 state 버킷 보존 확인
+14. RDS 삭제 보호를 별도 apply로 해제, 앱 ECR 이미지 보존·정리 후 production root destroy
+   ↓
+15. 최종 스냅샷 보존과 두 root·state·AWS 실물 최종 확인
    ↓
 16. GitHub Actions 배포 전용 Secret·변수 정리와 워크플로 중지 상태 확인
+   ↓
+17. 완전 정리 요청 시에만 두 root의 state 이전 버전·삭제 마커를 지우고 빈 backend bucket 삭제
 ```

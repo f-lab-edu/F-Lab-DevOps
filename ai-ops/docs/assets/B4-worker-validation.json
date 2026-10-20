@@ -1,14 +1,146 @@
 {
-  "phase": "B-04",
-  "status": "local_validated_deployment_pending",
+  "verified_at": "2026-10-20T07:01:23.573331+00:00",
+  "source_revision": "c17ac3dd13d43532c7f78a99fdcd773d0b2d4c47",
+  "image_run_id": 39382980228,
+  "ci_run_id": 39382810627,
   "python_tests": 207,
-  "new_worker_runtime_tests": 7,
-  "helm_modes": [
-    "diagnostics",
-    "worker"
-  ],
+  "worker_deployed": true,
+  "forced_pod_replacement": true,
+  "recovered_job": {
+    "job": {
+      "job_id": "job-4025f19995844d2fa49743d7aba3cb88",
+      "state": "partial",
+      "attempts": 2,
+      "generation": 2,
+      "reason": null,
+      "incident_id": "inc-4003bb993ea1486a9b29978946243877",
+      "run_id": "run-2e4f787c54dd495eab522d63d8502d70",
+      "bundle_hash": "405dfcc1c0499097106a1645491d4b937fd51ac0e466a701c48e6c715a7e2897",
+      "created_at": "2026-10-20T06:59:01.955372Z",
+      "updated_at": "2026-10-20T07:00:08.231852Z",
+      "lease_until": null,
+      "retention_deadline": "2026-10-27T06:59:01.955372Z",
+      "attempt_history": [
+        {
+          "generation": 1,
+          "parent_generation": null,
+          "state": "failed",
+          "reason": "interrupted"
+        },
+        {
+          "generation": 2,
+          "parent_generation": 1,
+          "state": "partial",
+          "reason": null
+        }
+      ]
+    },
+    "report_hashes": {
+      "input.json": "a7c099a6f14a4dd58618494429f25b1bfd0dcee0fc6b7cbe3ce3dffed9e5a6fe",
+      "metadata.json": "2faa671ad44ec2d8929842ced2e43604775f9f2d9c12ba4ec34353a4d56c0796",
+      "report.json": "6433113ed72cfff9eefd536ae2aacf085eac40d68847d14e6cadaff4ee865e67",
+      "report.md": "2e243018c05c293587327ff7e06ec230f43455b628cad75b31c48ce1b32726a0",
+      "collection-audit.json": "1d1dec357ef45d3341c8845b6b02fd00bfc44722467ee0abba02cdbedf141f06"
+    },
+    "external_model_called": false,
+    "pod_uid": "91185235-4920-40ff-807d-92382abfe179",
+    "observed_states": [
+      [
+        "analyzing",
+        1
+      ],
+      [
+        "queued",
+        1
+      ],
+      [
+        "partial",
+        2
+      ]
+    ],
+    "old_pod_uid": "b365614c-c0c1-4d2e-9a5e-c3b853f4d78d"
+  },
+  "checkpoint_proof": {
+    "job_id": "job-4025f19995844d2fa49743d7aba3cb88",
+    "generation": 1,
+    "state": "analyzing",
+    "snapshot_hash": "12afa7a4f05b2b7a51138ee651a886a414ed53c060676336b70299d024c2640e",
+    "checkpoint_file_sha256": "12afa7a4f05b2b7a51138ee651a886a414ed53c060676336b70299d024c2640e"
+  },
+  "verification": {
+    "duplicate": true,
+    "existing_job_id": "job-36985a0627e145cc97a7d1975c3cb1ac",
+    "snapshot_file_sha256": "12afa7a4f05b2b7a51138ee651a886a414ed53c060676336b70299d024c2640e",
+    "external_model_blocked": true,
+    "llm_enabled": false
+  },
+  "existing_completed_report_unchanged": true,
+  "pvc_uid_unchanged": true,
+  "app_uid_generation_pods_unchanged": true,
+  "app_ready_replicas": 2,
+  "permissions": {
+    "create pods/exec ai-ops": "denied",
+    "get secrets url-shortener": "denied",
+    "patch deployments url-shortener": "denied"
+  },
+  "metrics": {
+    "sample_count": 31,
+    "prometheus": {
+      "up": [
+        1.0
+      ],
+      "progress": [
+        1792479666.4124908
+      ],
+      "queued": [
+        0.0
+      ]
+    },
+    "local_metrics": {
+      "ai_ops_operation_duration_seconds_count{stage=\"collection\",result=\"failure\"}": "0",
+      "ai_ops_operation_duration_seconds_sum{stage=\"collection\",result=\"failure\"}": "0.0",
+      "ai_ops_operation_duration_seconds_count{stage=\"collection\",result=\"partial\"}": "2",
+      "ai_ops_operation_duration_seconds_sum{stage=\"collection\",result=\"partial\"}": "1.2847891439996602",
+      "ai_ops_operation_duration_seconds_count{stage=\"collection\",result=\"success\"}": "0",
+      "ai_ops_operation_duration_seconds_sum{stage=\"collection\",result=\"success\"}": "0.0",
+      "ai_ops_operation_duration_seconds_count{stage=\"diagnostic\",result=\"failure\"}": "0",
+      "ai_ops_operation_duration_seconds_sum{stage=\"diagnostic\",result=\"failure\"}": "0.0",
+      "ai_ops_operation_duration_seconds_count{stage=\"diagnostic\",result=\"partial\"}": "0",
+      "ai_ops_operation_duration_seconds_sum{stage=\"diagnostic\",result=\"partial\"}": "0.0",
+      "ai_ops_operation_duration_seconds_count{stage=\"diagnostic\",result=\"success\"}": "260",
+      "ai_ops_operation_duration_seconds_sum{stage=\"diagnostic\",result=\"success\"}": "9.986537557000702",
+      "ai_ops_operation_duration_seconds_count{stage=\"report\",result=\"failure\"}": "0",
+      "ai_ops_operation_duration_seconds_sum{stage=\"report\",result=\"failure\"}": "0.0",
+      "ai_ops_operation_duration_seconds_count{stage=\"report\",result=\"partial\"}": "2",
+      "ai_ops_operation_duration_seconds_sum{stage=\"report\",result=\"partial\"}": "0.09008742499827349",
+      "ai_ops_operation_duration_seconds_count{stage=\"report\",result=\"success\"}": "0",
+      "ai_ops_operation_duration_seconds_sum{stage=\"report\",result=\"success\"}": "0.0",
+      "ai_ops_diagnostic_last_success_timestamp_seconds": "1792479336.971018",
+      "ai_ops_queue_jobs{state=\"queued\"}": "0",
+      "ai_ops_queue_jobs{state=\"collecting\"}": "0",
+      "ai_ops_queue_jobs{state=\"analyzing\"}": "0",
+      "ai_ops_queue_jobs{state=\"completed\"}": "0",
+      "ai_ops_queue_jobs{state=\"partial\"}": "2",
+      "ai_ops_queue_jobs{state=\"failed\"}": "0",
+      "ai_ops_queue_jobs{state=\"cancelled\"}": "0",
+      "ai_ops_queue_jobs{state=\"needs_review\"}": "0",
+      "ai_ops_queue_oldest_waiting_age_seconds": "0",
+      "ai_ops_queue_expired_leases": "0",
+      "ai_ops_queue_retained_attempts": "3",
+      "ai_ops_worker_last_progress_timestamp_seconds": "1792479676.441336"
+    }
+  },
+  "collection_calls_delta": 2,
+  "report_calls_delta": 2,
   "external_model_calls": 0,
-  "cluster_worker_deployed": false,
-  "pod_restart_recovery_verified": false,
-  "verification_base": "origin/main"
+  "ignored_pid1_sigkill_not_counted_as_restart": true,
+  "phase": "B-04",
+  "status": "worker_deployed_restart_verified_retention_scheduler_pending",
+  "image_digest": "sha256:10ca94de84949233fbf5521b32a01009ad7e5a0adc4cff19355493e102335180",
+  "security_scan": {
+    "status": "COMPLETE",
+    "finding_count": 0
+  },
+  "retention_scheduler_enabled": false,
+  "alert_receiver_enabled": false
 }

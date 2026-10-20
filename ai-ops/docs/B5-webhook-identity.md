@@ -56,6 +56,6 @@ kubectl -n monitoring label secret ai-ops-alertmanager-auth \
 
 만료 최소 30일 전에 회전을 계획한다. 현재는 인증서 만료를 자동 갱신하거나 별도 경보로 알리는 기능이 없으므로 설치·운영 기록에 확인일과 만료일을 남긴다. TLS 서버는 시작 때 인증서를 읽으므로 Secret 교체만으로 완료되지 않는다. 같은 CA로 서버 인증서를 재발급한다면 서버 Secret을 갱신하고 AI StatefulSet을 순차 재시작한 뒤 실제 CA·호스트명 검증을 다시 수행한다. worker는 같은 PVC로 복귀해야 한다.
 
-CA도 바꾸는 경우 새·기존 CA를 함께 신뢰하는 클라이언트 CA 묶음을 먼저 배포해 Alertmanager의 파일 갱신·TLS 연결을 확인한다. 새 서버 인증서로 교체·수신기 재시작 후 실제 전달이 성공하면 기존 CA를 제거한다. 임시 `insecure_skip_verify`나 인증 제거로 우회하지 않는다. token 회전도 서버와 클라이언트 파일 반영 시차 동안 401·재시도가 생길 수 있으므로 짧은 점검 창에서 두 Secret 갱신과 실제 전달 확인을 함께 수행한다. AI 오류 동안에도 Slack·Watchdog 경로를 유지한다.
+CA도 바꾸는 경우 새·기존 CA를 함께 신뢰하는 클라이언트 CA 묶음을 먼저 배포한다. projected 파일 반영을 확인하고 Alertmanager를 제어된 순서로 재시작해 신뢰 파일을 다시 읽게 한 뒤 기존 서버와 TLS 연결을 확인한다. 새 서버 인증서로 교체·수신기 재시작 후 실제 전달이 성공하면 기존 CA를 제거한다. 임시 `insecure_skip_verify`나 인증 제거로 우회하지 않는다. token 회전도 서버와 클라이언트 파일 반영 시차 동안 401·재시도가 생길 수 있으므로 짧은 점검 창에서 두 Secret 갱신과 실제 전달 확인을 함께 수행한다. AI 오류 동안에도 Slack·Watchdog 경로를 유지한다.
 
 전체 정리는 AI Helm/PVC/EBS를 먼저 제거하고 AI namespace의 수신기 Secret을 함께 제거한다. monitoring의 `ai-ops-alertmanager-auth`는 **모니터링 종료 단계에서** 삭제한다. Alertmanager가 사용 중일 때 인증 Secret을 먼저 삭제하지 않는다. 로컬 개인 폴더는 AWS 정리 대상이 아니며 별도 보관 정책을 따른다.

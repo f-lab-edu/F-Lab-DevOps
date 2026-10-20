@@ -1,7 +1,7 @@
 {
   "phase": "B-05",
-  "status": "local_ingestion_tls_routing_validated_cluster_disabled",
-  "python_tests": 237,
+  "status": "receiver_deployed_internal_e2e_pass_routing_activation_pending",
+  "python_tests": 238,
   "new_tests": 21,
   "test_breakdown": {
     "alert_inbox": 13,
@@ -11,14 +11,45 @@
   "helm_receiver_default_enabled": false,
   "application_ai_labels_default_enabled": false,
   "cluster_alertmanager_routing_changed": false,
-  "cluster_receiver_deployed": false,
+  "cluster_receiver_deployed": true,
   "external_model_calls": 0,
   "external_notification_test_sent": false,
   "runtime_dependencies_added": [],
   "limitations": [
-    "실제 TLS Secret·수신기 배포·Alertmanager 전달은 미검증",
+    "실제 Alertmanager 경보 전달·NetworkPolicy 발신자 경계·AI 장애 중 사람 알림 전달 시험은 후속",
     "기존 Slack/Watchdog 보존은 로컬 분기 검사이며 실제 전송 확인은 후속",
     "동일 Pod의 PVC·UID·네트워크를 공유",
     "중복/해제 장부 최대 10000행, 장기 아카이브 정책 후속"
-  ]
+  ],
+  "initial_checkout_python_tests": 237,
+  "implementation_pr": 44,
+  "source_revision": "4da4add26f3ec4614b128cd1155f58582c811e29",
+  "image_run_id": 39393659389,
+  "image_run_status": "success",
+  "cluster_identity_secrets_created": true,
+  "server_certificate_expires_at": "2027-01-18T08:40:42Z",
+  "alertmanager_route_test": {
+    "version": "0.32.0",
+    "tool": "amtool config routes test",
+    "watchdog_heartbeat_only": true,
+    "ai_and_slack": true,
+    "ordinary_slack": true,
+    "live_config_changed": false
+  },
+  "helm_revision": 4,
+  "image_digest": "sha256:c96654ccb9517e55161a1a0849d67c9de42638cfbaac77f7b07c8d2dc8c8d5fc",
+  "certificate_algorithm": "RSA",
+  "internal_https_validation": {
+    "method": "localhost_port_forward",
+    "untrusted_ca_rejected": true,
+    "wrong_token_status": 401,
+    "accepted_status": 202,
+    "duplicate_resolved_late_firing_verified": true,
+    "existing_jobs_preserved": 2,
+    "new_job_state": "partial",
+    "new_job_attempts": 1,
+    "new_report_files": 5,
+    "networkpolicy_sender_verified": false,
+    "actual_alertmanager_sender_verified": false
+  }
 }

@@ -64,6 +64,7 @@ alertmanager:
     secrets:
       - alertmanager-slack-secret   # Webhook URL이 담긴 Secret을 Pod에 마운트
       - alertmanager-heartbeat-secret   # Heartbeat Secret을 Pod에 마운트
+      - ai-ops-alertmanager-auth   # 내부 AI 수신기의 인증값·CA 파일
 
   config:
     global:
@@ -81,6 +82,12 @@ alertmanager:
           group_wait: 0s
           group_interval: 5m
           repeat_interval: 5m
+        # AI 전달과 별개로 기존 Slack 수신 분기를 계속 평가한다.
+        - matchers:
+            - ai_ops="enabled"
+          receiver: ai-investigation
+          continue: true
+        - receiver: slack-notifications
 
     receivers:
       - name: "null"              # Watchdog 등 무시할 알림용 no-op receiver
@@ -102,6 +109,21 @@ alertmanager:
               *Severity:* {{ .Labels.severity }}
               {{ end }}
             send_resolved: true   # 알림이 해결되면 Slack에 통보
+
+      - name: ai-investigation
+        webhook_configs:
+          - url: https://ai-ops-webhook.ai-ops.svc:9443/v1/alerts
+            send_resolved: true
+            timeout: 5s
+            max_alerts: 32
+            http_config:
+              authorization:
+                type: Bearer
+                credentials_file: /etc/alertmanager/secrets/ai-ops-alertmanager-auth/token
+              follow_redirects: false
+              tls_config:
+                ca_file: /etc/alertmanager/secrets/ai-ops-alertmanager-auth/ca.crt
+                server_name: ai-ops-webhook.ai-ops.svc
 
     # inhibit_rules — critical 발생 시 하위 warning 알림 중복 발송 억제
     inhibit_rules:

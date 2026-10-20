@@ -4,7 +4,7 @@ import copy
 import json
 import unittest
 
-from ai_ops.alert_routing import build_routing
+from ai_ops.alert_routing import build_routing, verify_routing
 
 class AlertRoutingTest(unittest.TestCase):
     def setUp(self):
@@ -46,6 +46,18 @@ class AlertRoutingTest(unittest.TestCase):
             value=copy.deepcopy(self.base);mutate(value)
             with self.assertRaises(ValueError):build_routing(value)
         with self.assertRaises(ValueError):build_routing(build_routing(self.base))
+
+    def test_activated_routing_rejects_auth_or_sibling_drift(self):
+        value=build_routing(self.base)
+        original=copy.deepcopy(value)
+        verify_routing(value)
+        self.assertEqual(value,original)
+        for mutate in (lambda v:v['alertmanager']['config']['route']['routes'][1].update({'continue':False}),
+                       lambda v:v['alertmanager']['config']['receivers'][-1]['webhook_configs'][0]['http_config']['tls_config'].update({'insecure_skip_verify':True}),
+                       lambda v:v['alertmanager']['config']['route']['routes'].pop(),
+                       lambda v:v['alertmanager']['alertmanagerSpec']['secrets'].remove('ai-ops-alertmanager-auth')):
+            changed=copy.deepcopy(value);mutate(changed)
+            with self.assertRaises(ValueError):verify_routing(changed)
 
 
 

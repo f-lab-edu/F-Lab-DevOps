@@ -1,6 +1,20 @@
 # B-05 경보 연동 — 첫 구현 묶음
 
-현재 상태: **경보 접수·TLS 수신기·배포 정의·기존 알림 분기 준비의 로컬 구현**이다. 전체 Python 237건과 Helm 정적 검사를 통과했다. 운영 클러스터의 수신기·TLS Secret·Alertmanager 분기와 앱 AI label은 아직 활성화하지 않았다. B-05 전체 완료가 아니다.
+## 2026-10-20 원격 반영·연결 준비 현황
+
+[PR #44](https://github.com/f-lab-edu/F-Lab-DevOps/pull/44)는 Python 238건·이미지·앱·Helm·Terraform CI 통과 후 main `4da4add26f3ec4614b128cd1155f58582c811e29`에 병합했다. 아래 237건은 기존 로컬 checkout의 최초 기록이며, main 기반 회귀 시험은 238건이다.
+
+전용 인증 Secret `ai-ops/ai-ops-webhook-identity`와 `monitoring/ai-ops-alertmanager-auth`를 준비했다. 인증값·개인키는 Git과 실행 출력에 기록하지 않았다. 서버 인증서 만료는 **2027-01-18 17:40:42 KST**이며 만료 전에 CA·서버 인증서·클라이언트 신뢰 설정과 수신기 재시작을 함께 계획해야 한다. Secret 생성만으로 수신기가 실행되거나 Alertmanager에 인증 파일이 마운트된 것은 아니다.
+
+실제 Alertmanager 0.32.0의 `amtool config routes test`에 준비한 설정을 전달해 Watchdog 단독 heartbeat, AI 대상 경보의 AI+Slack, 일반 경보의 Slack 분기를 확인했다. 실행 중인 설정은 바꾸지 않았고 실제 Slack·heartbeat 시험 메시지도 보내지 않았다. 이는 분기 판정 검증이며 TLS 통신·전달 성공을 대신하지 않는다.
+
+[이미지 등록 실행 39393659389](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39393659389)은 사용자 승인 후 성공했다. source `4da4add26f3ec4614b128cd1155f58582c811e29`, digest `sha256:c96654ccb9517e55161a1a0849d67c9de42638cfbaac77f7b07c8d2dc8c8d5fc`의 artifact·ECR manifest와 COMPLETE/지적 0건을 검증했다. Helm revision 4에 worker와 TLS 수신기 2개 컨테이너를 배포해 Ready를 확인했다.
+
+실제 인증 시험에서 호스트가 생성한 EC 명시 매개변수 인증서의 Python TLS 호환 문제가 발견돼 **RSA CA/서버 인증서로 교체**하고 재시작했다. 검증을 우회하지 않았다. localhost port-forward로 실제 CA·호스트명 검증, 미신뢰 CA 차단, 잘못된 token 401, 신규 202, 중복·해제·늦은 firing 차단을 확인했다. 내부 합성 경보 1건은 규칙 보고서 `partial`과 결과 파일 5개를 생성했고 worker 시도는 1회다. 이는 자료가 완전하지 않음을 명시한 결과이며 원인 확정·복구 성공이 아니다. 기존 조사 2건과 보고서 해시·동일 PVC는 유지됐다. 이 시험은 NetworkPolicy 발신자 검증이나 실제 Alertmanager 발신을 대신하지 않는다.
+
+다음 적용은 운영 Alertmanager 분기와 앱 경보 labels다. 외부 시험 메시지는 전송하지 않았으며 AI 중지·인증 실패 중 실제 Slack 전달 시험은 별도 승인 범위에서 남아 있다. 재설치 시 모니터링 전에 인증 Secret을 준비하고 worker overlay 뒤 `b5-values.receiver.yaml`을 적용한다. [Secret 설치·회전 절차](B5-webhook-identity.md)를 따른다.
+
+최초 로컬 검증 기록: 경보 접수·TLS 수신기·배포 정의·기존 알림 분기 준비를 구현하고 당시 checkout의 Python 237건과 Helm 정적 검사를 통과했다. 당시 운영 Secret·수신기·분기는 미적용이었으며, 최신 준비 상태는 위 기록을 따른다. B-05 전체 완료가 아니다.
 
 ## 구현한 기능과 동작 흐름
 

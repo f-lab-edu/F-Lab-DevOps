@@ -375,7 +375,7 @@ kubectl delete secret url-shortener-secret \
   -n url-shortener \
   --ignore-not-found
 
-kubectl delete secret grafana-admin-secret alertmanager-slack-secret alertmanager-heartbeat-secret \
+kubectl delete secret grafana-admin-secret alertmanager-slack-secret alertmanager-heartbeat-secret ai-ops-alertmanager-auth \
   -n monitoring \
   --ignore-not-found
 ```

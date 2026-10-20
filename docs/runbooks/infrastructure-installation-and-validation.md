@@ -70,9 +70,9 @@ kubectl get nodes
 
 AI 진단 배포를 준비할 때 계정·CSI를 확인하고 `ai-ops/kubernetes/ai-storageclass.yaml` 원본을 검토한다. 실제 적용은 11-1절에서 함께 수행한다. `ai-ops-gp3-encrypted`는 기본 StorageClass가 아니며 ECR/IAM Terraform state 소유 리소스도 아니다. EKS 재생성 시 별도 재적용해야 한다. 원본 manifest가 사용할 원격 revision에 포함돼 있는지 먼저 확인한다. 선언은 encrypted=true·gp3·WaitForFirstConsumer·reclaim Delete이며 실제 EBS 암호화는 향후 PVC 생성 후 조회한다. API Service/Endpoint 주소는 이전 설치 값을 재사용하지 않고 다시 대조한다. 현재 AI chart의 enabled=false는 유지하며 StorageClass 생성만으로 Pod/PVC를 배포하지 않는다.
 
-### 2-2. AI 진단 StatefulSet·PVC 재배포 시점
+### 2-2. AI 수동 조사 worker·PVC 재배포 시점
 
-실제 진단·자체 관측 배포는 필요한 앱·Argo·Prometheus 준비 뒤 **11-1절**에서 수행한다. [AI 설치·정리 절차](ai-ops-cluster-lifecycle.md)의 준비 도구가 새 API 주소·승인 이미지·StorageClass 입력을 생성하므로 과거 IP/digest를 그대로 재사용하지 않는다.
+실제 수동 큐 worker·자체 관측 배포는 필요한 앱·Argo·Prometheus 준비 뒤 **11-1절**에서 수행한다. [AI 설치·정리 절차](ai-ops-cluster-lifecycle.md)의 준비 도구가 새 API 주소·승인 이미지·StorageClass 입력을 생성하므로 과거 IP/digest를 그대로 재사용하지 않는다.
 
 ## 3. AWS Load Balancer Controller
 
@@ -420,11 +420,11 @@ NodeClaim이 생겼다면 해당 노드가 `Ready`가 될 때까지 기다리고
 
 과거 문서의 Pod 이름과 노드 이름은 재사용하지 않는다. 현재 저장소에는 Loki/로그 수집기를 배포하는 선언이 없으므로, 로그 수집 설치는 별도의 설계와 검증 대상으로 기록한다. 예전 Promtail 설치 명령을 그대로 실행하지 않는다.
 
-### 11-1. AI 진단·자체 관측 재설치 — 필수
+### 11-1. AI 수동 큐 worker·자체 관측 재설치 — 필수
 
-앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 관측 overlay를 이용해 진단 StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다.
+앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 `b4-values.worker.yaml` overlay를 이용해 수동 큐 worker StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다.
 
-이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. 경보 수신·B-04 worker·외부 모델은 이 재설치로 활성화하지 않는다.
+이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. B-04 수동 큐 worker를 복원하며 경보 수신·외부 모델·운영 변경·예약 보관 정리는 활성화하지 않는다. worker probe·고정 큐 상태·실제 루프 진행 시각을 확인하고 과거 진단 heartbeat로 대신하지 않는다.
 
 ## 12. 미뤄 둔 개선 항목 검증
 

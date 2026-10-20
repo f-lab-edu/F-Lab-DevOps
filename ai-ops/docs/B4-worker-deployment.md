@@ -1,6 +1,6 @@
 # B-04 worker 배포·관측·재시작 복구
 
-현재 상태: **로컬 구현·Python 207건·Helm 정적 검사 통과. 원격 CI·새 이미지 등록·실제 worker 배포/Pod 복구 검증은 대기**다. 기존 클러스터는 아직 진단 모드다.
+현재 상태: **2026-10-20 16:01:23 KST worker 배포·실제 Pod 교체 복구 검증 완료**다. PR #40·main과 원격 Python 207건·Helm·이미지 실행 검사를 통과했다. 수동 접수만 처리하며 경보 수신·외부 모델·운영 변경·예약 보관 정리는 비활성이다.
 
 ## 구현한 기능과 흐름
 
@@ -45,4 +45,22 @@ worker가 계속 잠금을 잡으므로 보관표 조회/삭제는 먼저 **같�
 
 기존 큐/보관 시험에 신규 7건을 추가해 전체 Python 207건을 통과했다. 고정 지표의 원문/식별자 미포함, 읽기 조회의 큐 불변, 만료 lease, 오래되거나 미래인 heartbeat·비정상 PID·링크 거부, 유휴 중 단일 worker 잠금, 정상 종료 후 snapshot 재사용을 검증했다. 별도 실제 프로세스를 SIGTERM으로 종료하고 probe 실패·미존재 저장소 비생성을 확인했다. Helm은 진단/worker와 관측 유무, 90초 종료 유예·worker probe, 기존 최소 RBAC/통신/비활성 모델 경계를 검증했다.
 
-실제 이미지의 부팅·PVC 재연결·Pod 중단 복구는 로컬 시험과 다르므로 별도 실행 기록이 필요하다. B-04 전체 완료나 자동 경보 조사 시작으로 표시하지 않는다. B-05 경보 접수와 예약 보관 정리는 후속이다.
+실제 이미지의 부팅·PVC 재연결·Pod 중단 복구는 아래 실행 기록에서 확인했다. B-04 전체 완료나 자동 경보 조사 시작으로 표시하지 않는다. B-05 경보 접수와 예약 보관 정리는 후속이다.
+
+## 원격 반영 기록
+
+[PR #40](https://github.com/f-lab-edu/F-Lab-DevOps/pull/40)은 [AI CI](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39382810627)의 contracts/image 통과 후 main `c17ac3dd13d43532c7f78a99fdcd773d0b2d4c47`에 반영했다. [이미지 등록 실행](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39382980228)은 사용자 승인 후 성공했다. 새 이미지의 소스·ECR manifest/digest와 COMPLETE·지적 0건을 검증한 뒤 기존 PVC에 Helm revision 2 worker 모드를 배포했다.
+
+## 실제 배포·Pod 중단 검증 결과 (2026-10-20 16:01:23 KST)
+
+새 digest는 `sha256:10ca94de84949233fbf5521b32a01009ad7e5a0adc4cff19355493e102335180`다. worker probe, Prometheus `up=1`, 고정 지표 31개와 실제 루프 진행을 확인했다.
+
+1. 수동 실제 읽기 조사 한 건을 규칙 `partial` 보고서로 저장하고 파일 다섯 개의 해시를 기록했다. 자료 부족을 완전한 원인 규명으로 표시하지 않았다.
+2. 컨테이너 안에서 PID 1에 보낸 첫 SIGKILL은 Linux PID namespace의 init 보호로 종료를 일으키지 않았다. restartCount=0을 확인했으며 이를 복구 성공으로 계산하지 않았다.
+3. 다음 요청에서는 운영자 검사 프로세스가 보고서 저장 파일 잠금만 일시 보유해, 실제 수집을 마친 checkpoint 이후 `analyzing` 지점을 고정했다. 이 상태를 확인한 뒤 AI Pod만 `--grace-period=0 --force`로 교체했다. 검사 프로세스의 exit 137과 새 Pod UID를 확인했다. PVC와 앱은 삭제하지 않았다. 이 조작은 검증용이며 정상 운영 중단 절차는 아니다.
+4. 새 Pod에서 `analyzing(1) → queued(1) → partial(2)`를 확인했다. 첫 시도는 `failed/interrupted`, 두 번째 시도는 부모 generation 1을 가진 부분 완료다.
+5. checkpoint 파일 해시와 보고서 bundle hash가 일치했다. 총 수집 호출은 두 요청의 최초 수집 2회뿐이며, 복구 시 재수집하지 않았다. 보고서 호출은 두 결과 2회다. 기존 완료 보고서 다섯 파일과 완료 상태도 불변이었다.
+6. 기존 요청 키 재접수는 같은 job ID와 `duplicate=true`를 반환했다. 동일 PVC UID/PV, 앱 Deployment UID/generation·Pod UID와 Ready 2개를 확인했다.
+7. 조사 ServiceAccount의 `pods/exec` 생성·Secret 읽기·Deployment patch는 모두 거부됐다. 운영 자료 외부 모델 차단과 `llm_enabled=false`를 확인했고 외부 모델 호출은 0회다.
+
+[본문 없는 검증 기록](assets/B4-worker-validation.json)에 상태·식별자·해시·고정 지표를 남겼다. 운영 질문·증거·보고서 원문은 PVC 밖으로 복사하지 않았다. 일회성 검사 marker는 제거했고 실제 조사 자료에는 7일 정책을 적용한다. **예약 보관 정리와 B-05 경보 연동은 후속이며, B-04 전체 완료를 선언하지 않는다.**

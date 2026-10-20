@@ -14,7 +14,7 @@
 
 `ai-ops` namespace만 지우거나 EKS만 destroy해서 EBS까지 없어졌다고 판단하지 않는다. StatefulSet의 PVC 보존 정책은 Retain, AI PV의 reclaim은 Delete다. 보고서·정제 입력·관측 집계는 PVC 삭제 시 사라진다. 전체 삭제 요청이 없는 평상시 중지는 [0→1 복구 가이드](../../ai-ops/docs/B3-observability-and-recovery.md)를 따른다. 로컬 소스·개인 API 키 파일·로컬 설명 사이트는 AWS 정리 대상이 아니다.
 
-Route53은 전체 정리에서도 조회만 하며 삭제·변경하지 않는다. 기존 RDS 최종 스냅샷 보존 정책도 바꾸지 않는다. B-04 worker의 실제 배포·Pod 복구 검증 후 재설치 대상은 **수동 조사 큐 worker·읽기 수집·규칙 보고서와 자체 관측**이다. 경보 수신·외부 모델·운영 변경·예약 보관 정리는 활성화하지 않는다. chart 기본값의 비활성·진단 모드는 유지하며 아래 worker overlay를 명시해야 실행된다.
+Route53은 전체 정리에서도 조회만 하며 삭제·변경하지 않는다. 기존 RDS 최종 스냅샷 보존 정책도 바꾸지 않는다. B-04 worker의 실제 배포·Pod 복구 검증 후 재설치 대상은 **수동 조사 큐 worker·읽기 수집·규칙 보고서와 자체 관측**이다. 경보 수신·외부 모델·운영 변경은 활성화하지 않는다. 예약 보관 정리는 검증한 새 이미지와 worker overlay로 명시적으로 복원한다. chart 기본값의 비활성·진단 모드는 유지하며 아래 worker overlay를 명시해야 실행된다.
 
 ## 설치 순서
 
@@ -166,6 +166,8 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 
 2026-10-20 승인 이미지로 실제 worker 배포·동일 PVC의 강제 Pod 교체 후 checkpoint 재사용과 중복/보고서 보존을 확인했다. [실행 기록](../../ai-ops/docs/B4-worker-deployment.md)을 참고한다. 재설치 완료를 확인하려고 매번 강제 Pod 교체 시험을 반복하지 않는다. 기본은 probe·Prometheus·이미지·PVC 확인이며 새 코드나 실패가 있을 때만 필요한 복구 시험을 추가한다.
 
-보관표 조회·삭제는 단일 worker 잠금과 겹칠 수 없다. 같은 이미지·private values·worker overlay를 유지하고 Helm 마지막 값에 `--set mode=diagnostics --set retention.enabled=false`를 함께 지정하여 전환해 worker 종료를 확인한 뒤 수행한다. 정리 후 override를 제거해 worker로 복귀한다. 예약 정리는 후속이며 전체 인프라 삭제에서는 기존 순서대로 AI를 먼저 중지·삭제하고 PVC/EBS와 ECR/state를 확인한다.
+보관표 조회·삭제는 단일 worker 잠금과 겹칠 수 없다. 같은 이미지·private values·worker overlay를 유지하고 Helm 마지막 값에 `--set mode=diagnostics --set retention.enabled=false`를 함께 지정하여 전환해 worker 종료를 확인한 뒤 수행한다. 정리 후 override를 제거해 worker로 복귀한다. 예약 정리는 현재 worker의 안전 지점에서 활성화돼 있으며 전체 인프라 삭제에서는 기존 순서대로 AI를 먼저 중지·삭제하고 PVC/EBS와 ECR/state를 확인한다.
 
 예약 정리는 새 이미지의 worker overlay에서 명시적으로 활성화한다. 현재 worker가 안전 지점에서 잠깐 정리한 뒤 조사 처리를 재개하므로, 이 자동 경로에는 Helm 모드 전환이나 Kubernetes 변경 권한을 부여하지 않는다. 주기·장부·실제 배포 상태는 [예약 정리 문서](../../ai-ops/docs/B4-retention-schedule.md)를 따른다. 과거의 예약 비활성 문구는 최초 배포 당시 기록이다.
+
+2026-10-20 예약 정리 이미지도 사용자 승인·ECR 검사 0건 후 실제 배포했다. 재설치 완료 기준에는 worker probe·Prometheus up=1 외에 `ai_ops_retention_enabled=1`·예약 성공 시각·overdue 확인을 포함한다. 현재 총 38개 지표이며, 과거 진단 heartbeat로 대신하지 않는다. 실제 운영 자료의 날짜를 조작하거나 강제 Pod 종료 시험을 설치 때마다 반복하지 않는다. [검증·한계](../../ai-ops/docs/B4-retention-schedule.md).

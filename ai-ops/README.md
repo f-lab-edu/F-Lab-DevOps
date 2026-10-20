@@ -108,3 +108,5 @@ B-03-SEC-01 진행(2026-10-19): AI 베이스를 공식 Python 3.11.17-alpine3.24
 2026-10-20 **B-04 worker 배포·실제 Pod 복구 검증 완료**: PR #40·main c17ac3d, 원격 Python 207건·이미지 실행 통과와 사용자 승인 이미지 등록 후 Helm revision 2로 배포했다. 실제 수집 checkpoint 뒤 AI Pod를 교체해 2차 partial·재수집 없음·기존 보고서/중복 키/동일 PVC/앱 불변을 확인했다. Prometheus up=1·31개 지표와 조사 주체의 exec/Secret/patch 거부도 확인했다. 예약 보관 정리는 후속이다. [배포·운영 기록](docs/B4-worker-deployment.md).
 
 B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했다. 기존 worker가 작업 사이에 정리하며 새 Kubernetes 권한이나 CronJob을 추가하지 않는다. 기본 비활성이고 worker overlay에서만 명시적으로 활성화한다. 실제 배포 상태는 해당 문서 상단을 따른다.
+
+2026-10-20 **B-04 예약 보관 정리 배포·검증 완료**: PR #42·원격 217건/이미지 통과와 사용자 승인 등록 후 Helm revision 3에서 활성화했다. 실제 운영 큐의 예약 실행·38개 지표와 합성 만료 요청 자동 삭제/미만료·보호 파일 보존·재시작 후 예약 유지를 확인했다. 운영 큐 2건·보고서·동일 PVC·앱 Ready 2개는 보존됐다. B-04 현재 범위 완료, 다음은 B-05 경보 연동이다. [최신 기록·실제 운영 만료 삭제 미시험 한계](docs/B4-retention-schedule.md).

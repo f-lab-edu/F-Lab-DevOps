@@ -12,7 +12,13 @@
 
 실제 인증 시험에서 호스트가 생성한 EC 명시 매개변수 인증서의 Python TLS 호환 문제가 발견돼 **RSA CA/서버 인증서로 교체**하고 재시작했다. 검증을 우회하지 않았다. localhost port-forward로 실제 CA·호스트명 검증, 미신뢰 CA 차단, 잘못된 token 401, 신규 202, 중복·해제·늦은 firing 차단을 확인했다. 내부 합성 경보 1건은 규칙 보고서 `partial`과 결과 파일 5개를 생성했고 worker 시도는 1회다. 이는 자료가 완전하지 않음을 명시한 결과이며 원인 확정·복구 성공이 아니다. 기존 조사 2건과 보고서 해시·동일 PVC는 유지됐다. 이 시험은 NetworkPolicy 발신자 검증이나 실제 Alertmanager 발신을 대신하지 않는다.
 
-다음 적용은 운영 Alertmanager 분기와 앱 경보 labels다. 외부 시험 메시지는 전송하지 않았으며 AI 중지·인증 실패 중 실제 Slack 전달 시험은 별도 승인 범위에서 남아 있다. 재설치 시 모니터링 전에 인증 Secret을 준비하고 worker overlay 뒤 `b5-values.receiver.yaml`을 적용한다. [Secret 설치·회전 절차](B5-webhook-identity.md)를 따른다.
+[PR #45](https://github.com/f-lab-edu/F-Lab-DevOps/pull/45)는 Python **239건**·전체 CI 통과 후 main에 반영했고, 운영 Alertmanager 분기와 앱 경보 labels를 활성화했다. Argo CD의 모니터링·앱은 Synced/Healthy, 앱은 Ready 2개다. 실제 실행 중인 Alertmanager의 amtool로 AI+Slack과 Watchdog 전용 분기를 확인했다. 서비스 경보 5개의 등록 대상 labels와 Watchdog 제외도 실제 리소스로 확인했다.
+
+실제 Alertmanager Pod에서 amtool의 CA·호스트명 검증 TLS 요청이 405에 도달했고, Prometheus Pod의 수신 포트 접근은 timeout으로 차단됐다. monitoring에는 발신 egress NetworkPolicy가 없으므로 후자는 수신 ingress 경계의 실제 차단 결과다. 405는 조회 API 미제공 응답이며 인증된 POST 접수를 증명하는 응답이 아니다.
+
+같은 Alertmanager Pod 안에서 **동일 바이너리의 AI 전용 격리 프로세스**를 실행했다. 별도 loopback API·임시 저장소와 실제 CA/Bearer 파일을 사용해 발생·해제 webhook 2회, 실패 0회를 확인했다. 이 경보도 worker 1회·partial 규칙 보고서·결과 파일 5개와 해제 장부로 이어졌다. 운영 Alertmanager 본체에 시험 경보를 주입한 것은 아니며, 임시 프로세스와 폴더는 종료 시 정리했다. 기존 조사 2건의 보고서 해시와 동일 PVC/EBS는 보존됐고 내부 시험 조사만 2건 추가됐다.
+
+**실제 연결과 내부 전달은 검증했지만 B-05 전체 완료는 아니다.** 외부 시험 메시지는 전송하지 않았으며 AI 중지·인증 실패 중 운영 Alertmanager→실제 Slack 전달 시험은 별도 승인 범위에서 남아 있다. 기존 Watchdog의 인위적 시험 전송도 하지 않았다. 외부 모델 호출은 0회다. 재설치 시 모니터링 전에 인증 Secret을 준비하고 worker overlay 뒤 `b5-values.receiver.yaml`을 적용한다. [Secret 설치·회전 절차](B5-webhook-identity.md)를 따른다.
 
 최초 로컬 검증 기록: 경보 접수·TLS 수신기·배포 정의·기존 알림 분기 준비를 구현하고 당시 checkout의 Python 237건과 Helm 정적 검사를 통과했다. 당시 운영 Secret·수신기·분기는 미적용이었으며, 최신 준비 상태는 위 기록을 따른다. B-05 전체 완료가 아니다.
 
@@ -96,6 +102,6 @@ python -m ai_ops alert-show --store /data/incidents --job job-실제반환ID
 
 ## 검증과 남은 활성화 작업
 
-현재 checkout의 전체 Python **237건**(신규 경보 21건: 접수 13·실제 TLS 6·분기 보존 2)을 통과했다. 동시 전송·묶음의 용량 실패 롤백, 해제 선도착·재발·보관 삭제 후 중복, 시각/원문 미저장·운영자 시각 조회·장부 포화를 확인했다. 실제 localhost TLS 소켓으로 파일 인증·교체·잘못된 CA·크기/빈도/형식·저장 실패 응답을 대조했다. Helm은 수신기 비활성 기본값·Secret 참조·정확한 Alertmanager ingress·토큰 미마운트와 위험 변경 거부, 앱 경보 5개 Target·Watchdog 불변을 확인했다. 원격 main보다 이 checkout의 기존 회귀 시험이 1개 적으므로 원격 CI 건수와 혼동하지 않는다.
+최초 로컬 checkout의 전체 Python **237건**(신규 경보 21건: 접수 13·실제 TLS 6·분기 보존 2)을 통과했다. 동시 전송·묶음의 용량 실패 롤백, 해제 선도착·재발·보관 삭제 후 중복, 시각/원문 미저장·운영자 시각 조회·장부 포화를 확인했다. 실제 localhost TLS 소켓으로 파일 인증·교체·잘못된 CA·크기/빈도/형식·저장 실패 응답을 대조했다. Helm은 수신기 비활성 기본값·Secret 참조·정확한 Alertmanager ingress·토큰 미마운트와 위험 변경 거부, 앱 경보 5개 Target·Watchdog 불변을 확인했다. 원격 main보다 이 checkout의 기존 회귀 시험이 1개 적으므로 원격 CI 건수와 혼동하지 않는다.
 
-다음 묶음은 main 기반 원격 CI와 이미지 등록, TLS/인증 Secret 준비·내부 수신기 배포, 실제 대상 labels·Alertmanager 분기 연결이다. 실제 경보의 AI 접수와 기존 Slack/Watchdog 전달, AI 중지·TLS/auth 실패 시 사람 알림 유지, 경보→큐→수집→보고서의 실제 end-to-end 검증이 남았다. 외부 AI 전송·운영 변경은 별도 범위다. 실제 경보를 인위적으로 전송해 외부 Slack/heartbeat에 메시지를 보내는 시험은 사용자 승인된 시험 범위에서만 수행한다.
+후속 연결에서 main 기반 원격 CI·이미지 등록, TLS/인증 Secret·내부 수신기 배포, 실제 대상 labels·Alertmanager 분기를 적용했고 실제 바이너리의 격리 발생·해제와 큐→수집→보고서 전달을 확인했다. 남은 것은 사용자 승인 범위의 실제 외부 알림 및 AI 중지·TLS/auth 실패 중 사람 알림 전달 검증이다. 외부 AI 전송·운영 변경은 별도 범위다. 실제 경보를 인위적으로 전송해 외부 Slack/heartbeat에 메시지를 보내는 시험은 사용자 승인된 시험 범위에서만 수행한다.

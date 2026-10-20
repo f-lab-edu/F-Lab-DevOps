@@ -1,7 +1,7 @@
 {
   "phase": "B-05",
-  "status": "receiver_deployed_internal_e2e_pass_routing_activation_pending",
-  "python_tests": 238,
+  "status": "deployed_internal_delivery_verified_external_failure_delivery_pending",
+  "python_tests": 239,
   "new_tests": 21,
   "test_breakdown": {
     "alert_inbox": 13,
@@ -10,16 +10,18 @@
   },
   "helm_receiver_default_enabled": false,
   "application_ai_labels_default_enabled": false,
-  "cluster_alertmanager_routing_changed": false,
+  "cluster_alertmanager_routing_changed": true,
   "cluster_receiver_deployed": true,
   "external_model_calls": 0,
   "external_notification_test_sent": false,
   "runtime_dependencies_added": [],
   "limitations": [
-    "실제 Alertmanager 경보 전달·NetworkPolicy 발신자 경계·AI 장애 중 사람 알림 전달 시험은 후속",
-    "기존 Slack/Watchdog 보존은 로컬 분기 검사이며 실제 전송 확인은 후속",
+    "운영 Alertmanager 본체에 인위적 경보를 주입한 외부 Slack 시험과 AI 중단·인증 실패 중 실제 사람 알림 전달은 미검증",
+    "Watchdog 분기는 실제 실행 설정으로 확인했으며 인위적 외부 heartbeat 시험 메시지는 보내지 않음",
+    "partial 규칙 보고서는 자료 부족을 명시하며 장애 원인 확정이나 복구 성공을 의미하지 않음",
     "동일 Pod의 PVC·UID·네트워크를 공유",
-    "중복/해제 장부 최대 10000행, 장기 아카이브 정책 후속"
+    "중복/해제 장부 최대 10000행, 장기 아카이브 정책 후속",
+    "TLS 만료 자동 갱신·경보는 아직 없으며 수동 회전 필요"
   ],
   "initial_checkout_python_tests": 237,
   "implementation_pr": 44,
@@ -51,5 +53,34 @@
     "new_report_files": 5,
     "networkpolicy_sender_verified": false,
     "actual_alertmanager_sender_verified": false
-  }
+  },
+  "routing_activation_pr": 45,
+  "cluster_application_ai_labels_enabled": true,
+  "gitops": {
+    "monitoring": "Synced/Healthy",
+    "application": "Synced/Healthy",
+    "application_ready_replicas": 2
+  },
+  "network_boundary": {
+    "allowed_actual_alertmanager_pod": "CA+hostname verified TLS; HTTP 405; no alert sent",
+    "denied_prometheus_pod": "TCP timeout; no monitoring egress policy",
+    "verified": true
+  },
+  "isolated_alertmanager_delivery": {
+    "binary_version": "0.32.0",
+    "location": "actual Alertmanager Pod network",
+    "receiver": "AI only",
+    "api": "loopback only",
+    "webhooks": 2,
+    "failed_webhooks": 0,
+    "firing_and_resolved": true,
+    "new_job_state": "partial",
+    "attempts": 1,
+    "report_files": 5,
+    "temporary_process_and_directory_cleaned": true,
+    "production_alertmanager_test_alert_injected": false
+  },
+  "existing_jobs_preserved": 2,
+  "internal_test_jobs": 2,
+  "same_pvc_and_ebs_preserved": true
 }

@@ -165,7 +165,9 @@ class ReleaseObservationTest(unittest.TestCase):
         self.assertLess(ids["observe-deployment"][0], ids["rollback-deployment"][0])
         self.assertLess(ids["rollback-deployment"][0], ids["observe-rollback"][0])
         for step in steps:
-            if step.get("id", "").startswith("observe-") or step.get("uses", "").startswith("actions/upload-artifact@"):
+            is_observation_upload = (step.get("uses", "").startswith("actions/upload-artifact@")
+                                     and step.get("with", {}).get("name", "").startswith("deployment-observation-"))
+            if step.get("id", "").startswith("observe-") or is_observation_upload:
                 self.assertTrue(step["continue-on-error"])
                 self.assertIn("always()", step["if"])
                 self.assertEqual(step["timeout-minutes"], 1)
@@ -176,6 +178,20 @@ class ReleaseObservationTest(unittest.TestCase):
         self.assertIn("always()", final["if"])
         self.assertIn("steps.verify-deployment.outcome == 'failure'", final["if"])
         self.assertIn("exit 1", final["run"])
+
+    def test_image_registration_artifact_is_required_and_image_only_cannot_deploy(self):
+        workflow = yaml_file(ROOT / ".github/workflows/ci-cd.yml")
+        job = workflow["jobs"]["build-and-deploy"]
+        self.assertEqual(job["if"], "github.ref == 'refs/heads/main'")
+        steps = job["steps"]
+        registration = next(s for s in steps if s.get("with", {}).get("name", "").startswith("app-image-"))
+        self.assertNotIn("continue-on-error", registration)
+        self.assertEqual(registration["with"]["if-no-files-found"], "error")
+        names = {"values.prod.yaml 이미지 태그 업데이트", "values.prod.yaml 커밋 및 푸시", "Argo CD 동기화 및 클러스터 내부 경로 검증",
+                 "검증된 롤백 이미지 보존", "이전 이미지로 GitOps 롤백 및 복구 검증", "배포 실패 처리"}
+        for step in steps:
+            if step.get("name") in names:
+                self.assertIn("steps.execution.outputs.deploy == 'true'", step["if"])
 
     def test_actual_verify_wrapper_preserves_success_and_failure_exit_codes(self):
         steps = yaml_file(ROOT / ".github/workflows/ci-cd.yml")["jobs"]["build-and-deploy"]["steps"]

@@ -1,0 +1,32 @@
+name: 앱 이미지 복구 CI 검사
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/app-ci-checks.yml'
+      - '.github/scripts/app-image.py'
+      - '.github/scripts/update-app-image.sh'
+      - '.github/tests/**'
+  push:
+    branches:
+      - main
+      - 'codex/app-ci-*'
+    paths:
+      - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/app-ci-checks.yml'
+      - '.github/scripts/app-image.py'
+      - '.github/scripts/update-app-image.sh'
+      - '.github/tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  image-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - name: 이미지 등록·재사용·실패 경계 시험
+        run: python3 -m unittest discover -s .github/tests -p 'test_*.py' -v

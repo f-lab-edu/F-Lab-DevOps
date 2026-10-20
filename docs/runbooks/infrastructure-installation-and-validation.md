@@ -8,13 +8,13 @@ AWS 리전: ap-northeast-2
 
 ## 0. 배포 전 확인과 단계 통과 원칙
 
-- 운영 CI/CD는 `main`에 `url-shortener/app/**`, `url-shortener/Dockerfile`, `url-shortener/requirements.txt`, `url-shortener/requirements.lock` 변경이 push될 때 자동 실행된다. 일반 배포용 새 앱 코드 PR은 **8절의 Argo CD HTTPS·CI 토큰과 9절의 현재 이미지·앱 상태가 준비되기 전에는 병합하지 않는다.** 첫 이미지가 없는 경우에만 9절의 사용자 주도 CI/CD 이미지 확보 절차를 예외로 적용한다. 이미 병합한 경우에는 과거 실행을 무작정 재시도하지 말고 현재 ECR 태그와 GitOps 상태부터 조사한다.
+- 운영 CI/CD는 `main`에 `url-shortener/app/**`, `url-shortener/Dockerfile`, `url-shortener/requirements.txt`, `url-shortener/requirements.lock` 변경이 push될 때 자동 실행된다. 일반 배포용 새 앱 코드 PR은 **8절의 Argo CD HTTPS·CI 토큰과 9절의 현재 이미지·앱 상태가 준비되기 전에는 병합하지 않는다.** 첫 이미지가 없는 경우에는 9절의 수동 image-only 절차로 먼저 이미지를 확보한다. 이미 병합한 경우에는 과거 실행을 무작정 재시도하지 말고 현재 ECR 태그와 GitOps 상태부터 조사한다.
 - Argo CD의 애플리케이션, Traefik 라우팅, Prometheus values는 `main`을 추적한다. 로컬 또는 PR 브랜치의 values 변경은 `main`에 반영되기 전까지 클러스터에 적용되지 않는다. 설치에 필요한 구성 수정은 앱 코드 변경과 분리해 `main`에 먼저 반영한다. 부트스트랩은 현재 `main`의 선언을 기준으로 하고, 새 코드의 배포 판정은 병합 후에 한다.
 - CI의 `values.prod.yaml` 커밋·push에는 워크플로의 `contents: write` 권한이 필요하다. 병합 전 실제 브랜치 보호 규칙과 push 권한도 다시 확인한다.
 - Argo CD 서버는 4절에서 내부 `ClusterIP`로 설치하고, 8절에서 Traefik HTTPS와 `ARGOCD_SERVER`·`ARGOCD_AUTH_TOKEN`을 준비한다. 기존 `argocd-ingress.yaml`은 공개 HTTP ALB이므로 적용하지 않는다. CI 토큰은 이 애플리케이션의 상태 조회 권한만 부여한다.
 - 배포 검증은 클러스터 내부 PostSync Job이 `/readyz`와 `/items`를 호출한다. GitHub 러너가 IP 제한된 `api.bidservice.store`에 접근할 필요가 없고 `SMOKE_TEST_BASE_URL`도 사용하지 않는다.
 - **각 적용 직후 명시된 검증이 통과해야만 다음 적용으로 넘어간다.** `Synced`만으로는 부족하며 필요한 `Healthy`, Pod `Ready`, PVC `Bound`, 실제 HTTP/DB 응답을 확인한다. 실패·시간 초과·예상 밖 Terraform 변경이면 중단하고 원인을 조사한다.
-- 첫 이미지가 ECR에 없으면 설치 담당자는 **여기서 멈추고 사용자에게 CI/CD 실행을 요청한다.** 로컬 Docker Desktop 실행·수동 빌드·ECR 직접 푸시는 하지 않는다. CI의 ECR 푸시와 GitOps 태그 갱신을 확인한 뒤 현재 `main` 태그의 이미지가 ECR에 있을 때만 앱 Application을 등록한다. 앱이 아직 없어서 첫 CI의 후반 배포 검증이 실패할 수 있으므로 CI 전체 성공과 이미지 확보를 구분한다.
+- 첫 이미지가 ECR에 없으면 앱 Application 등록은 보류하고, 9절의 수동 `image-only` 실행으로 이미지를 확보한다. 이 실행은 GitOps 설정을 수정하지 않으며 배포·롤백도 하지 않는다. 결과의 태그를 별도 GitOps 변경으로 main에 반영하고 ECR digest를 확인한 뒤 앱을 등록한다. 로컬 Docker Desktop 실행·수동 빌드·ECR 직접 푸시는 하지 않는다.
 
 ## 1. Terraform 원격 state와 인프라
 
@@ -292,21 +292,30 @@ test -n "$IMAGE_TAG"
 aws ecr describe-images --repository-name urlshortener --region ap-northeast-2 --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text
 ~~~
 
-`ImageNotFoundException`이면 **설치를 즉시 멈추고 사용자에게 CI/CD 실행을 요청한다.** 설치 담당자는 Docker Desktop을 실행하거나 로컬 Buildx로 빌드하거나 ECR에 직접 푸시하지 않는다. 현재 `.github/workflows/ci-cd.yml`에는 수동 `workflow_dispatch`가 없으므로 사용자가 실제 앱 코드 변경을 `main`에 push해야 자동 실행된다. 문서나 Helm values만 push해도 실행되지 않는다.
-
-현재 워크플로는 린트 → ECR 이미지 푸시 → `values.prod.yaml` 태그 커밋·push → Argo CD 앱 검증 순서다. 이 시점에는 `url-shortener` Application이 아직 없으므로 첫 실행은 **이미지 푸시 후에도** 마지막 검증에서 실패할 수 있다. 이전 이미지가 없으면 자동 롤백도 건너뛴다. 이 실패를 배포 성공으로 기록하지 말고, ECR 푸시와 태그 갱신이 실제로 완료됐는지 개별적으로 확인한다. 푸시 전에 실패했거나 태그가 갱신되지 않았다면 원인을 해결할 때까지 다음 단계로 가지 않는다. 변경 불가 ECR 태그 때문에 **동일 SHA 실행을 무작정 재실행하지 않는다.**
-
-사용자가 CI/CD 실행 완료를 알리면 다음 명령으로 **현재 `origin/main`이 선언한 태그**를 다시 읽어 ECR digest를 확인한다. 첫 조회 당시의 오래된 태그를 그대로 사용하지 않는다. 이 검증이 통과해야만 아래 앱 Application 적용 단계로 재개한다.
+`ImageNotFoundException`이면 앱 Application 등록을 보류하고 아래 수동 실행으로 이미지를 확보한다. `workflow_dispatch`의 `mode=image-only`는 기본값이며 main에서만 허용한다. 앱 코드를 의미 없이 변경하거나 로컬 Docker로 빌드·직접 ECR push하지 않는다.
 
 ~~~bash
-gh run list --repo f-lab-edu/F-Lab-DevOps --workflow ci-cd.yml --limit 5
+gh workflow run ci-cd.yml --repo f-lab-edu/F-Lab-DevOps --ref main -f mode=image-only
+gh run list --repo f-lab-edu/F-Lab-DevOps --workflow ci-cd.yml --limit 5 \
+  --json databaseId,headSha,status,conclusion,url
+~~~
+
+정확한 실행 ID·source SHA를 확인하고 완료 후 `app-image-<run_id>-<attempt>` artifact의 `image-registration.json`과 실행 요약을 확인한다. 이 결과는 이미지 주소·태그·digest·전체 원본 커밋·신규/재사용 여부를 포함한다. **image-only 성공은 배포 성공이 아니다.** GitOps 커밋·Argo 검증·release 태그 등록·롤백은 실행하지 않는다. 기존 태그가 있으면 digest로 받아 전체 커밋과 linux/amd64를 검증한 뒤 재사용하며, 출처가 없거나 다른 커밋이면 중단한다.
+
+검증된 결과의 태그를 `values.prod.yaml`의 `.api.image.tag`에 반영하는 별도 GitOps 변경을 검토·main 반영한다. 이미지 등록만으로 기존 Helm 태그가 자동 변경되지는 않는다. 아래 변수는 실제 실행 결과와 일치하는 값으로 지정하고, 최신 main이 그 태그를 가리키는지 확인한 뒤 ECR digest를 대조한다.
+
+~~~bash
+VERIFIED_IMAGE_TAG=REPLACE_WITH_SUCCESSFUL_RUN_TAG
+VERIFIED_IMAGE_DIGEST=REPLACE_WITH_SUCCESSFUL_RUN_DIGEST
 git fetch origin main
 IMAGE_TAG=$(git show origin/main:url-shortener/url-shortener-chart/values.prod.yaml | awk '$1 == "tag:" {print $2; exit}')
-test -n "$IMAGE_TAG"
-IMAGE_DIGEST=$(aws ecr describe-images --repository-name urlshortener --region ap-northeast-2 --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
-test -n "$IMAGE_DIGEST" && test "$IMAGE_DIGEST" != "None"
-printf '확인된 이미지 태그: %s\n' "$IMAGE_TAG"
+test "$IMAGE_TAG" = "$VERIFIED_IMAGE_TAG"
+IMAGE_DIGEST=$(aws ecr describe-images --repository-name urlshortener --region ap-northeast-2 \
+  --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
+test "$IMAGE_DIGEST" = "$VERIFIED_IMAGE_DIGEST"
 ~~~
+
+위 비교가 성공해야 아래 앱 Application 등록으로 넘어간다. 앱 설치 후 일반 배포는 기존 자동 push 조건 또는 수동 `mode=deploy`로 검증한다. 수동 deploy도 기존 Argo 인증·정상 앱·롤백 준비 조건을 충족해야 한다. 자세한 재사용·실패 처리와 실행 결과 해석은 [앱 이미지 수동 복구](app-image-recovery.md)를 따른다.
 
 ~~~bash
 kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/argocd/application.yaml
@@ -343,7 +352,7 @@ kubectl wait -n url-shortener certificate/url-shortener-tls --for=condition=Read
 
 ## 10. 다음 앱 변경의 자동 CI/CD 검증
 
-일반 배포에서는 8~9절에서 Argo CD HTTPS 인증서, Actions 변수·Secret, ECR의 현재 이미지, 앱·라우팅 Application의 `Synced/Healthy`, PostSync 성공, Primary·Replica 접속, API HTTPS 응답이 모두 확인된 뒤에만 새 앱 코드 변경을 `main`에 병합한다. **첫 이미지가 없는 경우의 사용자 주도 CI/CD 실행만 9절의 예외**이며, 이때의 후반 Argo CD 검증 실패는 전체 배포 성공이 아니다. 설치용 구성 수정만 있었다면 앱 배포 워크플로는 시작되지 않는다. 단지 CI를 실행하려고 의미 없는 앱 코드 변경을 만들 필요는 없다.
+일반 배포에서는 8~9절에서 Argo CD HTTPS 인증서, Actions 변수·Secret, ECR의 현재 이미지, 앱·라우팅 Application의 `Synced/Healthy`, PostSync 성공, Primary·Replica 접속, API HTTPS 응답이 모두 확인된 뒤에만 새 앱 코드 변경을 `main`에 병합한다. **첫 이미지가 없는 경우에는 9절의 image-only 실행을 사용**하며, 이 실행은 배포 검증을 수행하지 않는다. 설치용 구성 수정만 있었다면 앱 배포 워크플로는 시작되지 않는다. 단지 CI를 실행하려고 의미 없는 앱 코드 변경을 만들 필요는 없다.
 
 1. 실제 앱 변경 PR에 `url-shortener/app/**`, `Dockerfile`, `requirements.txt`, `requirements.lock` 중 워크플로 paths에 해당하는 변경이 있는지 확인한다.
 2. `ARGOCD_SERVER`·`ARGOCD_AUTH_TOKEN` 등록, 토큰 만료·조회 정책, Actions `contents: write`와 `main` push 정책을 확인한다.

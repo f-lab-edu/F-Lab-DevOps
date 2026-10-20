@@ -9,6 +9,7 @@ ai-ops/**/*.py[cod]
 ai-ops/.venv/
 ai-ops/**/*.egg-info/
 .github/scripts/__pycache__/
+.github/tests/__pycache__/
 ai-ops/docs/ai-ops-a0-a1-flow.html
 
 # Terraform

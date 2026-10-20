@@ -424,7 +424,7 @@ NodeClaim이 생겼다면 해당 노드가 `Ready`가 될 때까지 기다리고
 
 앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 `b4-values.worker.yaml` overlay를 이용해 수동 큐 worker StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다.
 
-이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. B-04 수동 큐 worker를 복원하며 경보 수신·외부 모델·운영 변경·예약 보관 정리는 활성화하지 않는다. worker probe·고정 큐 상태·실제 루프 진행 시각을 확인하고 과거 진단 heartbeat로 대신하지 않는다.
+이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. B-04 수동 큐 worker를 복원하며 경보 수신·외부 모델·운영 변경은 활성화하지 않는다. 예약 보관 정리는 새 이미지·worker overlay로 복원하고 enabled=1·예약 성공 시각·overdue를 함께 확인한다. worker probe·고정 큐 상태·실제 루프 진행 시각을 확인하고 과거 진단 heartbeat로 대신하지 않는다.
 
 ## 12. 미뤄 둔 개선 항목 검증
 

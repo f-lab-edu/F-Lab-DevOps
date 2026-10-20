@@ -1,11 +1,109 @@
 {
   "phase": "B-04",
-  "status": "local_validation_deployment_pending",
+  "status": "retention_deployed_validated",
+  "verified_at": "2026-10-20T07:34:49.144288+00:00",
+  "source_revision": "28ce7f759a58b730c707ac297b953a8091a717a2",
+  "image_digest": "sha256:76199ea8b90bce5a594e1490e0745a88e715eb49b45f6920062d399dc5695bbc",
+  "image_run_id": 39385766317,
+  "ci_run_id": 39385549009,
+  "python_tests": 217,
+  "new_tests": 10,
+  "security_scan": {
+    "status": "COMPLETE",
+    "finding_count": 0
+  },
+  "helm_revision": 3,
+  "cluster_retention_enabled": true,
+  "worker_metrics_samples": 38,
   "schedule_interval_seconds": 60,
   "batch_limit": 10,
-  "new_tests": 10,
-  "worker_metrics_samples": 38,
+  "synthetic_validation": {
+    "isolated_synthetic_store": true,
+    "expired_job_purged": true,
+    "fresh_job_preserved": true,
+    "key_budget_independent_note_preserved": true,
+    "dedup_tombstone_preserved": true,
+    "restart_did_not_repeat_run": true,
+    "graceful_exit": true,
+    "external_model_calls": 0,
+    "production_data_backdated": false
+  },
+  "observation": {
+    "sample_count": 38,
+    "retention_state": {
+      "next_at": 1792481290.1647725,
+      "last_started": 1792481230.1518526,
+      "last_finished": 1792481230.1647725,
+      "last_success": 1792481230.1647725,
+      "last_failure": 0.0,
+      "purged": 0,
+      "blocked": 0,
+      "runs": 1,
+      "status": "success"
+    },
+    "metrics": {
+      "ai_ops_operation_duration_seconds_count{stage=\"collection\",result=\"failure\"}": 0.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"collection\",result=\"failure\"}": 0.0,
+      "ai_ops_operation_duration_seconds_count{stage=\"collection\",result=\"partial\"}": 2.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"collection\",result=\"partial\"}": 1.2847891439996602,
+      "ai_ops_operation_duration_seconds_count{stage=\"collection\",result=\"success\"}": 0.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"collection\",result=\"success\"}": 0.0,
+      "ai_ops_operation_duration_seconds_count{stage=\"diagnostic\",result=\"failure\"}": 0.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"diagnostic\",result=\"failure\"}": 0.0,
+      "ai_ops_operation_duration_seconds_count{stage=\"diagnostic\",result=\"partial\"}": 0.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"diagnostic\",result=\"partial\"}": 0.0,
+      "ai_ops_operation_duration_seconds_count{stage=\"diagnostic\",result=\"success\"}": 260.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"diagnostic\",result=\"success\"}": 9.986537557000702,
+      "ai_ops_operation_duration_seconds_count{stage=\"report\",result=\"failure\"}": 0.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"report\",result=\"failure\"}": 0.0,
+      "ai_ops_operation_duration_seconds_count{stage=\"report\",result=\"partial\"}": 2.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"report\",result=\"partial\"}": 0.09008742499827349,
+      "ai_ops_operation_duration_seconds_count{stage=\"report\",result=\"success\"}": 0.0,
+      "ai_ops_operation_duration_seconds_sum{stage=\"report\",result=\"success\"}": 0.0,
+      "ai_ops_diagnostic_last_success_timestamp_seconds": 1792479336.971018,
+      "ai_ops_queue_jobs{state=\"queued\"}": 0.0,
+      "ai_ops_queue_jobs{state=\"collecting\"}": 0.0,
+      "ai_ops_queue_jobs{state=\"analyzing\"}": 0.0,
+      "ai_ops_queue_jobs{state=\"completed\"}": 0.0,
+      "ai_ops_queue_jobs{state=\"partial\"}": 2.0,
+      "ai_ops_queue_jobs{state=\"failed\"}": 0.0,
+      "ai_ops_queue_jobs{state=\"cancelled\"}": 0.0,
+      "ai_ops_queue_jobs{state=\"needs_review\"}": 0.0,
+      "ai_ops_queue_oldest_waiting_age_seconds": 0.0,
+      "ai_ops_queue_expired_leases": 0.0,
+      "ai_ops_queue_retained_attempts": 3.0,
+      "ai_ops_worker_last_progress_timestamp_seconds": 1792481280.3824496,
+      "ai_ops_retention_next_run_timestamp_seconds": 1792481290.1647725,
+      "ai_ops_retention_last_success_timestamp_seconds": 1792481230.1647725,
+      "ai_ops_retention_last_failure_timestamp_seconds": 0.0,
+      "ai_ops_retention_last_run_purged_jobs": 0.0,
+      "ai_ops_retention_last_run_blocked_jobs": 0.0,
+      "ai_ops_retention_enabled": 1.0,
+      "ai_ops_retention_overdue_jobs": 0.0
+    },
+    "prometheus": {
+      "up": [
+        1.0
+      ],
+      "enabled": [
+        1.0
+      ],
+      "last_success": [
+        1792481230.1647725
+      ],
+      "overdue": [
+        0.0
+      ]
+    },
+    "llm_enabled": false
+  },
+  "production_jobs_reports_unchanged": true,
+  "preserved_production_jobs": 2,
+  "same_pvc_uid_pv": true,
+  "app_uid_generation_ready_unchanged": true,
+  "app_ready_replicas": 2,
+  "temporary_synthetic_store_removed": true,
   "external_model_calls": 0,
-  "cluster_retention_enabled": false,
-  "python_tests": 217
+  "production_expired_deletion_tested": false,
+  "production_data_backdated": false
 }

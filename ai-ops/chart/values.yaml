@@ -41,3 +41,9 @@ observability:
 retention:
   # worker 안전 지점에서만 실행하며 명시적으로 활성화해야 한다.
   enabled: false
+receiver:
+  # TLS 인증서·공유 인증값은 사전 준비한 Secret에서만 마운트한다.
+  enabled: false
+  identitySecretName: ""
+  alertmanagerNamespace: monitoring
+  alertmanagerPodLabels: {}

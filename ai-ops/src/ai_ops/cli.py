@@ -27,6 +27,7 @@ from ai_ops.reports import DIAGNOSIS, format_kst
 from ai_ops.observability import observe
 from ai_ops.job_queue import JobQueue
 from ai_ops.worker import Worker
+from ai_ops.alerts import show_alert
 from ai_ops.retention import QueueRetention
 
 
@@ -73,7 +74,8 @@ def _parser() -> argparse.ArgumentParser:
             command.add_argument("--operation")
         else:
             command.add_argument("--serve", action="store_true", help="명시한 경우에만 연속 처리한다")
-    for name, help_text in (("queue-show", "질문을 제외한 작업 상태를 조회한다"),
+    for name, help_text in (("alert-show", "경보 발생·접수·시도 시각과 결과 참조를 조회한다"),
+                            ("queue-show", "질문을 제외한 작업 상태를 조회한다"),
                             ("queue-cancel", "대기·진행 작업을 취소하고 늦은 게시를 막는다")):
         command = commands.add_parser(name, help=help_text)
         command.add_argument("--store", type=Path, default=DEFAULT_STORE)
@@ -118,6 +120,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args = cli_paths(parser, parser.parse_args(argv), {'bundle': 'directory', 'registry': 'input', 'bindings': 'input', 'runtime': 'input', 'metric_queries': 'input', 'store': 'store'})
     try:
+        if args.command == "alert-show":
+            print(json.dumps(show_alert(JobQueue(args.store),args.job),ensure_ascii=False,indent=2))
+            return 0
         if args.command.startswith("queue-"):
             queue = JobQueue(args.store)
             if args.command == "queue-retention":

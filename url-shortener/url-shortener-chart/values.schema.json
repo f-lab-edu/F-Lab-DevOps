@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "monitoring": {
+      "type": "object",
+      "properties": {
+        "aiOps": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "clusterId": {"type": "string", "maxLength": 63, "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+            "environment": {"enum": ["", "practice", "production"]}
+          },
+          "required": ["enabled", "clusterId", "environment"],
+          "allOf": [{
+            "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+            "then": {"properties": {"clusterId": {"minLength": 1}, "environment": {"enum": ["practice", "production"]}}}
+          }]
+        }
+      }
+    }
+  }
+}

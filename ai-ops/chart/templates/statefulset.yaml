@@ -100,7 +100,53 @@ spec:
             - {name: kubernetes-identity, mountPath: /var/run/ai-ops/kubernetes, readOnly: true}
             - {name: data, mountPath: /data}
             - {name: tmp, mountPath: /tmp}
+        {{- if .Values.receiver.enabled }}
+        - name: alert-receiver
+          image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [python, -m, ai_ops.alert_receiver]
+          args: [--cluster-id, {{ (first .Values.config.bindings.bindings).target.cluster_id | quote }}]
+          ports:
+            - {name: webhook-tls, containerPort: 9443, protocol: TCP}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+            - {name: HOME, value: /tmp}
+          resources:
+            requests: {cpu: 50m, memory: 96Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+          startupProbe:
+            tcpSocket: {port: webhook-tls}
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            tcpSocket: {port: webhook-tls}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: webhook-tls}
+            periodSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - {name: config, mountPath: /etc/ai-ops, readOnly: true}
+            - {name: webhook-identity, mountPath: /etc/ai-ops-webhook, readOnly: true}
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+        {{- end }}
       volumes:
+        {{- if .Values.receiver.enabled }}
+        - name: webhook-identity
+          secret:
+            secretName: {{ .Values.receiver.identitySecretName | quote }}
+            defaultMode: 0440
+            items:
+              - {key: token, path: token}
+              - {key: tls.crt, path: tls.crt}
+              - {key: tls.key, path: tls.key}
+        {{- end }}
         - name: config
           configMap:
             name: {{ .Release.Name }}-config

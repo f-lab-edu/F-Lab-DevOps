@@ -141,3 +141,10 @@ networkPolicy:
     # 클러스터 밖 RDS의 VPC 또는 서브넷 CIDR만 환경별 values에서 허용한다.
     cidrs: []
     postgresPort: 5432
+
+# AI 경보 대상 label은 수신기·TLS·분기 검증 후 별도로 활성화한다.
+monitoring:
+  aiOps:
+    enabled: false
+    clusterId: ""
+    environment: ""

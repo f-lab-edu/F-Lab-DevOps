@@ -1,0 +1,24 @@
+{
+  "phase": "B-05",
+  "status": "local_ingestion_tls_routing_validated_cluster_disabled",
+  "python_tests": 237,
+  "new_tests": 21,
+  "test_breakdown": {
+    "alert_inbox": 13,
+    "tls_receiver": 6,
+    "routing": 2
+  },
+  "helm_receiver_default_enabled": false,
+  "application_ai_labels_default_enabled": false,
+  "cluster_alertmanager_routing_changed": false,
+  "cluster_receiver_deployed": false,
+  "external_model_calls": 0,
+  "external_notification_test_sent": false,
+  "runtime_dependencies_added": [],
+  "limitations": [
+    "실제 TLS Secret·수신기 배포·Alertmanager 전달은 미검증",
+    "기존 Slack/Watchdog 보존은 로컬 분기 검사이며 실제 전송 확인은 후속",
+    "동일 Pod의 PVC·UID·네트워크를 공유",
+    "중복/해제 장부 최대 10000행, 장기 아카이브 정책 후속"
+  ]
+}

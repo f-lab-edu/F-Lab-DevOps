@@ -15,6 +15,7 @@
       "properties": {"enabled": {"type": "boolean"}},
       "required": ["enabled"]
     },
+    "receiver": {"type": "object", "additionalProperties": false, "properties": {"enabled": {"type": "boolean"}, "identitySecretName": {"type": "string", "pattern": "^$|^[a-z][a-z0-9-]{0,62}$"}, "alertmanagerNamespace": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"}, "alertmanagerPodLabels": {"type": "object", "maxProperties": 10, "additionalProperties": {"type": "string", "minLength": 1}}}, "required": ["enabled", "identitySecretName", "alertmanagerNamespace", "alertmanagerPodLabels"]},
     "replicaCount": {
       "const": 1
     },
@@ -727,6 +728,7 @@
         }
       }
     },
-    {"if": {"properties": {"retention": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]}}, "required": ["retention"]}, "then": {"properties": {"mode": {"const": "worker"}}}}
+    {"if": {"properties": {"retention": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]}}, "required": ["retention"]}, "then": {"properties": {"mode": {"const": "worker"}}}},
+    {"if": {"properties": {"receiver": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]}}, "required": ["receiver"]}, "then": {"properties": {"mode": {"const": "worker"}, "receiver": {"properties": {"identitySecretName": {"minLength": 1}, "alertmanagerPodLabels": {"minProperties": 1}}}}}}
   ]
 }

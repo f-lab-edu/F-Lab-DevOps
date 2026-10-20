@@ -37,6 +37,7 @@ spec:
             }[5m])) > 1
           for: 2m    # 2분 동안 지속될 때만 알림 발송
           labels:
+            {{- include "url-shortener.aiOpsLabels" . | nindent 12 }}
             severity: warning
           annotations:
             summary: "높은 에러율 감지 ({{` {{ $value | humanizePercentage }}`}})"
@@ -73,6 +74,7 @@ spec:
             ) > 1
           for: 5m
           labels:
+            {{- include "url-shortener.aiOpsLabels" . | nindent 12 }}
             severity: warning
           annotations:
             summary: "캐시 히트율 저하 ({{` {{ $value | humanizePercentage }}`}})"
@@ -98,6 +100,7 @@ spec:
               service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) > 1
           for: 2m
           labels:
+            {{- include "url-shortener.aiOpsLabels" . | nindent 12 }}
             severity: warning
           annotations:
             summary: "Redis 캐시 접근 오류 증가 ({{` {{ $value | humanizePercentage }}`}})"
@@ -119,6 +122,7 @@ spec:
               service={{ printf "%s-svc" .Release.Name | quote }}}[5m])) by (operation) > 1
           for: 3m
           labels:
+            {{- include "url-shortener.aiOpsLabels" . | nindent 12 }}
             severity: critical
           annotations:
             summary: "DB 쿼리 P99 레이턴시 높음 ({{` {{ $value }}`}}s)"
@@ -146,6 +150,7 @@ spec:
             by (route) > 1
           for: 3m
           labels:
+            {{- include "url-shortener.aiOpsLabels" . | nindent 12 }}
             severity: warning
           annotations:
             summary: "API P95 응답 지연 ({{` {{ $value }}`}}s)"

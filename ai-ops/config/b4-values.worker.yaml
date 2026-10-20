@@ -6,3 +6,6 @@ identity:
   tokenExpirationSeconds: 600
 observability:
   enabled: true
+# 만료 작업의 자동 정리는 작업 사이 안전 지점에서만 수행한다.
+retention:
+  enabled: true

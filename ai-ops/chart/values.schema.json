@@ -9,6 +9,12 @@
     "mode": {
       "enum": ["diagnostics", "worker"]
     },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"enabled": {"type": "boolean"}},
+      "required": ["enabled"]
+    },
     "replicaCount": {
       "const": 1
     },
@@ -720,6 +726,7 @@
           }
         }
       }
-    }
+    },
+    {"if": {"properties": {"retention": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]}}, "required": ["retention"]}, "then": {"properties": {"mode": {"const": "worker"}}}}
   ]
 }

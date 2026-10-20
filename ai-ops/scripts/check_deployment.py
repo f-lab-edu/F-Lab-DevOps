@@ -33,7 +33,7 @@ def render(*args: str, success: bool = True) -> list[dict]:
     return parse_yaml(result.stdout)
 
 
-def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False, mode: str = "diagnostics") -> None:
+def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False, mode: str = "diagnostics", retention: bool = False) -> None:
     by_kind: dict[str, list[dict]] = {}
     for doc in documents:
         by_kind.setdefault(doc["kind"], []).append(doc)
@@ -86,7 +86,7 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
     container = pod["containers"][0]
     module = "ai_ops.worker_runtime" if mode == "worker" else "ai_ops.deployment_check"
     assert container["command"] == ["python", "-m", module]
-    assert container.get("args", []) == (([] if mode == "worker" else ["--serve"]) + (["--metrics"] if observability else []))
+    assert container.get("args", []) == (([] if mode == "worker" else ["--serve"]) + (["--metrics"] if observability else []) + (["--retention"] if retention else []))
     probe = ["python", "-m", module] + (["--probe"] if mode == "worker" else [])
     for name in ("startupProbe", "readinessProbe"):
         assert container[name]["exec"]["command"] == probe
@@ -176,6 +176,7 @@ def main() -> None:
     verify(render(*args, "--set", "identity.tokenExpirationSeconds=600"), token_expiration_seconds=600)
     verify(render(*args, "--set", "mode=worker"), mode="worker")
     verify(render(*args, "--set", "mode=worker", "--set", "observability.enabled=true"), observability=True, mode="worker")
+    verify(render(*args, "--set", "mode=worker", "--set", "observability.enabled=true", "--set", "retention.enabled=true"), observability=True, mode="worker", retention=True)
     monitored = render(*args, "--set", "observability.enabled=true")
     verify(monitored, observability=True)
     # 관측 기능이 열려도 발신자 제한·포트·대상 범위가 넓어지면 거부한다.
@@ -192,7 +193,7 @@ def main() -> None:
             raise AssertionError("관측 권한 확대를 놓쳤다")
     rejected = [
         ("identity.tokenExpirationSeconds=599",), ("identity.tokenExpirationSeconds=3601",),
-        ("replicaCount=2",), ("mode=unknown",), ("image.digest=latest",),
+        ("replicaCount=2",), ("mode=unknown",), ("retention.enabled=true",), ("image.digest=latest",),
         ("config.runtime.llm_enabled=true",), ("persistence.storageClassName=",),
         ("network.apiServerCIDRs[0]=0.0.0.0/0",), ("network.dns.podLabels=null",),
         ("network.prometheus.podLabels=null",), ("config.runtime.connections.practice-kubernetes.token_file=/tmp/key",),

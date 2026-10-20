@@ -1,0 +1,11 @@
+{
+  "phase": "B-04",
+  "status": "local_validation_deployment_pending",
+  "schedule_interval_seconds": 60,
+  "batch_limit": 10,
+  "new_tests": 10,
+  "worker_metrics_samples": 38,
+  "external_model_calls": 0,
+  "cluster_retention_enabled": false,
+  "python_tests": 217
+}

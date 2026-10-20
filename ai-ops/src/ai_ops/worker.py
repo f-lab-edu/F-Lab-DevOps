@@ -199,12 +199,17 @@ class Worker:
                 pass
         return self.queue.show(job["job_id"])
 
-    def serve(self, *, progress=lambda: None):
+    def serve(self, *, progress=lambda: None, maintenance=lambda: None):
         """SIGTERM 요청 시 새 작업을 시작하지 않고 현재 수집의 안전 지점에서 멈춘다."""
         # 유휴 시간에도 잠금을 유지해 두 worker와 보관 정리가 겹치지 않는다.
         with self.queue.worker_lock():
             while not self.stopped.is_set():
                 progress()
+                # 별도 작업자가 아닌 잠금 소유자가 새 claim 전에만 정리한다.
+                maintenance()
+                progress()
+                if self.stopped.is_set():
+                    break
                 result = self._run_once()
                 progress()
                 if result is None or result["state"] in ("queued", "needs_review", "failed"):

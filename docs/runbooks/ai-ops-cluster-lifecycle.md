@@ -76,9 +76,10 @@ PYTHONPATH=ai-ops/src python ai-ops/scripts/prepare_reinstall.py \
   --registration "$AI_IMAGE_RECORD" --output "$AI_LIFECYCLE_DIR/values.json"
 AI_WORKER_SOURCE_SHA=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_revision"])' "$AI_IMAGE_RECORD")
 git cat-file -e "${AI_WORKER_SOURCE_SHA}:ai-ops/src/ai_ops/worker_runtime.py"
+git cat-file -e "${AI_WORKER_SOURCE_SHA}:ai-ops/src/ai_ops/retention_schedule.py"
 ```
 
-도구는 계정·컨텍스트·origin/main의 등록 소스·artifact 소스 해시·ECR manifest/image ID·COMPLETE/검사 0건을 검증하고 현재 API Service/Endpoint 내부 IPv4 /32를 조회한다. 과거 IP·digest를 재사용하지 않는다. 원본 base는 계속 enabled=false이며 생성한 private values와 아래 worker overlay를 함께 쓰는 경우만 활성화한다. 등록 소스에 `ai-ops/src/ai_ops/worker_runtime.py`가 없으면 worker 설치를 중지하고 검증된 새 이미지를 확보한다. 조회 실패/403을 리소스 부재로 해석하지 않는다.
+도구는 계정·컨텍스트·origin/main의 등록 소스·artifact 소스 해시·ECR manifest/image ID·COMPLETE/검사 0건을 검증하고 현재 API Service/Endpoint 내부 IPv4 /32를 조회한다. 과거 IP·digest를 재사용하지 않는다. 원본 base는 계속 enabled=false이며 생성한 private values와 아래 worker overlay를 함께 쓰는 경우만 활성화한다. 등록 소스에 `ai-ops/src/ai_ops/worker_runtime.py` 또는 `retention_schedule.py`가 없으면 worker 설치를 중지하고 검증된 새 이미지를 확보한다. 조회 실패/403을 리소스 부재로 해석하지 않는다.
 
 ### 4. 수동 큐 worker·자체 관측 설치와 완료 판정
 
@@ -165,4 +166,6 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 
 2026-10-20 승인 이미지로 실제 worker 배포·동일 PVC의 강제 Pod 교체 후 checkpoint 재사용과 중복/보고서 보존을 확인했다. [실행 기록](../../ai-ops/docs/B4-worker-deployment.md)을 참고한다. 재설치 완료를 확인하려고 매번 강제 Pod 교체 시험을 반복하지 않는다. 기본은 probe·Prometheus·이미지·PVC 확인이며 새 코드나 실패가 있을 때만 필요한 복구 시험을 추가한다.
 
-보관표 조회·삭제는 단일 worker 잠금과 겹칠 수 없다. 같은 이미지·private values·worker overlay를 유지하고 Helm 마지막 값만 `--set mode=diagnostics`로 전환해 worker 종료를 확인한 뒤 수행한다. 정리 후 override를 제거해 worker로 복귀한다. 예약 정리는 후속이며 전체 인프라 삭제에서는 기존 순서대로 AI를 먼저 중지·삭제하고 PVC/EBS와 ECR/state를 확인한다.
+보관표 조회·삭제는 단일 worker 잠금과 겹칠 수 없다. 같은 이미지·private values·worker overlay를 유지하고 Helm 마지막 값에 `--set mode=diagnostics --set retention.enabled=false`를 함께 지정하여 전환해 worker 종료를 확인한 뒤 수행한다. 정리 후 override를 제거해 worker로 복귀한다. 예약 정리는 후속이며 전체 인프라 삭제에서는 기존 순서대로 AI를 먼저 중지·삭제하고 PVC/EBS와 ECR/state를 확인한다.
+
+예약 정리는 새 이미지의 worker overlay에서 명시적으로 활성화한다. 현재 worker가 안전 지점에서 잠깐 정리한 뒤 조사 처리를 재개하므로, 이 자동 경로에는 Helm 모드 전환이나 Kubernetes 변경 권한을 부여하지 않는다. 주기·장부·실제 배포 상태는 [예약 정리 문서](../../ai-ops/docs/B4-retention-schedule.md)를 따른다. 과거의 예약 비활성 문구는 최초 배포 당시 기록이다.

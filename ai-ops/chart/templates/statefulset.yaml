@@ -49,13 +49,16 @@ spec:
           image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: [python, -m, {{ if eq .Values.mode "worker" }}ai_ops.worker_runtime{{ else }}ai_ops.deployment_check{{ end }}]
-          {{- if or (eq .Values.mode "diagnostics") .Values.observability.enabled }}
+          {{- if or (eq .Values.mode "diagnostics") .Values.observability.enabled .Values.retention.enabled }}
           args:
             {{- if eq .Values.mode "diagnostics" }}
             - --serve
             {{- end }}
             {{- if .Values.observability.enabled }}
             - --metrics
+            {{- end }}
+            {{- if .Values.retention.enabled }}
+            - --retention
             {{- end }}
           {{- end }}
             {{- if .Values.observability.enabled }}

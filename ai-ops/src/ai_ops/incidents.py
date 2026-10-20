@@ -210,10 +210,10 @@ class IncidentStore:
             _atomic_write(path, key.encode("ascii"))
 
     @contextmanager
-    def _locked(self, *, reconcile: bool = True) -> Iterator[None]:
+    def _locked(self, *, reconcile: bool = True, blocking: bool = True) -> Iterator[None]:
         lock_fd = os.open(self.root / ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
             if reconcile:
                 self._reconcile()
             yield

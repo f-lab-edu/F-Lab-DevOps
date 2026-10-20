@@ -39,7 +39,7 @@
 
 배포 직후 worker probe·Prometheus `up=1`·고정 지표를 확인한다. 이어 수동 접수→보고서 저장을 확인하고 AI Pod만 재시작해 동일 PVC·완료 결과·중복 키·중단 작업 복구를 확인한다. 앱 Pod와 Deployment는 변경하지 않는다. 외부 모델 호출 없이 규칙 분석을 사용한다.
 
-worker가 계속 잠금을 잡으므로 보관표 조회/삭제는 먼저 **같은 새 이미지·PVC를 유지한 채 Helm `mode=diagnostics`로 전환**하여 worker 종료를 확인한 뒤 수행한다. 그 Pod에서 `queue-retention` 미리보기를 검토하고 승인한 만료 작업에만 `--apply`한다. 이후 `mode=worker`로 복귀한다. PVC 삭제·직접 DB 변경·잠금 파일 삭제로 충돌을 우회하지 않는다. 예약 정리는 아직 연결하지 않았다.
+worker가 계속 잠금을 잡으므로 보관표 조회/삭제는 먼저 **같은 새 이미지·PVC를 유지한 채 Helm `mode=diagnostics`, `retention.enabled=false`로 전환**하여 worker 종료를 확인한 뒤 수행한다. 그 Pod에서 `queue-retention` 미리보기를 검토하고 승인한 만료 작업에만 `--apply`한다. 이후 `mode=worker`로 복귀한다. PVC 삭제·직접 DB 변경·잠금 파일 삭제로 충돌을 우회하지 않는다. 예약 정리는 아직 연결하지 않았다.
 
 ## 로컬 검증과 남은 조건
 
@@ -64,3 +64,5 @@ worker가 계속 잠금을 잡으므로 보관표 조회/삭제는 먼저 **같�
 7. 조사 ServiceAccount의 `pods/exec` 생성·Secret 읽기·Deployment patch는 모두 거부됐다. 운영 자료 외부 모델 차단과 `llm_enabled=false`를 확인했고 외부 모델 호출은 0회다.
 
 [본문 없는 검증 기록](assets/B4-worker-validation.json)에 상태·식별자·해시·고정 지표를 남겼다. 운영 질문·증거·보고서 원문은 PVC 밖으로 복사하지 않았다. 일회성 검사 marker는 제거했고 실제 조사 자료에는 7일 정책을 적용한다. **예약 보관 정리와 B-05 경보 연동은 후속이며, B-04 전체 완료를 선언하지 않는다.**
+
+예약 정리 후속 구현은 [B4-retention-schedule.md](B4-retention-schedule.md)에서 관리한다. 이 문서의 31개 지표·예약 비활성은 2026-10-20 16:01 최초 worker 배포 검증 시점의 기록이며, 새 예약 기능의 배포 상태와 38개 지표는 후속 문서를 따른다.

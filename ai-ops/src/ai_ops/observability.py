@@ -19,12 +19,12 @@ from ai_ops.path_policy import permitted_path
 
 STAGES = ("diagnostic", "collection", "report")
 RESULTS = ("success", "partial", "failure")
-EVENTS = ("operation_finished", "process_started", "process_stopped", "telemetry_failed")
+EVENTS = ("operation_finished", "process_started", "process_stopped", "telemetry_failed", "retention_finished", "retention_deferred")
 
 
 def log_event(event: str, *, stage: str = "diagnostic", result: str = "success", duration: float = 0) -> None:
     """자유 텍스트·질문·식별자·예외 원문을 받지 않고 UTC 구조화 로그만 쓴다."""
-    if event not in EVENTS or stage not in STAGES or result not in RESULTS:
+    if event not in EVENTS or stage not in (*STAGES, "retention") or result not in RESULTS:
         raise ValueError("관측 코드가 허용 목록과 다릅니다")
     if not math.isfinite(duration) or duration < 0:
         raise ValueError("소요 시간이 유효하지 않습니다")

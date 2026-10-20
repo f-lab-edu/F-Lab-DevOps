@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import time
 
 from ai_ops.incidents import ID_PATTERN, _private_directory, _read_json
 from ai_ops.contracts import sha256_json
@@ -203,23 +204,60 @@ class QueueRetention:
         sync_directory(self.queue.root / "requests")
 
     def run(self, *, apply: bool = False, job_id: str | None = None) -> dict:
+        with self.queue.worker_lock():
+            return self._run_locked(apply=apply, job_id=job_id)
+
+    def _run_locked(self, *, apply: bool = False, job_id: str | None = None,
+                    batch_limit: int | None = None, stopped=lambda: False,
+                    progress=lambda: None, cursor: tuple[float, str] | None = None) -> dict:
+        """worker 잠금 소유자만 호출한다. 예약 정리는 만료 후보를 소량 처리한다."""
         if job_id is not None:
             self.queue._id(job_id)
+        if batch_limit is not None and (type(batch_limit) is not int or not 1 <= batch_limit <= 10 or job_id is not None):
+            raise ValueError("예약 정리 묶음 설정이 유효하지 않습니다")
         result = []
         truncated = False
+        more = False
+        last_scanned = None
+        started = time.monotonic()
         # worker의 읽기·게시, 저장소 재조정, 보관 정리가 동시에 실행되지 않게 한다.
-        with self.queue.worker_lock(), self.engine._locked(reconcile=False):
+        # 예약 정리는 다른 운영자가 엔진을 쓰고 있으면 기다리지 않고 다음 회차로 미룬다.
+        with self.engine._locked(reconcile=False, blocking=batch_limit is None):
             with self.queue.transaction() as db:
-                rows = [dict(row) for row in db.execute("SELECT * FROM jobs ORDER BY created_at,job_id")]
-                purges = {row["job_id"]: dict(row) for row in db.execute("SELECT * FROM purges")}
+                if batch_limit is None:
+                    rows = [dict(row) for row in db.execute("SELECT * FROM jobs ORDER BY created_at,job_id")]
+                    purges = {row["job_id"]: dict(row) for row in db.execute("SELECT * FROM purges")}
+                else:
+                    base = "SELECT * FROM jobs WHERE created_at<=? AND lease_until IS NULL AND state IN ('completed','partial','failed','cancelled','needs_review')"
+                    params = (self.queue.now() - RETENTION_SECONDS,)
+                    tail = " ORDER BY created_at,job_id LIMIT ?"
+                    if cursor is not None:
+                        self.queue._id(cursor[1])
+                        rows = [dict(row) for row in db.execute(base + " AND (created_at,job_id)>(?,?)" + tail,
+                                                               (*params, *cursor, batch_limit + 1))]
+                    else:
+                        rows = []
+                    if not rows:
+                        rows = [dict(row) for row in db.execute(base + tail, (*params, batch_limit + 1))]
+                    more = len(rows) > batch_limit
+                    rows = rows[:batch_limit]
+                    purges = {}
+                    for row in rows:
+                        saved = db.execute("SELECT * FROM purges WHERE job_id=?", (row["job_id"],)).fetchone()
+                        if saved is not None:
+                            purges[row["job_id"]] = dict(saved)
             if job_id is not None:
                 rows = [row for row in rows if row["job_id"] == job_id]
                 if not rows and job_id not in purges:
                     raise ValueError("작업을 찾을 수 없습니다")
-            else:
+            elif batch_limit is None:
                 truncated = len(rows) > 1000
                 rows = rows[:1000]
             for row in rows:
+                if batch_limit is not None and (stopped() or time.monotonic() - started >= 20):
+                    more = True
+                    break
+                progress()
                 job = row["job_id"]
                 purge = purges.get(job)
                 deadline = row["created_at"] + RETENTION_SECONDS
@@ -260,6 +298,7 @@ class QueueRetention:
                     except (ValueError, OSError, KeyError, TypeError):
                         entry.update(action="blocked", reason="unsafe_or_inconsistent_store")
                 result.append(entry)
+                last_scanned = (row["created_at"], job)
             selected = {row["job_id"] for row in rows}
             for job, purge in purges.items():
                 if job not in selected and (job_id is None or job == job_id) and purge["completed_at"] is not None:
@@ -268,5 +307,8 @@ class QueueRetention:
                         break
                     result.append({"job_id": job, "state": "purged", "action": "already_purged",
                                    "retention_deadline": utc(purge["deadline"]), "purged_at": utc(purge["completed_at"])})
-        return {"mode": "apply" if apply else "preview", "retention_days": 7,
-                "truncated": truncated, "entries": result}
+        output = {"mode": "apply" if apply else "preview", "retention_days": 7,
+                  "truncated": truncated, "entries": result}
+        if batch_limit is not None:
+            output.update(more_candidates=more, last_scanned=last_scanned)
+        return output

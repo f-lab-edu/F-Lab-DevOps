@@ -37,6 +37,10 @@ class LeaseLost(ValueError):
     """시도 소유권이 만료되거나 취소되어 기록할 수 없다."""
 
 
+class QueueFull(ValueError):
+    """접수를 확정할 수 없는 큐 포화 상태다."""
+
+
 def utc(value: float) -> str:
     return datetime.fromtimestamp(value, timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -142,20 +146,24 @@ class JobQueue:
         episode_key = sha256_json({"source": "manual", "request_id": request_id})
         now = self.now()
         with self.transaction() as db:
-            episode = db.execute("SELECT job_id FROM episodes WHERE episode_key=?", (episode_key,)).fetchone()
-            if episode and db.execute("SELECT 1 FROM purges WHERE job_id=?", (episode["job_id"],)).fetchone():
-                raise ValueError("보관 만료로 삭제 중이거나 삭제된 요청 키입니다. 새 요청 키를 사용하세요")
-            row = db.execute("SELECT job_id,fingerprint FROM jobs WHERE episode_key=?", (episode_key,)).fetchone()
-            if row:
-                if row["fingerprint"] != fingerprint:
-                    raise ValueError("동일 요청 키에 다른 내용을 사용할 수 없습니다")
-                return row["job_id"], True
-            if db.execute("SELECT count(*) FROM jobs WHERE state IN ('queued','collecting','analyzing')").fetchone()[0] >= MAX_WAITING:
-                raise ValueError("대기 큐가 가득 찼습니다")
-            job = "job-" + uuid.uuid4().hex
-            db.execute("INSERT INTO episodes VALUES (?,?,?)", (episode_key, job, now))
-            db.execute("INSERT INTO jobs (job_id,episode_key,fingerprint,payload,state,available_at,created_at,updated_at) VALUES (?,?,?,?,'queued',?,?,?)",
-                       (job, episode_key, fingerprint, json.dumps(payload, ensure_ascii=False), now, now, now))
+            return self._submit(db, payload=payload, fingerprint=fingerprint, episode_key=episode_key, now=now)
+
+    def _submit(self, db, *, payload: dict, fingerprint: str, episode_key: str, now: float) -> tuple[str, bool]:
+        """검증한 입력을 호출자의 트랜잭션 안에서 접수한다."""
+        episode = db.execute("SELECT job_id FROM episodes WHERE episode_key=?", (episode_key,)).fetchone()
+        if episode and db.execute("SELECT 1 FROM purges WHERE job_id=?", (episode["job_id"],)).fetchone():
+            raise ValueError("보관 만료로 삭제 중이거나 삭제된 요청 키입니다. 새 요청 키를 사용하세요")
+        row = db.execute("SELECT job_id,fingerprint FROM jobs WHERE episode_key=?", (episode_key,)).fetchone()
+        if row:
+            if row["fingerprint"] != fingerprint:
+                raise ValueError("동일 요청 키에 다른 내용을 사용할 수 없습니다")
+            return row["job_id"], True
+        if db.execute("SELECT count(*) FROM jobs WHERE state IN ('queued','collecting','analyzing')").fetchone()[0] >= MAX_WAITING:
+            raise QueueFull("대기 큐가 가득 찼습니다")
+        job = "job-" + uuid.uuid4().hex
+        db.execute("INSERT INTO episodes VALUES (?,?,?)", (episode_key, job, now))
+        db.execute("INSERT INTO jobs (job_id,episode_key,fingerprint,payload,state,available_at,created_at,updated_at) VALUES (?,?,?,?,'queued',?,?,?)",
+                   (job, episode_key, fingerprint, json.dumps(payload, ensure_ascii=False), now, now, now))
         return job, False
 
     def show(self, job: str) -> dict:

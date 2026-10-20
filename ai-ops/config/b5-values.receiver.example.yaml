@@ -1,0 +1,8 @@
+# 비활성 초안이다. 검증한 이미지·실제 TLS/인증 Secret·Alertmanager labels가 필요하다.
+receiver:
+  enabled: false
+  identitySecretName: ai-ops-webhook-identity
+  alertmanagerNamespace: monitoring
+  alertmanagerPodLabels:
+    app.kubernetes.io/name: alertmanager
+    alertmanager: kube-prometheus-stack-alertmanager

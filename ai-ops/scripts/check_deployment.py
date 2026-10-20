@@ -33,7 +33,7 @@ def render(*args: str, success: bool = True) -> list[dict]:
     return parse_yaml(result.stdout)
 
 
-def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False, mode: str = "diagnostics", retention: bool = False) -> None:
+def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False, mode: str = "diagnostics", retention: bool = False, receiver: bool = False) -> None:
     by_kind: dict[str, list[dict]] = {}
     for doc in documents:
         by_kind.setdefault(doc["kind"], []).append(doc)
@@ -43,6 +43,9 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
     }
     if observability:
         expected.update(NetworkPolicy=3, Service=2, ServiceMonitor=1)
+    if receiver:
+        expected["Service"] += 1
+        expected["NetworkPolicy"] += 1
     assert {key: len(value) for key, value in by_kind.items()} == expected, "예상하지 않은 리소스가 포함됐다"
     config = by_kind["ConfigMap"][0]["data"]
     with tempfile.TemporaryDirectory() as directory:
@@ -82,7 +85,7 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
     assert pod["serviceAccountName"] == "ai-ops-investigator"
     assert pod["securityContext"] == {"runAsNonRoot": True, "runAsUser": 10001, "runAsGroup": 10001,
         "fsGroup": 10001, "fsGroupChangePolicy": "OnRootMismatch", "seccompProfile": {"type": "RuntimeDefault"}}
-    assert len(pod["containers"]) == 1 and not pod.get("initContainers")
+    assert len(pod["containers"]) == (2 if receiver else 1) and not pod.get("initContainers")
     container = pod["containers"][0]
     module = "ai_ops.worker_runtime" if mode == "worker" else "ai_ops.deployment_check"
     assert container["command"] == ["python", "-m", module]
@@ -99,7 +102,7 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
     assert container["securityContext"] == {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}}
     assert "@sha256:" in container["image"] and "envFrom" not in container
     volumes = {v["name"]: v for v in pod["volumes"]}
-    assert set(volumes) == {"config", "tmp", "kubernetes-identity"}
+    assert set(volumes) == ({"config", "tmp", "kubernetes-identity", "webhook-identity"} if receiver else {"config", "tmp", "kubernetes-identity"})
     identity = volumes["kubernetes-identity"]["projected"]
     assert identity["defaultMode"] == 0o440
     assert identity["sources"] == [{"serviceAccountToken": {"path": "token", "expirationSeconds": token_expiration_seconds}},
@@ -127,6 +130,29 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
     assert prom["ports"] == [{"protocol": "TCP", "port": prom_port}]
     assert all("0.0.0.0/0" not in json.dumps(p) for p in by_kind["NetworkPolicy"])
 
+    if receiver:
+        sidecar = pod["containers"][1]
+        assert sidecar["name"] == "alert-receiver"
+        assert sidecar["image"] == container["image"]
+        assert sidecar["command"] == ["python", "-m", "ai_ops.alert_receiver"]
+        assert sidecar["args"] == ["--cluster-id", binding.target.cluster_id]
+        assert sidecar["securityContext"] == container["securityContext"] and "envFrom" not in sidecar
+        assert sidecar["ports"] == [{"name":"webhook-tls", "containerPort":9443, "protocol":"TCP"}]
+        assert sidecar["volumeMounts"] == [
+            {"name":"config","mountPath":"/etc/ai-ops","readOnly":True},
+            {"name":"webhook-identity","mountPath":"/etc/ai-ops-webhook","readOnly":True},
+            {"name":"data","mountPath":"/data"},{"name":"tmp","mountPath":"/tmp"}]
+        assert "webhook-identity" not in {v["name"] for v in container["volumeMounts"]}
+        assert volumes["webhook-identity"]["secret"] == {"secretName":"validation-webhook", "defaultMode":0o440,
+            "items":[{"key":"token","path":"token"},{"key":"tls.crt","path":"tls.crt"},{"key":"tls.key","path":"tls.key"}]}
+        service = next(d for d in by_kind["Service"] if d["metadata"]["name"] == "ai-ops-webhook")
+        assert service["spec"] == {"type":"ClusterIP","selector":selectors,
+            "ports":[{"name":"webhook-tls","port":9443,"targetPort":"webhook-tls","protocol":"TCP"}]}
+        policy = next(d for d in by_kind["NetworkPolicy"] if d["metadata"]["name"] == "ai-ops-webhook-ingress")
+        assert policy["spec"]["ingress"] == [{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"monitoring"}},
+            "podSelector":{"matchLabels":{"app.kubernetes.io/name":"alertmanager","alertmanager":"kube-prometheus-stack-alertmanager"}}}],
+            "ports":[{"protocol":"TCP","port":9443}]}]
+
     if observability:
         assert container["ports"] == [{"name": "metrics", "containerPort": 9091, "protocol": "TCP"}]
         service = next(s for s in by_kind["Service"] if s["metadata"]["name"] == "ai-ops-metrics")
@@ -137,13 +163,15 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
             "namespaceSelector": {"matchNames": ["ai-ops"]}, "selector": {"matchLabels": metric_labels},
             "sampleLimit": 50, "targetLimit": 1,
             "endpoints": [{"port": "metrics", "path": "/metrics", "interval": "30s", "scrapeTimeout": "5s", "honorLabels": False}]}
-        ingress = next(p["spec"] for p in by_kind["NetworkPolicy"] if p["spec"]["policyTypes"] == ["Ingress"])
+        ingress = next(p["spec"] for p in by_kind["NetworkPolicy"] if p["metadata"]["name"] == "ai-ops-metrics-ingress")
         assert ingress["ingress"] == [{"from": prom["to"], "ports": [{"protocol": "TCP", "port": 9091}]}]
     else:
         assert not container.get("ports")
 
 
 def main() -> None:
+    from check_alert_routing import check
+    check()
     schema = json.loads((ROOT / "chart/values.schema.json").read_text())
     definitions = {}
     for name, model in (("bindings", BindingRegistry), ("runtime", BRuntime)):
@@ -177,6 +205,22 @@ def main() -> None:
     verify(render(*args, "--set", "mode=worker"), mode="worker")
     verify(render(*args, "--set", "mode=worker", "--set", "observability.enabled=true"), observability=True, mode="worker")
     verify(render(*args, "--set", "mode=worker", "--set", "observability.enabled=true", "--set", "retention.enabled=true"), observability=True, mode="worker", retention=True)
+    receiver_args = [*args, "--set", "mode=worker", "--set", "observability.enabled=true",
+        "--set", "receiver.enabled=true", "--set", "receiver.identitySecretName=validation-webhook",
+        "--set-json", 'receiver.alertmanagerPodLabels={"app.kubernetes.io/name":"alertmanager","alertmanager":"kube-prometheus-stack-alertmanager"}']
+    receiving = render(*receiver_args)
+    verify(receiving, mode="worker", observability=True, receiver=True)
+    for mutate in (
+        lambda docs: next(d for d in docs if d["kind"] == "StatefulSet")["spec"]["template"]["spec"]["containers"][1]["volumeMounts"].append({"name":"kubernetes-identity","mountPath":"/credential"}),
+        lambda docs: next(d for d in docs if d["metadata"]["name"] == "ai-ops-webhook-ingress")["spec"]["ingress"][0]["from"][0].pop("podSelector"),
+    ):
+        changed = json.loads(json.dumps(receiving)); mutate(changed)
+        try:
+            verify(changed, mode="worker", observability=True, receiver=True)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError("경보 수신기의 인증·대상 경계 변경을 놓쳤다")
     monitored = render(*args, "--set", "observability.enabled=true")
     verify(monitored, observability=True)
     # 관측 기능이 열려도 발신자 제한·포트·대상 범위가 넓어지면 거부한다.
@@ -193,7 +237,7 @@ def main() -> None:
             raise AssertionError("관측 권한 확대를 놓쳤다")
     rejected = [
         ("identity.tokenExpirationSeconds=599",), ("identity.tokenExpirationSeconds=3601",),
-        ("replicaCount=2",), ("mode=unknown",), ("retention.enabled=true",), ("image.digest=latest",),
+        ("replicaCount=2",), ("mode=unknown",), ("receiver.enabled=true",), ("retention.enabled=true",), ("image.digest=latest",),
         ("config.runtime.llm_enabled=true",), ("persistence.storageClassName=",),
         ("network.apiServerCIDRs[0]=0.0.0.0/0",), ("network.dns.podLabels=null",),
         ("network.prometheus.podLabels=null",), ("config.runtime.connections.practice-kubernetes.token_file=/tmp/key",),
@@ -215,7 +259,7 @@ def main() -> None:
             pass
         else:
             raise AssertionError("위험한 manifest 변경을 놓쳤다")
-    print("B-03/B-04 진단·worker 정적 검사 통과: 기본 비활성·실습/운영 읽기 전용 리소스 10개·관측 활성 13개·잘못된 설정 거부·위험 변경 5종 검출. 실환경은 미검증.")
+    print("B-03/B-04/B-05 정적 검사 통과: 기본 비활성·등록 대상 읽기 전용·진단/worker/TLS 수신 정의·발신자 제한·잘못된 설정과 권한 확대 거부. 실환경은 미검증.")
 
 
 if __name__ == "__main__":

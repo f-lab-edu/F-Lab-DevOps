@@ -110,3 +110,7 @@ B-03-SEC-01 진행(2026-10-19): AI 베이스를 공식 Python 3.11.17-alpine3.24
 B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했다. 기존 worker가 작업 사이에 정리하며 새 Kubernetes 권한이나 CronJob을 추가하지 않는다. 기본 비활성이고 worker overlay에서만 명시적으로 활성화한다. 실제 배포 상태는 해당 문서 상단을 따른다.
 
 2026-10-20 **B-04 예약 보관 정리 배포·검증 완료**: PR #42·원격 217건/이미지 통과와 사용자 승인 등록 후 Helm revision 3에서 활성화했다. 실제 운영 큐의 예약 실행·38개 지표와 합성 만료 요청 자동 삭제/미만료·보호 파일 보존·재시작 후 예약 유지를 확인했다. 운영 큐 2건·보고서·동일 PVC·앱 Ready 2개는 보존됐다. B-04 현재 범위 완료, 다음은 B-05 경보 연동이다. [최신 기록·실제 운영 만료 삭제 미시험 한계](docs/B4-retention-schedule.md).
+
+## B-05 첫 구현 묶음
+
+[경보 접수·TLS·분기 준비](docs/B5-alert-ingestion.md)를 로컬 구현했다. 등록 대상의 개별 경보를 기존 큐에 원자 접수하고 중복/해제/재발을 구분한다. 내부 TLS·파일 인증, 수신기 토큰 미마운트·정확한 Alertmanager ingress, 기본 비활성 앱 경보 labels와 Slack/Watchdog 보존 분기 초안을 준비했다. 현재 checkout Python 237건·Helm 검사 통과. 실제 수신기·Secret·Alertmanager 경로는 아직 활성화하지 않았으며 B-05 전체 완료가 아니다.

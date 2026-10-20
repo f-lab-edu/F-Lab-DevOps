@@ -40,7 +40,7 @@ def _roots(kind: Kind) -> tuple[Path, ...]:
     if kind in ("output", "checkpoint"):
         return (*personal, PACKAGE_ROOT / "site")
     return (PACKAGE_ROOT / "config", PACKAGE_ROOT / "evals", PACKAGE_ROOT / "runbooks",
-            PACKAGE_ROOT / "site", Path("/etc/ai-ops"), *personal)
+            PACKAGE_ROOT / "site", Path("/etc/ai-ops"), Path("/etc/ai-ops-webhook"), *personal)
 
 
 def permitted_path(value: str | Path, kind: Kind) -> Path:

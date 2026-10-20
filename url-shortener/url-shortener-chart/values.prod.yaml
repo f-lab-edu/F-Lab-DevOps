@@ -68,3 +68,10 @@ networkPolicy:
   externalEgress:
     cidrs:
       - 10.0.0.0/16
+
+# 실제 등록 대상의 서비스 경보만 읽기 전용 조사 수신기로 전달한다.
+monitoring:
+  aiOps:
+    enabled: true
+    clusterId: urlshortener
+    environment: production

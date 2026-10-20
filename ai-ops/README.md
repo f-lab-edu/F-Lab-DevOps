@@ -114,3 +114,5 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 ## B-05 첫 구현 묶음
 
 [경보 접수·TLS·분기 준비](docs/B5-alert-ingestion.md)를 로컬 구현했다. 등록 대상의 개별 경보를 기존 큐에 원자 접수하고 중복/해제/재발을 구분한다. 내부 TLS·파일 인증, 수신기 토큰 미마운트·정확한 Alertmanager ingress, 기본 비활성 앱 경보 labels와 Slack/Watchdog 보존 분기 초안을 준비했다. 현재 checkout Python 237건·Helm 검사 통과. 실제 수신기·Secret·Alertmanager 경로는 아직 활성화하지 않았으며 B-05 전체 완료가 아니다.
+
+2026-10-20 B-05 구현은 [PR #44](https://github.com/f-lab-edu/F-Lab-DevOps/pull/44)의 main 기반 238건·전체 CI 통과 후 병합했다. 전용 인증 Secret과 실제 Alertmanager의 분기 판정 검증을 준비했으며, [이미지 등록 실행](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39393659389)은 사용자 승인 후 성공했다. Helm revision 4의 TLS 수신기를 배포하고 실제 내부 경보→규칙 보고서 및 기존 자료 보존을 확인했다. 운영 경보 연결과 실제 외부 알림 시험은 후속이다. [최신 현황](docs/B5-alert-ingestion.md).

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import unittest
-from ai_ops.alert_routing import build_routing
+from ai_ops.alert_routing import build_routing, verify_routing
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -47,9 +47,13 @@ def check():
     case.test_default_labels_unchanged_and_enabled_labels_cover_five_only()
     case.test_enable_without_target_or_invalid_environment_rejected()
     base=yaml_value((ROOT/'cluster-addons/prometheus/values.yaml').read_text())[0]
-    result=build_routing(base)
-    assert result['alertmanager']['config']['receivers'][:-1]==base['alertmanager']['config']['receivers']
-    assert result['alertmanager']['config']['route']['routes'][0]==base['alertmanager']['config']['route']['routes'][0]
+    if any(receiver['name']=='ai-investigation' for receiver in base['alertmanager']['config']['receivers']):
+        verify_routing(base)
+    else:
+        result=build_routing(base)
+        verify_routing(result)
+        assert result['alertmanager']['config']['receivers'][:-1]==base['alertmanager']['config']['receivers']
+        assert result['alertmanager']['config']['route']['routes'][0]==base['alertmanager']['config']['route']['routes'][0]
     print('B-05 실제 chart 검사 통과: 서비스 경보 5개 명시적 대상·Watchdog 불변·기존 알림 보존·잘못된 활성 설정 거부. 실제 전송은 미검증.')
 
 

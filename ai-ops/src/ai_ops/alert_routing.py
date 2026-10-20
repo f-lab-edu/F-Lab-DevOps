@@ -37,3 +37,21 @@ def build_routing(values: dict) -> dict:
                        'follow_redirects':False,
                        'tls_config':{'ca_file':directory+'/ca.crt','server_name':'ai-ops-webhook.ai-ops.svc'}}}]})
     return result
+
+
+def verify_routing(values: dict) -> None:
+    """이미 활성화한 분기를 역으로 구성해 알림·인증 경계의 변형을 거부한다."""
+    original = copy.deepcopy(values)
+    alertmanager = original['alertmanager']
+    config = alertmanager['config']
+    routes = config['route']['routes']
+    if len(routes) != 3:
+        raise ValueError('검토한 세 개 경보 분기가 필요합니다')
+    config['route']['routes'] = routes[:1]
+    config['receivers'] = [receiver for receiver in config['receivers'] if receiver['name'] != 'ai-investigation']
+    secrets = alertmanager['alertmanagerSpec']['secrets']
+    if secrets.count('ai-ops-alertmanager-auth') != 1:
+        raise ValueError('전용 경보 인증 Secret이 필요합니다')
+    secrets.remove('ai-ops-alertmanager-auth')
+    if build_routing(original) != values:
+        raise ValueError('AI·Slack·Watchdog 분기 또는 TLS 인증 설정이 검토한 구성과 다릅니다')

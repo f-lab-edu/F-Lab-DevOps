@@ -1,0 +1,8 @@
+# 검증된 B-05 이미지·현재 환경값·worker overlay와 전용 Secret을 함께 사용한다.
+receiver:
+  enabled: true
+  identitySecretName: ai-ops-webhook-identity
+  alertmanagerNamespace: monitoring
+  alertmanagerPodLabels:
+    app.kubernetes.io/name: alertmanager
+    alertmanager: kube-prometheus-stack-alertmanager

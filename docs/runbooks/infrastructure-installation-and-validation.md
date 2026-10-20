@@ -164,6 +164,8 @@ Redis PVC는 `Bound`, 앱 Secret의 키는 `DATABASE_URL`, `DATABASE_READ_URL`, 
 
 ## 7. 모니터링 Secret과 Prometheus
 
+B-05의 [내부 TLS·인증 Secret 준비](../../ai-ops/docs/B5-webhook-identity.md)를 **이 절의 모니터링 Application 적용 전에** 먼저 수행한다. `ai-ops` namespace의 수신기 Secret과 monitoring의 `ai-ops-alertmanager-auth`가 필요하다. main의 Alertmanager가 인증 Secret을 참조하므로 11-1절까지 준비를 미루면 기존 Watchdog도 시작하지 못할 수 있다. 기존 Secret은 소유권·키·CA/인증값 일치·만료를 검증하고 임의로 덮어쓰지 않는다.
+
 보호된 파일로 grafana-admin-secret, alertmanager-slack-secret, alertmanager-heartbeat-secret을 만든다. Grafana Secret에는 admin-user와 admin-password, 두 Alertmanager Secret에는 webhook-url 키가 있어야 한다. 각 파일은 의도하지 않은 끝 줄바꿈 없이 준비한다. Secret 값이나 생성 명령의 리터럴을 가이드에 넣지 않는다.
 
 ~~~bash
@@ -424,7 +426,7 @@ NodeClaim이 생겼다면 해당 노드가 `Ready`가 될 때까지 기다리고
 
 앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 `b4-values.worker.yaml` overlay를 이용해 수동 큐 worker StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다.
 
-이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. B-04 수동 큐 worker를 복원하며 경보 수신·외부 모델·운영 변경은 활성화하지 않는다. 예약 보관 정리는 새 이미지·worker overlay로 복원하고 enabled=1·예약 성공 시각·overdue를 함께 확인한다. worker probe·고정 큐 상태·실제 루프 진행 시각을 확인하고 과거 진단 heartbeat로 대신하지 않는다.
+이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. B-04 worker와 B-05 내부 경보 수신기를 `b5-values.receiver.yaml` overlay로 함께 복원한다. 이미지에 `alert_receiver.py`가 있고 앞서 준비한 두 Secret의 신뢰·인증값이 일치해야 한다. 외부 모델·운영 변경은 활성화하지 않는다. 수신기는 내부 TLS 9443만 열고 기존 Slack·Watchdog 분기는 보존한다. 예약 보관 정리는 새 이미지·worker overlay로 복원하고 enabled=1·예약 성공 시각·overdue를 함께 확인한다. worker probe·고정 큐 상태·실제 루프 진행 시각을 확인하고 과거 진단 heartbeat로 대신하지 않는다.
 
 ## 12. 미뤄 둔 개선 항목 검증
 

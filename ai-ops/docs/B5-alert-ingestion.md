@@ -1,6 +1,6 @@
-# B-05 경보 연동 — 첫 구현 묶음
+# B-05 경보 연동 — 구현·배포·검증
 
-## 2026-10-20 원격 반영·연결 준비 현황
+## 2026-10-20 실제 연결·검증 현황
 
 [PR #44](https://github.com/f-lab-edu/F-Lab-DevOps/pull/44)는 Python 238건·이미지·앱·Helm·Terraform CI 통과 후 main `4da4add26f3ec4614b128cd1155f58582c811e29`에 병합했다. 아래 237건은 기존 로컬 checkout의 최초 기록이며, main 기반 회귀 시험은 238건이다.
 
@@ -82,11 +82,11 @@ HTTP 조회/관리 API는 제공하지 않는다. 수신 token으로 보고서�
 
 자식 route에 매칭됐다고 부모 기본 Slack에도 자동 전달된다고 가정하지 않는다. [Alertmanager 공식 route·webhook 계약](https://prometheus.io/docs/alerting/latest/configuration/)을 기준으로 명시적 후속 Slack 분기를 둔다. 준비한 AI webhook은 내부 HTTPS·전용 CA·Bearer credentials_file·리다이렉트 금지·send_resolved=true·timeout 5초를 사용한다. 기존 inhibition을 우회하지 않는다.
 
-앱 chart의 `monitoring.aiOps.enabled`도 기본 false다. 켜려면 clusterId와 practice/production을 명시해야 하며 서비스 경보 다섯 개에 Target labels를 추가한다. Watchdog·PromQL·severity·annotations는 바꾸지 않는다. **현재 실제 `cluster-addons/prometheus/values.yaml`, production 활성값과 기존 알림 경로는 수정하지 않았다.**
+앱 chart의 `monitoring.aiOps.enabled`도 기본 false다. 켜려면 clusterId와 practice/production을 명시해야 하며 서비스 경보 다섯 개에 Target labels를 추가한다. Watchdog·PromQL·severity·annotations는 바꾸지 않는다. 최초 로컬 구현 당시에는 실제 운영값을 수정하지 않았다. 이후 PR #45에서 위 구조대로 Alertmanager 분기와 production 경보 labels를 활성화했다.
 
 ## 사용·검토 예
 
-배포 전 초안 생성만 수행한다. 출력은 등록된 개인 저장 폴더의 새 JSON 경로여야 한다. 실제 source는 고정된 저장소 values이며 arbitrary 입력 파일을 받지 않는다. 이 도구는 로컬 개발용 Ruby YAML 파서를 사용하고 이미지 의존성을 추가하지 않는다.
+아래 초안 생성 명령은 AI 분기가 아직 없는 최초 values를 전제로 하는 초기 구현 예다. 이미 AI 분기가 활성화된 현재 main에서는 기존 분기 덮어쓰기를 막기 위해 거부한다. 현재 구성의 재검토는 `check_deployment.py`가 호출하는 `verify_routing` 검사로 수행한다. 출력은 등록된 개인 저장 폴더의 새 JSON 경로여야 한다. 실제 source는 고정된 저장소 values이며 arbitrary 입력 파일을 받지 않는다. 이 도구는 로컬 개발용 Ruby YAML 파서를 사용하고 이미지 의존성을 추가하지 않는다.
 
 ```sh
 PYTHONPATH=ai-ops/src python ai-ops/scripts/prepare_alertmanager.py \

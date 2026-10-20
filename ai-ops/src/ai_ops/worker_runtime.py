@@ -23,6 +23,7 @@ from ai_ops.job_queue import JobQueue, STATES
 from ai_ops.observability import Telemetry, log_event, metrics_server
 from ai_ops.path_policy import cli_paths, permitted_path
 from ai_ops.worker import Worker
+from ai_ops.retention_schedule import RetentionSchedule
 
 HEALTH_NAME = "worker-health.json"
 MAX_PROGRESS_AGE = 120
@@ -78,6 +79,7 @@ class WorkerTelemetry(Telemetry):
         super().__init__(queue.root)
         self.queue = queue
         self.last_write = None
+        self.retention = None
 
     def progress(self):
         # 별도 생존 스레드 대신 실제 처리 루프가 돌아왔을 때만 갱신한다.
@@ -112,6 +114,9 @@ class WorkerTelemetry(Telemetry):
         for name, value in (("queue_oldest_waiting_age_seconds", oldest), ("queue_expired_leases", expired),
                             ("queue_retained_attempts", attempts), ("worker_last_progress_timestamp_seconds", progress["timestamp"])):
             lines.extend((f"# TYPE ai_ops_{name} gauge", f"ai_ops_{name} {value}"))
+        if self.retention is not None:
+            for name, value in self.retention.metrics().items():
+                lines.extend((f"# TYPE {name} gauge", f"{name} {value}"))
         return (base + "\n".join(lines) + "\n").encode("ascii")
 
 
@@ -121,9 +126,10 @@ def main(argv=None) -> int:
     parser.add_argument("--store", type=Path, default=Path("/data/incidents"))
     parser.add_argument("--probe", action="store_true", help="큐 내용을 노출하지 않고 최근 worker 진행만 확인한다")
     parser.add_argument("--metrics", action="store_true", help="제한된 9091 포트에 고정 상태 지표를 제공한다")
+    parser.add_argument("--retention", action="store_true", help="작업 사이에 7일 만료 자료를 예약 정리한다")
     args = cli_paths(parser, parser.parse_args(argv), {"config": "directory", "store": "store"})
-    if args.probe and args.metrics:
-        parser.error("상태 검사와 지표 서버를 함께 실행할 수 없습니다")
+    if args.probe and (args.metrics or args.retention):
+        parser.error("상태 검사에서는 지표 서버·예약 정리를 실행할 수 없습니다")
     os.umask(0o077)
     stopped = threading.Event()
     telemetry = None
@@ -138,10 +144,13 @@ def main(argv=None) -> int:
         settings = load_b_settings(args.config / "bindings.json", args.config / "runtime.json", args.config / "metric-queries.json")
         queue = JobQueue(args.store)
         telemetry = WorkerTelemetry(queue)
+        if args.retention:
+            telemetry.retention = RetentionSchedule(queue, stopped=stopped.is_set, progress=telemetry.progress)
         worker = Worker(queue, settings, stopped=stopped)
         log_event("process_started")
         with metrics_server(telemetry) if args.metrics else nullcontext():
-            worker.serve(progress=telemetry.progress)
+            worker.serve(progress=telemetry.progress,
+                         maintenance=telemetry.retention.tick if telemetry.retention else lambda: None)
         return 0
     except Exception:
         # 경로·질문·예외 원문은 상태 로그와 지표에 남기지 않는다.

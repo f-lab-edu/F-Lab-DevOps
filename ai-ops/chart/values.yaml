@@ -38,3 +38,6 @@ identity:
 # 메트릭 포트는 진단 실행과 명시적인 Prometheus 수집을 함께 켠 경우에만 연다.
 observability:
   enabled: false
+retention:
+  # worker 안전 지점에서만 실행하며 명시적으로 활성화해야 한다.
+  enabled: false

@@ -62,3 +62,7 @@ SQLite `secure_delete`를 사용하지만 파일시스템·WAL·백업·EBS snap
 ## 연속 worker와 함께 사용할 때
 
 [배포 worker](B4-worker-deployment.md)는 유휴 중에도 잠금을 유지한다. 같은 이미지·PVC의 진단 모드로 명시적으로 전환하여 worker 종료를 확인한 뒤 이 명령을 실행하고, 정리 후 worker 모드로 복귀한다. 잠금 파일 삭제로 충돌을 우회하지 않는다.
+
+## 예약 정리 연결
+
+[worker 안전 지점의 예약 정리](B4-retention-schedule.md)를 별도 활성화로 구현했다. 별도 CronJob/Pod/PVC 연결이나 Kubernetes 쓰기 권한 없이, 현재 worker가 잠금을 유지한 채 작업 사이에 만료 후보만 소량 처리한다. 새 이미지 적용 전까지 실제 배포 상태는 해당 문서 상단을 따른다. 예약 활성 상태에서 수동 정리를 하려면 진단 모드와 `retention.enabled=false`를 함께 설정한다.

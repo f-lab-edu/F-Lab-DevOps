@@ -1,0 +1,14 @@
+{
+  "phase": "B-04",
+  "status": "local_validated_deployment_pending",
+  "python_tests": 207,
+  "new_worker_runtime_tests": 7,
+  "helm_modes": [
+    "diagnostics",
+    "worker"
+  ],
+  "external_model_calls": 0,
+  "cluster_worker_deployed": false,
+  "pod_restart_recovery_verified": false,
+  "verification_base": "origin/main"
+}

@@ -152,6 +152,21 @@ class IncidentStore:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
 
+    def request_fingerprint(self, value: dict) -> str:
+        """원문을 저장하지 않고 요청 중복 내용을 비밀키 해시로 비교한다."""
+        return hmac.new(self._fingerprint_key, canonical_json_bytes(value), hashlib.sha256).hexdigest()
+
+    def find_request(self, request_id: str) -> RunRecord | None:
+        """큐 복구 시 기존 요청의 검증된 결과만 조회하며 새 분석은 하지 않는다."""
+        with self._locked():
+            path = self._index_path(request_id)
+            if not path.exists():
+                return None
+            index = _read_json(path)
+            if index.get("request_id") != request_id:
+                raise ValueError("stored request index mismatch")
+            return self._read_record(index["incident_id"], index["run_id"])
+
     def load_api_key(self) -> str:
         """개인 저장소의 API 키를 권한 검사 후 읽는다. 키 값은 출력하지 않는다."""
         path = self.root / ".openai-api-key"
@@ -195,11 +210,12 @@ class IncidentStore:
             _atomic_write(path, key.encode("ascii"))
 
     @contextmanager
-    def _locked(self) -> Iterator[None]:
+    def _locked(self, *, reconcile: bool = True) -> Iterator[None]:
         lock_fd = os.open(self.root / ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
-            self._reconcile()
+            if reconcile:
+                self._reconcile()
             yield
         finally:
             fcntl.flock(lock_fd, fcntl.LOCK_UN)

@@ -1,0 +1,36 @@
+{
+  "record_type": "ai_ops_durable_queue_local_validation",
+  "phase": "first_bundle",
+  "status": "local_verified",
+  "python_tests": 178,
+  "new_queue_tests": 16,
+  "storage": "temporary_private_directory_outside_repository",
+  "input": "synthetic",
+  "scenarios": [
+    "duplicate_and_conflicting_request_key",
+    "capacity_and_database_failure",
+    "rules_partial_report_reference",
+    "bounded_three_attempts_and_backoff",
+    "lease_renewal_expiry_generation_fencing",
+    "queued_and_active_cancel",
+    "config_change_before_network",
+    "cross_process_exclusive_worker_lock",
+    "process_exit_after_claim",
+    "process_exit_after_snapshot_checkpoint",
+    "process_exit_after_report_before_queue_commit",
+    "queue_failure_after_report_without_recollection",
+    "tampered_report_or_snapshot_needs_review",
+    "graceful_stop_preserves_snapshot",
+    "unknown_schema_and_symlink_rejected",
+    "cli_status_without_question_or_exception_body"
+  ],
+  "cluster_worker_deployed": false,
+  "existing_cluster_diagnostics_changed": false,
+  "external_model_called": false,
+  "limitations": [
+    "Only manual rules jobs; no alert HTTP receiver or model mode.",
+    "No automatic retention or coordinated cleanup implementation yet.",
+    "Queue/worker telemetry and authenticated HTTP report lookup are pending.",
+    "No real Pod/node/volume failure test for the queue yet."
+  ]
+}

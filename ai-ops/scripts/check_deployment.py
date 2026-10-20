@@ -33,7 +33,7 @@ def render(*args: str, success: bool = True) -> list[dict]:
     return parse_yaml(result.stdout)
 
 
-def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False) -> None:
+def verify(documents: list[dict], token_expiration_seconds: int = 3600, observability: bool = False, mode: str = "diagnostics") -> None:
     by_kind: dict[str, list[dict]] = {}
     for doc in documents:
         by_kind.setdefault(doc["kind"], []).append(doc)
@@ -84,7 +84,18 @@ def verify(documents: list[dict], token_expiration_seconds: int = 3600, observab
         "fsGroup": 10001, "fsGroupChangePolicy": "OnRootMismatch", "seccompProfile": {"type": "RuntimeDefault"}}
     assert len(pod["containers"]) == 1 and not pod.get("initContainers")
     container = pod["containers"][0]
-    assert container["command"] == ["python", "-m", "ai_ops.deployment_check"] and container["args"] == (["--serve", "--metrics"] if observability else ["--serve"])
+    module = "ai_ops.worker_runtime" if mode == "worker" else "ai_ops.deployment_check"
+    assert container["command"] == ["python", "-m", module]
+    assert container.get("args", []) == (([] if mode == "worker" else ["--serve"]) + (["--metrics"] if observability else []))
+    probe = ["python", "-m", module] + (["--probe"] if mode == "worker" else [])
+    for name in ("startupProbe", "readinessProbe"):
+        assert container[name]["exec"]["command"] == probe
+    assert pod["terminationGracePeriodSeconds"] == (90 if mode == "worker" else 15)
+    if mode == "worker":
+        assert container["livenessProbe"]["exec"]["command"] == probe
+        assert container["livenessProbe"]["failureThreshold"] == 3
+    else:
+        assert "livenessProbe" not in container
     assert container["securityContext"] == {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}}
     assert "@sha256:" in container["image"] and "envFrom" not in container
     volumes = {v["name"]: v for v in pod["volumes"]}
@@ -163,6 +174,8 @@ def main() -> None:
     assert json.loads(config["bindings.json"])["bindings"][0]["target"]["environment"] == "production"
     # 단기 토큰도 동일한 권한·통신 경계를 유지하며 수명 범위 밖은 거부한다.
     verify(render(*args, "--set", "identity.tokenExpirationSeconds=600"), token_expiration_seconds=600)
+    verify(render(*args, "--set", "mode=worker"), mode="worker")
+    verify(render(*args, "--set", "mode=worker", "--set", "observability.enabled=true"), observability=True, mode="worker")
     monitored = render(*args, "--set", "observability.enabled=true")
     verify(monitored, observability=True)
     # 관측 기능이 열려도 발신자 제한·포트·대상 범위가 넓어지면 거부한다.
@@ -179,7 +192,7 @@ def main() -> None:
             raise AssertionError("관측 권한 확대를 놓쳤다")
     rejected = [
         ("identity.tokenExpirationSeconds=599",), ("identity.tokenExpirationSeconds=3601",),
-        ("replicaCount=2",), ("mode=worker",), ("image.digest=latest",),
+        ("replicaCount=2",), ("mode=unknown",), ("image.digest=latest",),
         ("config.runtime.llm_enabled=true",), ("persistence.storageClassName=",),
         ("network.apiServerCIDRs[0]=0.0.0.0/0",), ("network.dns.podLabels=null",),
         ("network.prometheus.podLabels=null",), ("config.runtime.connections.practice-kubernetes.token_file=/tmp/key",),
@@ -201,7 +214,7 @@ def main() -> None:
             pass
         else:
             raise AssertionError("위험한 manifest 변경을 놓쳤다")
-    print("B-03 정적 검사 통과: 기본 비활성·실습/운영 읽기 전용 리소스 10개·관측 활성 13개·잘못된 설정 거부·위험 변경 5종 검출. 실환경은 미검증.")
+    print("B-03/B-04 진단·worker 정적 검사 통과: 기본 비활성·실습/운영 읽기 전용 리소스 10개·관측 활성 13개·잘못된 설정 거부·위험 변경 5종 검출. 실환경은 미검증.")
 
 
 if __name__ == "__main__":

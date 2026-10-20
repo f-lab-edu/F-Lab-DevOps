@@ -1,0 +1,37 @@
+{
+  "record_type": "ai_ops_queue_retention_local_validation",
+  "phase": "second_bundle",
+  "status": "local_verified",
+  "python_tests": 199,
+  "new_retention_tests": 17,
+  "input": "synthetic",
+  "storage": "temporary_private_directory_outside_repository",
+  "queue_schema_version": 2,
+  "retention_days": 7,
+  "migration": "v1_to_v2_preserves_jobs_attempts_episodes_and_key",
+  "scenarios": [
+    "default_preview_no_deletion",
+    "exact_seven_day_boundary",
+    "all_failed_attempts_and_snapshot_indexes_removed",
+    "unrelated_manual_reports_api_keys_budget_telemetry_preserved",
+    "expired_key_cannot_be_resubmitted",
+    "unfinished_or_leased_job_protected",
+    "worker_lock_exclusion",
+    "symlink_foreign_index_unattributed_temp_and_tampered_plan_rejected",
+    "missing_index_owned_run_cleanup",
+    "actual_process_exit_after_partial_deletion",
+    "file_deletion_before_database_commit_failure_recovery",
+    "cli_preview_and_blocked_exit_codes"
+  ],
+  "cluster_worker_deployed": false,
+  "actual_production_data_deleted": false,
+  "external_model_called": false,
+  "scheduled_cleanup_enabled": false,
+  "limitations": [
+    "Only queue-owned linked runs; independent manual records are outside scope.",
+    "Unattributed incomplete files require operator review.",
+    "Episode hashes and content-free deletion audit persist; no automatic pruning yet.",
+    "Logical deletion does not guarantee forensic erasure from filesystem/WAL/backups.",
+    "Worker metrics, access boundary, deployment mode and real Pod recovery remain pending."
+  ]
+}

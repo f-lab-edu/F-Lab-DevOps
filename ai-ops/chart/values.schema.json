@@ -7,7 +7,7 @@
       "type": "boolean"
     },
     "mode": {
-      "const": "diagnostics"
+      "enum": ["diagnostics", "worker"]
     },
     "replicaCount": {
       "const": 1

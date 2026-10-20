@@ -100,3 +100,7 @@ B-03 현재 클러스터 연결(2026-10-19): 사용자가 production 읽기 전�
 
 
 B-03-SEC-01 진행(2026-10-19): AI 베이스를 공식 Python 3.11.17-alpine3.24 digest로 고정하고 zlib를 보안 수정 패키지로 갱신했다. runtime 빌드 도구 제거 후 로컬 Trivy 0건·runtime 34건·호스트 154건을 확인했다. 현재 production 읽기 전용 지원과 함께 새 이미지 반영을 준비하며 **ECR 재등록·재스캔 전에는 완료가 아니다**. [대응·검증 기록](docs/B3-image-security.md)을 따른다.
+
+## B-04 영속 큐·보관·worker 배포 모드
+
+[영속 수동 큐](docs/B4-durable-queue.md), [7일 보관표·연계 삭제](docs/B4-retention.md), [worker 배포·관측](docs/B4-worker-deployment.md)을 구현했다. 기본 chart는 비활성·진단 모드를 유지하며, 승인된 새 이미지와 worker overlay를 명시해야 연속 처리한다. 수집은 읽기 전용, 보고서는 규칙 모드이며 외부 AI·경보 수신·운영 변경은 활성화하지 않는다. Python 207건·Helm 진단/worker 경계 검사 통과. 원격 이미지·실제 Pod 재시작 복구 검증은 대기다.

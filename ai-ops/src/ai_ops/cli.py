@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+import signal
+import sqlite3
+import threading
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +25,9 @@ from ai_ops.incidents import IncidentStore, RunStopped
 from ai_ops.openai_engine import AIConfig, analyze_ai, api_key_from_environment
 from ai_ops.reports import DIAGNOSIS, format_kst
 from ai_ops.observability import observe
+from ai_ops.job_queue import JobQueue
+from ai_ops.worker import Worker
+from ai_ops.retention import QueueRetention
 
 
 DEFAULT_STORE = Path.home() / ".local/share/url-shortener-ai-ops"
@@ -52,6 +58,30 @@ def _parser() -> argparse.ArgumentParser:
     collect.add_argument("--route")
     collect.add_argument("--operation")
     collect.add_argument("--mode", choices=("rules",), default="rules", help="현재 captured 입력은 규칙 조사만 지원한다")
+    for name, help_text in (("queue-submit", "조사 요청을 영속 큐에 접수한다"),
+                            ("queue-work", "큐의 읽기 전용 수집·규칙 보고서를 처리한다")):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--bindings", type=Path, required=True)
+        command.add_argument("--runtime", type=Path, required=True)
+        command.add_argument("--metric-queries", type=Path, required=True)
+        command.add_argument("--store", type=Path, default=DEFAULT_STORE)
+        if name == "queue-submit":
+            command.add_argument("--target", required=True)
+            command.add_argument("--question", required=True)
+            command.add_argument("--request-id", required=True)
+            command.add_argument("--route")
+            command.add_argument("--operation")
+        else:
+            command.add_argument("--serve", action="store_true", help="명시한 경우에만 연속 처리한다")
+    for name, help_text in (("queue-show", "질문을 제외한 작업 상태를 조회한다"),
+                            ("queue-cancel", "대기·진행 작업을 취소하고 늦은 게시를 막는다")):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--store", type=Path, default=DEFAULT_STORE)
+        command.add_argument("--job", required=True)
+    retention = commands.add_parser("queue-retention", help="7일 보관표를 보고 명시한 경우에만 연결 자료를 삭제한다")
+    retention.add_argument("--store", type=Path, default=DEFAULT_STORE)
+    retention.add_argument("--job", help="선택한 작업 하나만 확인하거나 정리한다")
+    retention.add_argument("--apply", action="store_true", help="기본 미리보기 대신 만료된 완료 작업의 자료를 삭제한다")
     show = commands.add_parser("show", help="저장된 실행 결과를 다시 보여준다")
     show.add_argument("--store", type=Path, default=DEFAULT_STORE)
     show.add_argument("--incident", required=True)
@@ -88,6 +118,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args = cli_paths(parser, parser.parse_args(argv), {'bundle': 'directory', 'registry': 'input', 'bindings': 'input', 'runtime': 'input', 'metric_queries': 'input', 'store': 'store'})
     try:
+        if args.command.startswith("queue-"):
+            queue = JobQueue(args.store)
+            if args.command == "queue-retention":
+                value = QueueRetention(queue).run(apply=args.apply, job_id=args.job)
+                print(json.dumps(value, ensure_ascii=False, indent=2))
+                return 2 if args.apply and any(item["action"] == "blocked" for item in value["entries"]) else 0
+            if args.command in ("queue-show", "queue-cancel"):
+                value = queue.cancel(args.job) if args.command == "queue-cancel" else queue.show(args.job)
+            else:
+                settings = load_b_settings(args.bindings, args.runtime, args.metric_queries)
+                if args.command == "queue-submit":
+                    job, duplicate = queue.submit(settings, target=args.target, question=args.question,
+                        request_id=args.request_id, route=args.route, operation=args.operation)
+                    value = {**queue.show(job), "duplicate": duplicate}
+                else:
+                    stopped = threading.Event()
+                    worker = Worker(queue, settings, stopped=stopped)
+                    if args.serve:
+                        signal.signal(signal.SIGTERM, lambda *_: stopped.set())
+                        signal.signal(signal.SIGINT, lambda *_: stopped.set())
+                        worker.serve()
+                        return 0
+                    value = worker.run_once()
+            print(json.dumps(value if value is not None else {"state": "idle"}, ensure_ascii=False, indent=2))
+            return 0
         if args.command == "validate-bundle":
             bundle = load_evidence_bundle(args.bundle, load_target_registry(args.registry))
             print("증거 묶음 검증 완료")
@@ -171,6 +226,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             safe_reason, _ = redact_text(exc.reason)
             print(f"사유: {safe_reason}", file=sys.stderr)
         return 130 if exc.status == "cancelled" else 1
+    except sqlite3.Error:
+        print("큐 저장소 읽기·쓰기 실패: 접수·완료로 간주하지 마세요.", file=sys.stderr)
+        return 2
     except ValidationError:
         print("입력 계약 검증에 실패했습니다.", file=sys.stderr)
         return 2

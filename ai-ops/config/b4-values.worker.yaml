@@ -1,0 +1,8 @@
+# 승인한 worker 이미지와 현재 클러스터용 비공개 값을 함께 명시해야 한다.
+# 수동 큐만 처리하며 경보 수신·외부 모델·운영 리소스 변경은 활성화하지 않는다.
+enabled: true
+mode: worker
+identity:
+  tokenExpirationSeconds: 600
+observability:
+  enabled: true

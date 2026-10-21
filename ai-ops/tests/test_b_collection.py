@@ -251,7 +251,9 @@ class BCollectionTest(unittest.TestCase):
             self.assertIsNone(item.payload)
         item = self.builder.add(self.source("log", "unknown-log"), observed_at="2026-10-16T01:00:00Z",
                                 payload={"container": "api", "lines": ["2026-10-16T01:00:00Z name=" + SENTINEL]})
-        self.assertEqual(item.status, "invalid")
+        self.assertEqual((item.status, item.missing_reason), ("missing", "no_diagnostic_fields"))
+        self.assertIsNone(item.payload)
+        self.assertNotIn(SENTINEL, self.builder.finish().bundle.model_dump_json())
 
     def test_response_raw_log_payload_bundle_and_deadline_limits(self):
         limits = self.settings.runtime.limits

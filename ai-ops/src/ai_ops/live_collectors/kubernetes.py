@@ -206,7 +206,7 @@ def _logs(builder, transport, pod, prefix, restarts):
             lines = response.body.decode("utf-8").splitlines()
         except UnicodeError:
             lines_left = 0
-            add(builder, key, "log", failure=ReadFailure("invalid", "invalid_payload"))
+            add(builder, key, "log", failure=ReadFailure("invalid", "invalid_log_encoding"))
             continue
         available_lines = lines_left
         lines_left = max(0, lines_left - len(lines))
@@ -229,7 +229,11 @@ def _logs(builder, transport, pod, prefix, restarts):
             if len(response.body) >= remaining or len(lines) >= available_lines:
                 add(builder, key, "log", failure=ReadFailure("missing", "truncated"), context={"truncated": True})
                 continue
-            at = max((normalize_source_time(line.partition(" ")[0])[0], line.partition(" ")[0]) for line in lines)[1]
+            try:
+                at = max((normalize_source_time(line.partition(" ")[0])[0], line.partition(" ")[0]) for line in lines)[1]
+            except (ValueError, TypeError):
+                add(builder, key, "log", failure=ReadFailure("invalid", "invalid_log_timestamp"))
+                continue
             add(builder, key, "log", at=at, payload={"container": builder.binding.container, "lines": lines}, context=_context(pod["metadata"]))
         except (ValueError, TypeError, UnicodeError):
             add(builder, key, "log", failure=ReadFailure("invalid", "invalid_payload"))

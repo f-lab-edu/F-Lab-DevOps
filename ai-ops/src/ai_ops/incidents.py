@@ -31,7 +31,7 @@ from ai_ops.data_policy import POLICY_VERSION, ensure_external_model_allowed, va
 from ai_ops.openai_engine import AIAnalysisError, AIConfig, AIOutcome
 from ai_ops.reports import render_markdown, validate_report
 from ai_ops.replay_runner import ReplayLimits, ReplayResult, SelectionModel, run_replay
-from ai_ops.rules import analyze_rules, analyze_snapshot_rules
+from ai_ops.rules import analyze_rules, analyze_snapshot_rules, analyze_snapshot_rules_v1
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -285,13 +285,18 @@ class IncidentStore:
                 raise ValueError("stored collection audit does not match input")
             snapshot = validate_snapshot(CapturedSnapshot(bundle, CollectionAudit.model_validate(envelope["audit"])))
             collection_audit = snapshot.audit
-            expected = analyze_snapshot_rules(request, bundle, run_id, collection_audit)
+            versions = {"rules-captured-v1": analyze_snapshot_rules_v1, "rules-captured-v2": analyze_snapshot_rules}
+            if report.execution.engine not in versions:
+                raise ValueError("unsupported captured rules version")
+            expected = versions[report.execution.engine](request, bundle, run_id, collection_audit)
             expected_status = "partial" if expected.analysis_status == "partial" else "completed"
-            if (report.execution.engine != "rules-captured-v1" or report.execution.mode != "rules"
+            if (report.execution.engine != expected.execution.engine or report.execution.mode != "rules"
                     or report.current_state != expected.current_state or report.analysis_status != expected.analysis_status
                     or report.diagnosis_status != expected.diagnosis_status or metadata["status"] != expected_status
                     or metadata.get("failure_reason") != ("collection_incomplete" if expected_status == "partial" else None)):
                 raise ValueError("stored snapshot report contradicts verified collection state")
+            if report.execution.engine == "rules-captured-v2" and report.facts != expected.facts:
+                raise ValueError("stored snapshot facts contradict verified evidence")
         elif metadata.get("collection_audit_hash") is not None:
             raise ValueError("stored replay cannot contain a snapshot audit")
         fallback = (metadata["status"] == "partial" and metadata.get("mode") == "ai" and
@@ -301,7 +306,7 @@ class IncidentStore:
             raise ValueError("stored report mode does not match run")
         collection_partial = (
             collection_audit is not None and collection_audit.collection_status != "complete"
-            and report.execution.mode == "rules" and report.execution.engine == "rules-captured-v1"
+            and report.execution.mode == "rules" and report.execution.engine in {"rules-captured-v1", "rules-captured-v2"}
             and report.analysis_status == "partial" and metadata.get("failure_reason") == "collection_incomplete"
         )
         if metadata["status"] == "partial" and not (fallback or collection_partial):

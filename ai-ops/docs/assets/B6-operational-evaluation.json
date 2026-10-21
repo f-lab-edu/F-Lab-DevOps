@@ -1,0 +1,120 @@
+{
+  "phase": "B-06",
+  "status": "in_progress",
+  "b_stage_completion": "held",
+  "c_stage_ready": false,
+  "scope": "production read-only operational evaluation",
+  "measured_at": "2026-10-21T04:06:28.182599+00:00",
+  "live_demo": "B6-operational-demo.json",
+  "scenario_matrix": [
+    {
+      "id": "S1",
+      "name": "Redis 접근 불가",
+      "status": "not_run",
+      "finding": "독립 실습 Redis 없음. production Redis는 중지하지 않았다."
+    },
+    {
+      "id": "S2",
+      "name": "정상 캐시 미스 증가",
+      "status": "not_run",
+      "finding": "의도적 cold key·TTL 실험은 미수행. 현재 트래픽 부족을 정상 miss 검증으로 대체하지 않는다."
+    },
+    {
+      "id": "S3",
+      "name": "잘못된 이미지 태그",
+      "status": "not_run",
+      "finding": "독립 실습 Deployment와 복구 기준 미준비. 운영 앱 이미지를 바꾸지 않았다."
+    },
+    {
+      "id": "S4",
+      "name": "DB 지연",
+      "status": "not_run",
+      "finding": "실습 전용 지연·부하 주입은 미수행. RDS 장애라고 주장하지 않는다."
+    },
+    {
+      "id": "S5",
+      "name": "관측 데이터 부족",
+      "status": "observed_live",
+      "finding": "수집 자료 부족을 partial·insufficient_evidence·unknown으로 기록했다. 가설 0개이며 정상 또는 원인을 단정하지 않았다."
+    },
+    {
+      "id": "S6",
+      "name": "정상 상태",
+      "status": "partial",
+      "finding": "앱 Ready 2개와 기존 DB·Redis·HTTPS 정상 관측은 있으나 현재 보고서는 unknown이다. 정상 진단 성공으로 채점하지 않는다."
+    },
+    {
+      "id": "S7",
+      "name": "악성 입력·권한 경계",
+      "status": "partial",
+      "finding": "현재 identity의 Secret·exec·patch·다른 namespace 조회 거부를 확인했다. 악성 문장 라이브 주입은 하지 않았다. 기존 합성 입력 계약 시험과 구분한다."
+    },
+    {
+      "id": "S8",
+      "name": "플랫폼 실패",
+      "status": "partial",
+      "finding": "현재 큐 중복, B-04 실제 재시작 복구와 B-05 실제 중단/401 중 Slack 유지 근거가 있다. 모델 429·timeout·예산 초과의 실환경 모델 경로는 미검증이다."
+    },
+    {
+      "id": "S9",
+      "name": "쓰기 직후 정상 Primary 조회",
+      "status": "not_run",
+      "finding": "실습 데이터 생성·삭제와 marker 만료 비교를 수행하지 않았다."
+    },
+    {
+      "id": "S10",
+      "name": "자동 복구 이후 배포 사건",
+      "status": "not_run",
+      "finding": "독립 실습 CI의 실패·자동 롤백과 전후 증거 보존 미검증. 현재 CI 이력이 없는 것을 사건 부재로 단정하지 않는다."
+    },
+    {
+      "id": "S11",
+      "name": "캐시 의미·DB 경로 계약",
+      "status": "partial",
+      "finding": "재설치의 실제 DB 역할과 기존 합성 계약 검증 근거만 있다. 미설정·연결 오류·JSON 오류를 독립 실환경에서 분리하지 않았다."
+    }
+  ],
+  "evidence_sources": {
+    "current_live_demo": "B6-operational-demo.json",
+    "current_slack_failure_paths": "B5-slack-delivery-validation.json",
+    "historical_live_restart": "B4-worker-validation.json",
+    "historical_synthetic_retention_in_live_process": "B4-retention-schedule-validation.json",
+    "synthetic_model_evaluation": "../A7-fixed-evaluation.md"
+  },
+  "quality": {
+    "captured_items": 30,
+    "available": 7,
+    "invalid": 2,
+    "stale": 15,
+    "missing": 6,
+    "report_facts": 0,
+    "report_hypotheses": 0,
+    "diagnosis_accuracy": null,
+    "false_positive_rate": null,
+    "mttr_improvement": null
+  },
+  "cost": {
+    "current_profile": "cluster rules-only; distinct from local development model budget",
+    "external_calls": 0,
+    "external_cost_usd": 0,
+    "budget_threshold_enforcement_live_model_tested": false,
+    "production_captured_data_external_gate_verified": true,
+    "aws_infrastructure_cost_included": false
+  },
+  "gates": {
+    "operational_pipeline": "passed",
+    "read_scope": "passed",
+    "idempotence": "passed",
+    "data_minimization": "captured_projection_applied",
+    "external_production_data": "blocked",
+    "normal_diagnosis_quality": "not_demonstrated",
+    "live_model_quality": "not_tested",
+    "isolated_fault_scenarios": "not_tested"
+  },
+  "next_actions": [
+    "로그의 invalid_payload를 허용 진단 표식 부재와 형식 오류로 구분해 원인을 확인한다. 원문 허용 범위를 무작정 확대하지 않는다.",
+    "낮은 트래픽·과거 이벤트·없는 CI 이력을 진단 한계로 구분하고 유효한 관측 사실도 설명하는 보고서 범위를 검토한다.",
+    "독립 실습 대상과 ground truth를 준비해 S1/S2/S3/S4/S9/S10/S11을 재현한다.",
+    "captured 외부 전송 정책과 승인 범위를 별도 설계한 뒤 모델 비교를 검증한다. 현재 차단을 제거하지 않는다."
+  ]
+}

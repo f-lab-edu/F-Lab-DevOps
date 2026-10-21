@@ -275,7 +275,7 @@ class LiveCollectorsTest(unittest.TestCase):
         for response, reason in ((ReadResponse(403, SENTINEL.encode()), "permission_denied"),
                                  (ReadResponse(200, b""), "empty_response"),
                                  (ReadResponse(200, b"x" * 65537), "response_too_large"),
-                                 (ReadResponse(200, b"no-time RedisError"), "invalid_payload")):
+                                 (ReadResponse(200, b"no-time RedisError"), "invalid_log_timestamp")):
             with self.subTest(reason=reason):
                 self.clock = Clock()
                 self.api = API(self.settings, self.clock)
@@ -283,6 +283,24 @@ class LiveCollectorsTest(unittest.TestCase):
                 snapshot = self.snapshot()
                 self.assertEqual(self.item(snapshot, "pod-0-log").missing_reason, reason)
                 self.assertIsNone(self.item(snapshot, "pod-0-log").payload)
+
+    def test_valid_log_without_diagnostic_fields_is_missing_not_invalid(self):
+        path = "/api/v1/namespaces/url-shortener/pods/url-shortener-api-123-abc/log"
+        self.api.overrides[path] = ReadResponse(200, (stamp() + " INFO user=" + SENTINEL).encode())
+        snapshot = self.snapshot()
+        item = self.item(snapshot, "pod-0-log")
+        self.assertEqual((item.status, item.missing_reason), ("missing", "no_diagnostic_fields"))
+        self.assertIsNone(item.payload)
+        self.assertNotIn(SENTINEL, snapshot.bundle.model_dump_json())
+
+    def test_non_utf8_logs_have_distinct_reason_and_never_store_body(self):
+        path = "/api/v1/namespaces/url-shortener/pods/url-shortener-api-123-abc/log"
+        self.api.overrides[path] = ReadResponse(200, (stamp() + " RedisError " + SENTINEL).encode() + bytes([255]))
+        snapshot = self.snapshot()
+        item = self.item(snapshot, "pod-0-log")
+        self.assertEqual((item.status, item.missing_reason), ("invalid", "invalid_log_encoding"))
+        self.assertIsNone(item.payload)
+        self.assertNotIn(SENTINEL, snapshot.bundle.model_dump_json())
 
     def test_event_uid_mismatch_and_missing_event_time_are_recorded(self):
         for field in ("owner", "time"):

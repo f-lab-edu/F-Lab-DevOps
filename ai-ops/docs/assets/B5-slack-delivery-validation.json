@@ -1,0 +1,82 @@
+{
+  "trial": "b5-a1c752d7ac",
+  "cases": [
+    {
+      "case": "receiver-stopped",
+      "start": "2026-10-21T03:54:46.359900Z",
+      "before": {
+        "slack_total": 13.0,
+        "slack_failed": 8.0,
+        "webhook_total": 4.0,
+        "webhook_failed": 0.0,
+        "webhook_request_failed": 13.0
+      },
+      "after": {
+        "slack_total": 14.0,
+        "slack_failed": 8.0,
+        "webhook_total": 5.0,
+        "webhook_failed": 0.0,
+        "webhook_request_failed": 15.0
+      },
+      "slack_success_delta": 1.0
+    },
+    {
+      "case": "authentication-failure",
+      "start": "2026-10-21T03:55:51.943682Z",
+      "before": {
+        "slack_total": 17.0,
+        "slack_failed": 8.0,
+        "webhook_total": 7.0,
+        "webhook_failed": 2.0,
+        "webhook_request_failed": 23.0
+      },
+      "after": {
+        "slack_total": 18.0,
+        "slack_failed": 8.0,
+        "webhook_total": 8.0,
+        "webhook_failed": 3.0,
+        "webhook_request_failed": 24.0
+      },
+      "unauthorized_401_verified": true,
+      "slack_success_delta": 1.0
+    }
+  ],
+  "pvc_uid": "b0236f94-4395-4aaa-91ac-3b2bbe31a78d",
+  "status": "passed",
+  "restored": true,
+  "restoration_errors": [],
+  "finished_at": "2026-10-21T03:57:17.896708Z",
+  "final_metrics": {
+    "up{namespace=\"ai-ops\",service=\"ai-ops-metrics\"}": [
+      "1"
+    ],
+    "ai_ops_worker_last_progress_timestamp_seconds": [
+      "1792555055.3986893"
+    ],
+    "ai_ops_retention_enabled": [
+      "1"
+    ]
+  },
+  "active_test_alerts": 0,
+  "routing_checks": {
+    "watchdog": "heartbeat-receiver",
+    "ai": "ai-investigation,slack-notifications",
+    "ordinary": "slack-notifications"
+  },
+  "phase": "B-05",
+  "fix_pr": 48,
+  "merge_revision": "31bd4adb820e33db13e3f98145c8ffcb629cd111",
+  "webhook_default_channel_check": {
+    "status": 200,
+    "response": "ok"
+  },
+  "slack_channel_override_removed": true,
+  "first_harness_run": {
+    "status": "failed",
+    "reason": "retryable request failures were compared with final notification failure counter",
+    "restored": true
+  },
+  "external_model_calls": 0,
+  "watchdog_external_test_sent": false,
+  "evidence_limit": "Slack 성공은 실제 Alertmanager 성공 계수와 실패 계수로 확인했다. Slack 대화 이력 API로 메시지 원문을 다시 읽지는 않았다."
+}

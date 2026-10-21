@@ -1,0 +1,301 @@
+{
+  "phase": "B-06",
+  "schema_version": 1,
+  "status": "passed",
+  "store": "/data/incidents",
+  "started_at": "2026-10-21T04:06:15.263261+00:00",
+  "environment": "production",
+  "identity": "system:serviceaccount:ai-ops:ai-ops-investigator",
+  "images": [
+    "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:0d176855a563a29b4b4c2d6f15ec5f9c7075d0e6e0f0b9f3260ceeb846ee181b",
+    "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:0d176855a563a29b4b4c2d6f15ec5f9c7075d0e6e0f0b9f3260ceeb846ee181b"
+  ],
+  "app_ready_replicas": 2,
+  "app_uid": "06d555f1-e31c-4afd-a06e-59edb4ce84d8",
+  "app_generation": 2,
+  "limits": {
+    "bundle_bytes": 4194304,
+    "deadline_seconds": 60,
+    "future_tolerance_seconds": 30,
+    "log_lines_per_pod": 200,
+    "lookback_seconds": 900,
+    "max_events": 20,
+    "max_items": 256,
+    "max_pods": 12,
+    "payload_bytes": 65536,
+    "raw_log_bytes": 65536,
+    "request_timeout_seconds": 5,
+    "response_bytes": 262144,
+    "total_response_bytes": 4194304
+  },
+  "external_model_enabled": false,
+  "configured_budget_usd": {
+    "per_incident": 0.1,
+    "daily": 1
+  },
+  "permissions": [
+    {
+      "verb": "get",
+      "resource": "deployments.apps/url-shortener-api",
+      "namespace": "url-shortener",
+      "allowed": true
+    },
+    {
+      "verb": "list",
+      "resource": "pods",
+      "namespace": "url-shortener",
+      "allowed": true
+    },
+    {
+      "verb": "get",
+      "resource": "applications.argoproj.io/url-shortener",
+      "namespace": "argocd",
+      "allowed": true
+    },
+    {
+      "verb": "get",
+      "resource": "secrets",
+      "namespace": "url-shortener",
+      "allowed": false
+    },
+    {
+      "verb": "patch",
+      "resource": "deployments.apps/url-shortener-api",
+      "namespace": "url-shortener",
+      "allowed": false
+    },
+    {
+      "verb": "create",
+      "resource": "pods/exec",
+      "namespace": "url-shortener",
+      "allowed": false
+    },
+    {
+      "verb": "list",
+      "resource": "pods",
+      "namespace": "kube-system",
+      "allowed": false
+    }
+  ],
+  "job_id": "job-27a3c32ed46d4572ad7117a13e1a0ad6",
+  "job": {
+    "job_id": "job-27a3c32ed46d4572ad7117a13e1a0ad6",
+    "state": "partial",
+    "attempts": 1,
+    "generation": 1,
+    "reason": null,
+    "incident_id": "inc-b103c3c3db9a44f581e5177ebb50fd61",
+    "run_id": "run-9bd3b7c991c9425191a144ea0d2e011c",
+    "bundle_hash": "6f3b214340ebe819a8c5af38c73a0ab4482798fd423baff438704c6ebbd540b5",
+    "created_at": "2026-10-21T04:06:21.319577Z",
+    "updated_at": "2026-10-21T04:06:22.490824Z",
+    "lease_until": null,
+    "retention_deadline": "2026-10-28T04:06:21.319577Z",
+    "attempt_history": [
+      {
+        "generation": 1,
+        "parent_generation": null,
+        "state": "partial",
+        "reason": null
+      }
+    ]
+  },
+  "report": {
+    "record_status": "partial",
+    "analysis_status": "partial",
+    "diagnosis_status": "insufficient_evidence",
+    "current_state": "unknown",
+    "execution_mode": "rules",
+    "report_sha256": "c73e2c25448a7a8fb64f7954bbb3c84dcfa0668b3b55cbf5ebbf47aa5c7adbe9",
+    "bundle_hash": "6f3b214340ebe819a8c5af38c73a0ab4482798fd423baff438704c6ebbd540b5",
+    "provenance": {
+      "captured": 30
+    },
+    "evidence_statuses": {
+      "available": 7,
+      "invalid": 2,
+      "stale": 15,
+      "missing": 6
+    },
+    "collection_status": "partial",
+    "collection_entries": [
+      {
+        "id": "ev-pod-0-status",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-pod-0-log",
+        "status": "invalid",
+        "reason": "invalid_payload"
+      },
+      {
+        "id": "ev-pod-0-config",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-pod-1-status",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-pod-1-log",
+        "status": "invalid",
+        "reason": "invalid_payload"
+      },
+      {
+        "id": "ev-pod-1-config",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-0",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-1",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-2",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-3",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-4",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-5",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-6",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-7",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-8",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-9",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-10",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-11",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-12",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-13",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-deployment-argo",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-deployment-history-0",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history"
+      },
+      {
+        "id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-cache_hit_ratio",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "no_traffic"
+      },
+      {
+        "id": "ev-metric-api_latency",
+        "status": "missing",
+        "reason": "no_traffic"
+      },
+      {
+        "id": "ev-metric-db_latency",
+        "status": "missing",
+        "reason": "no_traffic"
+      }
+    ],
+    "facts": 0,
+    "hypotheses": 0,
+    "missing_evidence": 23,
+    "all_actions_not_executed": true,
+    "captured_external_model_blocked": true,
+    "window_utc": {
+      "start": "2026-10-21T03:51:21.415800Z",
+      "end": "2026-10-21T04:06:22.213436Z"
+    },
+    "window_end_kst": "2026-10-21 13:06:22 KST (UTC+09:00)"
+  },
+  "duplicate_before_and_after": true,
+  "elapsed_seconds": 12.919338,
+  "app_deployment_unchanged": true,
+  "external_model_calls": 0,
+  "external_model_cost_usd": 0,
+  "accuracy_measurement": false,
+  "baseline": "단일 실제 읽기 조사이며 진단 정확도 평가가 아님",
+  "finished_at": "2026-10-21T04:06:28.182599+00:00",
+  "validation_scope": "single_live_read_only_workflow_not_diagnostic_accuracy",
+  "initial_harness_attempt": {
+    "status": "failed",
+    "reason": "operator script omitted explicit PVC --store; request entered temporary queue",
+    "temporary_job_cancelled": true,
+    "production_queue_changed": false
+  },
+  "workflow_before_final_checks_seconds": 11.244379292000303,
+  "timing_scope": "권한 확인·접수·보고서·중복·최종 probe·앱 불변 검사의 전체 벽시계 시간"
+}

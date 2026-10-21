@@ -1,0 +1,38 @@
+{
+  "scope": "candidate_only_saved_live_bundle_no_deployment",
+  "rules_sha256": "720e788aee2815ac2a8f8c30a93e7f8216626b28500388edb4ca14e0b779c3ce",
+  "bundle_hash": "6f3b214340ebe819a8c5af38c73a0ab4482798fd423baff438704c6ebbd540b5",
+  "old_engine": "rules-captured-v1",
+  "new_engine": "rules-captured-v2",
+  "old_facts": 0,
+  "new_facts": 3,
+  "fact_evidence_ids": [
+    [
+      "ev-pod-0-status",
+      "ev-pod-1-status"
+    ],
+    [
+      "ev-deployment-object",
+      "ev-deployment-argo"
+    ],
+    [
+      "ev-metric-cache_outcomes"
+    ]
+  ],
+  "analysis_status": "partial",
+  "current_state": "unknown",
+  "hypotheses": 0,
+  "original_report_unchanged": true,
+  "status": "candidate_verified_deployment_pending",
+  "unit_tests": 246,
+  "log_shape_check": {
+    "pods": 2,
+    "utf8_valid": true,
+    "invalid_timestamp_lines": 0,
+    "diagnostic_lines": 0,
+    "original_reason": "invalid_payload",
+    "new_reason": "no_diagnostic_fields"
+  },
+  "compatibility": "v1 reports are checked with original rules; v2 facts are re-derived on read",
+  "external_model_calls": 0
+}

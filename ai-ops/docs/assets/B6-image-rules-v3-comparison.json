@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "scope": "candidate_rules_on_same_saved_bundle_no_deployment",
+  "source_sha256": "5b492a7708d79578eaf38a8cede17b96971116e6db6ee91dd803606912aaf466",
+  "incident_id": "inc-966b3ed541f34cd38e8516b8217f7357",
+  "run_id": "run-12eb01ea00a641238e71c30e75db6772",
+  "bundle_hash": "907058cddb14505d8be0d8eddd817fa6084890832e31ea432ab64b12e74c522e",
+  "old_engine": "rules-captured-v2",
+  "new_engine": "rules-captured-v3",
+  "old_facts": 3,
+  "new_facts": 4,
+  "old_hypotheses": 0,
+  "new_hypotheses": 1,
+  "old_diagnosis": "insufficient_evidence",
+  "new_diagnosis": "suspected_cause",
+  "analysis_status": "partial",
+  "current_state": "unknown",
+  "new_fact_evidence_ids": [
+    [
+      "ev-pod-0-status",
+      "ev-event-0",
+      "ev-deployment-object"
+    ]
+  ],
+  "new_hypothesis_evidence_ids": [
+    [
+      "ev-pod-0-status",
+      "ev-event-0",
+      "ev-deployment-object"
+    ]
+  ],
+  "old_report_sha256": "e1594f71dcd77027ce5571a8ce2ea213cd60068e6cf34b9a12145cecba54e717",
+  "candidate_report_sha256": "d0c5810323190f26e3139d26975ca8193f33bf6042c3e3b106be6759ec96a58b",
+  "unchanged_stored_file_hashes": {
+    "inc-01b2af11da904ca1ad387ab055cbdfc2/run-85f06f8e25b14ffeb99dedd3d188867e/report.json": "03e9463cdc2bce54e8d7bc253cdde013518246fe66116e94099975cb3ca924d4",
+    "inc-670881a7af90440ab6e8f2114ca546f9/run-405a0e1861904b7fa3cbf3e2768260c3/report.json": "2247e873f357213a5e514bf11d2e2d60398094a37ce379922139a61f2e3ee977",
+    "inc-6a1cacac78d8406da50361b9ece7f980/run-58a3e559f6554cf49765e2629aad2738/report.json": "929c03dbd0cc6b2ca9f99f2d3c4bf966a826e9a557c47d20420b168da29bec33",
+    "inc-79e351d901d84a2389e4eadc6aff6d39/run-6325b3be984f45eeab4d6ff909417e44/report.json": "676a750c6f0cf41d3ff9efd0f190dc1bcdd2d645a90acf10820564bc521d2f99",
+    "inc-966b3ed541f34cd38e8516b8217f7357/run-12eb01ea00a641238e71c30e75db6772/report.json": "fcf5cce8895c36e71b69d20000682f1a1d9705b84740cdb5c2d81c958fe382d1",
+    "inc-fd1a091a969a41f79b8dc90e2a825e25/run-34f5a6ccd4d046dca4112430c70bf4a0/report.json": "495705108574bfff3c589f526498f14834f6ca87acbbf7719cfeb08a0a78286a",
+    "inc-01b2af11da904ca1ad387ab055cbdfc2/run-85f06f8e25b14ffeb99dedd3d188867e/input.json": "711b7bc2d7ceedb12421724e91efb737f10dd056afc2a9a880282f1cfdd9a889",
+    "inc-670881a7af90440ab6e8f2114ca546f9/run-405a0e1861904b7fa3cbf3e2768260c3/input.json": "216e4f27a30ec08124cc3fe78340a97814d48825cf95458a1cc5dc356c0ac22d",
+    "inc-6a1cacac78d8406da50361b9ece7f980/run-58a3e559f6554cf49765e2629aad2738/input.json": "f85b222b1a03d8b069706b131dc8722309aa20d77ac7ffba637db021cc6e9847",
+    "inc-79e351d901d84a2389e4eadc6aff6d39/run-6325b3be984f45eeab4d6ff909417e44/input.json": "f57e821df59574dfa492753278f73dd7e41291f08aa8cdc19d11f25f6943020e",
+    "inc-966b3ed541f34cd38e8516b8217f7357/run-12eb01ea00a641238e71c30e75db6772/input.json": "ca721d1fc00a014d1287f65434362d7a984fe60f44f2d45ebfd44f79b6194c35",
+    "inc-fd1a091a969a41f79b8dc90e2a825e25/run-34f5a6ccd4d046dca4112430c70bf4a0/input.json": "20632f67081355c4f6cbb00efd2e469e5a9a13087e951e50873baa88cbbe8275",
+    "inc-01b2af11da904ca1ad387ab055cbdfc2/run-85f06f8e25b14ffeb99dedd3d188867e/collection-audit.json": "d0b3876511f62cc65a4d37456d244528057257cec9a7dd12f07190149353a68f",
+    "inc-670881a7af90440ab6e8f2114ca546f9/run-405a0e1861904b7fa3cbf3e2768260c3/collection-audit.json": "957ed1ea2939a35bce12c82d245d1958c8f2389261857a87ab9d698fb1f84fae",
+    "inc-6a1cacac78d8406da50361b9ece7f980/run-58a3e559f6554cf49765e2629aad2738/collection-audit.json": "62b9335a0e32566fc7bba3ec61fe30a02c9163cd5f94cbed3240f9ffcb59c70f",
+    "inc-79e351d901d84a2389e4eadc6aff6d39/run-6325b3be984f45eeab4d6ff909417e44/collection-audit.json": "30fa522ab53caca05efeccdad433c54b373bd3c91063aed985576c3f93fc2fe0",
+    "inc-966b3ed541f34cd38e8516b8217f7357/run-12eb01ea00a641238e71c30e75db6772/collection-audit.json": "40e950dc91873a52a3551617dcc2a090c3045c734e90062190d3fa653efd54ba",
+    "inc-fd1a091a969a41f79b8dc90e2a825e25/run-34f5a6ccd4d046dca4112430c70bf4a0/collection-audit.json": "dbcf37c03e3ea3f0af0f63ef3e7fdc31df1da8891538b486b30f00d7d4c39636"
+  },
+  "legacy_reports_checked": 6,
+  "saved_report_unchanged": true,
+  "all_citations_available": true,
+  "external_model_blocked": true,
+  "external_model_calls": 0,
+  "external_model_cost_usd": 0,
+  "deployment_changed": false,
+  "verified_at": "2026-10-21T07:21:18.518366+00:00"
+}

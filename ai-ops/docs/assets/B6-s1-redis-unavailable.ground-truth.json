@@ -1,0 +1,127 @@
+{
+  "scenario": "S1",
+  "run_id": "3fcf84805b0348189add934c852291eb",
+  "namespace": "ai-ops-lab",
+  "status": "failed",
+  "started_at": "2026-10-21T05:21:33.207475+00:00",
+  "observations": [
+    {
+      "action": "cold",
+      "at": "2026-10-21T05:21:45.291704+00:00",
+      "marker_absent": true,
+      "http_status": 200,
+      "counters_before": {
+        "miss": 2.0,
+        "hit": 3.0,
+        "consistency_primary": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 3.0,
+        "consistency_primary": 1.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "hit",
+      "at": "2026-10-21T05:21:47.478127+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 3.0,
+        "consistency_primary": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "fault-read",
+      "batch": 0,
+      "at": "2026-10-21T05:22:27.496083+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 1.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "fault-read",
+      "batch": 1,
+      "at": "2026-10-21T05:23:05.501834+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 2.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "fault-read",
+      "batch": 2,
+      "at": "2026-10-21T05:23:42.980663+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 2.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 3.0
+      },
+      "http_calls": 3
+    }
+  ],
+  "http_calls": 16,
+  "external_model_calls": 0,
+  "scope": "single_isolated_rules_scenario_not_live_llm_accuracy",
+  "baseline": {
+    "lab-api": {
+      "uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:038046d5407d0c6843b31e26e32e8a6f4a812b1dc7e5710413b44207b696b699"
+    },
+    "lab-redis": {
+      "uid": "28b7adfb-8a1b-4040-a5e0-37d262c9360f",
+      "generation": 1,
+      "image": "docker.io/library/redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2"
+    },
+    "lab-postgres": {
+      "uid": "34ffa79b-5b39-449f-90f8-877e4f11a740",
+      "generation": 1,
+      "image": "docker.io/library/postgres@sha256:da9ee8a31159116ea979e5018ce5e3fb19d1494f43115bfb5696ed398ed2ff5a"
+    },
+    "lab-collector": {
+      "uid": "5c1a3b42-0179-4614-8c1b-cab13c1b3bc9",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:aa4dabfffb2767e64aed3d9c56ce62c9bef4bdf522d9510ec686a6a0b9d3e190"
+    }
+  },
+  "owned_item_id": 2,
+  "intervention_started_at": "2026-10-21T05:21:43.005255+00:00",
+  "redis_stopped_at": "2026-10-21T05:22:25.374114+00:00",
+  "ground_truth_recorded_at": "2026-10-21T05:24:17.988885+00:00"
+}

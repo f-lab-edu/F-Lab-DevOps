@@ -1,0 +1,454 @@
+{
+  "phase": "B-06",
+  "status": "lab_preparation_verified",
+  "b_stage_completion": "held",
+  "c_stage_ready": false,
+  "deployment": {
+    "namespace": "ai-ops-lab",
+    "resources": {
+      "Namespace": 1,
+      "ResourceQuota": 1,
+      "ServiceAccount": 2,
+      "Secret": 1,
+      "ConfigMap": 1,
+      "Role": 1,
+      "RoleBinding": 1,
+      "Deployment": 4,
+      "Service": 3,
+      "ServiceMonitor": 1,
+      "NetworkPolicy": 5
+    },
+    "requests": {
+      "cpu": "350m",
+      "memory": "576Mi"
+    },
+    "persistent_storage": false,
+    "external_model_enabled": false,
+    "database_topology": "single_primary_no_replica",
+    "status": "deployed",
+    "context": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+    "bundle_sha256": "d5b0ec7240069004192c107c9cf3fe0236549b23870ceaa566f37cc4f839e8cf",
+    "ready_pods": 4,
+    "production_identity_unchanged": true,
+    "production_identity": {
+      "url-shortener/url-shortener-api": {
+        "uid": "06d555f1-e31c-4afd-a06e-59edb4ce84d8",
+        "generation": 2
+      },
+      "ai-ops/ai-ops": {
+        "uid": "53f43df5-def1-4ecb-8d86-137fd225b243",
+        "generation": 6
+      },
+      "ai-ops/data-ai-ops-0": {
+        "uid": "b0236f94-4395-4aaa-91ac-3b2bbe31a78d"
+      }
+    },
+    "images": {
+      "lab-api": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:038046d5407d0c6843b31e26e32e8a6f4a812b1dc7e5710413b44207b696b699",
+      "lab-collector": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:aa4dabfffb2767e64aed3d9c56ce62c9bef4bdf522d9510ec686a6a0b9d3e190",
+      "lab-postgres": "docker.io/library/postgres@sha256:da9ee8a31159116ea979e5018ce5e3fb19d1494f43115bfb5696ed398ed2ff5a",
+      "lab-redis": "docker.io/library/redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2"
+    },
+    "verified_at": "2026-10-21T04:42:25.808492+00:00",
+    "scenarios_executed": [],
+    "external_model_calls": 0
+  },
+  "initial_readiness": {
+    "status": "passed",
+    "scope": "lab_readiness_not_fault_accuracy",
+    "namespace": "ai-ops-lab",
+    "verified_at": "2026-10-21T04:46:07.107001+00:00",
+    "permissions": [
+      {
+        "verb": "get",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "verb": "list",
+        "resource": "pods",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "verb": "get",
+        "resource": "secrets",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "patch",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "create",
+        "resource": "pods/exec",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "list",
+        "resource": "pods",
+        "namespace": "url-shortener",
+        "allowed": false
+      },
+      {
+        "verb": "get",
+        "resource": "applications.argoproj.io/url-shortener",
+        "namespace": "argocd",
+        "allowed": false
+      }
+    ],
+    "api": {
+      "http": {
+        "/readyz": 200,
+        "/items": 200,
+        "/items/_db": 200
+      },
+      "redis_ping": true,
+      "database_topology": "single_primary_no_replica"
+    },
+    "collection": {
+      "prometheus_up": 1,
+      "incident_id": "inc-670881a7af90440ab6e8f2114ca546f9",
+      "run_id": "run-405a0e1861904b7fa3cbf3e2768260c3",
+      "bundle_hash": "12dc73251780a115e8519c699e51cc5c406b269313b4134b01c9c171d74562af",
+      "engine": "rules-captured-v2",
+      "analysis_status": "partial",
+      "diagnosis_status": "insufficient_evidence",
+      "current_state": "unknown",
+      "evidence_statuses": {
+        "available": 12,
+        "missing": 8
+      },
+      "collection_entries": [
+        {
+          "id": "ev-pod-0-status",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-pod-0-log",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-pod-0-previous-log",
+          "status": "missing",
+          "reason": "no_diagnostic_fields"
+        },
+        {
+          "id": "ev-pod-0-config",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-0",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-1",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-2",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-3",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-4",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-5",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-6",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-7",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-object",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-argo",
+          "status": "missing",
+          "reason": "not_found"
+        },
+        {
+          "id": "ev-deployment-ci-history",
+          "status": "missing",
+          "reason": "missing_history"
+        },
+        {
+          "id": "ev-metric-cache_outcomes",
+          "status": "missing",
+          "reason": "scrape_unavailable"
+        },
+        {
+          "id": "ev-metric-cache_hit_ratio",
+          "status": "missing",
+          "reason": "scrape_unavailable"
+        },
+        {
+          "id": "ev-metric-http_error_ratio",
+          "status": "missing",
+          "reason": "scrape_unavailable"
+        },
+        {
+          "id": "ev-metric-api_latency",
+          "status": "missing",
+          "reason": "scrape_unavailable"
+        },
+        {
+          "id": "ev-metric-db_latency",
+          "status": "missing",
+          "reason": "scrape_unavailable"
+        }
+      ],
+      "facts": 2,
+      "hypotheses": 0,
+      "fact_citations_available": true,
+      "external_model_blocked": true,
+      "source": "captured",
+      "store_persistence": "emptyDir"
+    },
+    "external_model_calls": 0,
+    "scenarios_executed": []
+  },
+  "latest_readiness": {
+    "status": "passed",
+    "scope": "lab_readiness_not_fault_accuracy",
+    "namespace": "ai-ops-lab",
+    "verified_at": "2026-10-21T04:48:48.954093+00:00",
+    "permissions": [
+      {
+        "verb": "get",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "verb": "list",
+        "resource": "pods",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "verb": "get",
+        "resource": "secrets",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "patch",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "create",
+        "resource": "pods/exec",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "list",
+        "resource": "pods",
+        "namespace": "url-shortener",
+        "allowed": false
+      },
+      {
+        "verb": "get",
+        "resource": "applications.argoproj.io/url-shortener",
+        "namespace": "argocd",
+        "allowed": false
+      }
+    ],
+    "api": {
+      "http": {
+        "/readyz": 200,
+        "/items": 200,
+        "/items/_db": 200
+      },
+      "redis_ping": true,
+      "database_topology": "single_primary_no_replica"
+    },
+    "collection": {
+      "prometheus_up": 1,
+      "scrape_quality": {
+        "up": 1.0,
+        "scrape_samples": 10.0,
+        "scrape_health": 1.0,
+        "last_scrape_age_seconds": 4.384599924087524
+      },
+      "ready_for_metric_scenarios": true,
+      "incident_id": "inc-fd1a091a969a41f79b8dc90e2a825e25",
+      "run_id": "run-34f5a6ccd4d046dca4112430c70bf4a0",
+      "bundle_hash": "dccfaef194e526f1224498514a398787fafd0aee7d06e5af1bbc0d82e13308d2",
+      "engine": "rules-captured-v2",
+      "analysis_status": "partial",
+      "diagnosis_status": "insufficient_evidence",
+      "current_state": "unknown",
+      "evidence_statuses": {
+        "available": 13,
+        "missing": 8
+      },
+      "collection_entries": [
+        {
+          "id": "ev-pod-0-status",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-pod-0-log",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-pod-0-previous-log",
+          "status": "missing",
+          "reason": "truncated"
+        },
+        {
+          "id": "ev-pod-0-config",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-0",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-1",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-2",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-3",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-4",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-5",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-6",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-7",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-object",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-argo",
+          "status": "missing",
+          "reason": "not_found"
+        },
+        {
+          "id": "ev-deployment-ci-history",
+          "status": "missing",
+          "reason": "missing_history"
+        },
+        {
+          "id": "ev-metric-cache-outcome-gaps",
+          "status": "missing",
+          "reason": "empty_response"
+        },
+        {
+          "id": "ev-metric-cache_outcomes",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-metric-cache_hit_ratio",
+          "status": "missing",
+          "reason": "empty_response"
+        },
+        {
+          "id": "ev-metric-http_error_ratio",
+          "status": "missing",
+          "reason": "no_traffic"
+        },
+        {
+          "id": "ev-metric-api_latency",
+          "status": "missing",
+          "reason": "no_traffic"
+        },
+        {
+          "id": "ev-metric-db_latency",
+          "status": "missing",
+          "reason": "no_traffic"
+        }
+      ],
+      "facts": 3,
+      "hypotheses": 0,
+      "fact_citations_available": true,
+      "external_model_blocked": true,
+      "source": "captured",
+      "store_persistence": "emptyDir"
+    },
+    "external_model_calls": 0,
+    "scenarios_executed": []
+  },
+  "unit_tests": {
+    "passed": 253,
+    "new_boundary_tests": 7
+  },
+  "scenarios_executed": [],
+  "fault_injection_executed": false,
+  "external_model_calls": 0,
+  "limits": [
+    "single PostgreSQL without replica",
+    "Argo Application and CI history absent",
+    "NetworkPolicy declarations are not a full live denial matrix",
+    "emptyDir data is lost on Pod recreation"
+  ],
+  "source_sha256": {
+    "ai-ops/src/ai_ops/b6_lab.py": "7fe43577246b36d0abb73de9faf77070a1f4249e3047689d309a2c42ddce840f",
+    "ai-ops/scripts/prepare_b6_lab.py": "30126b912809f976861ad4f46079e38a26a3ca8d9951042e8e7a6de00ad6b555",
+    "ai-ops/scripts/deploy_b6_lab.py": "3daed919b0e82acf74cf4b139f9b15cdb79e28fc78e79e11c36a00cbdb4bb4c8",
+    "ai-ops/scripts/probe_b6_lab.py": "18459cffc11a9f082715be8d9575a1b6d0b73606849992ec624befee04410cd7",
+    "ai-ops/evals/rubrics/b6-live/scenarios.json": "bf0e036e453ef6ce859708681399235c3ad9b84ea75b273c7cb8d0608f131c27"
+  }
+}

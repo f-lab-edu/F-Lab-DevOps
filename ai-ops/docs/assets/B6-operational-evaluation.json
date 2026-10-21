@@ -4,32 +4,32 @@
   "b_stage_completion": "held",
   "c_stage_ready": false,
   "scope": "production read-only operational evaluation",
-  "measured_at": "2026-10-21T04:06:28.182599+00:00",
-  "live_demo": "B6-operational-demo.json",
+  "measured_at": "2026-10-21T04:30:18.817932+00:00",
+  "live_demo": "B6-operational-demo-v2.json",
   "scenario_matrix": [
     {
       "id": "S1",
       "name": "Redis 접근 불가",
-      "status": "not_run",
-      "finding": "독립 실습 Redis 없음. production Redis는 중지하지 않았다."
+      "status": "observed_live_subcase",
+      "finding": "연결된 실습 Redis 중단·앱 error 3회·HTTP 200 DB fallback과 캐시 근거 원인 후보 1개를 확인했다. Redis·데이터 원복 통과. 미연결 unavailable 변형과 운영 Redis는 미검증이다."
     },
     {
       "id": "S2",
       "name": "정상 캐시 미스 증가",
-      "status": "not_run",
-      "finding": "의도적 cold key·TTL 실험은 미수행. 현재 트래픽 부족을 정상 miss 검증으로 대체하지 않는다."
+      "status": "observed_live_subcase",
+      "finding": "실습 아이템 cold miss→hit 두 쌍·오류 증가 없음·허위 원인 후보 0을 확인했다. 보고서는 partial/unknown을 유지했다. 자연 TTL 만료 변형은 미검증이다."
     },
     {
       "id": "S3",
       "name": "잘못된 이미지 태그",
-      "status": "not_run",
-      "finding": "독립 실습 Deployment와 복구 기준 미준비. 운영 앱 이미지를 바꾸지 않았다."
+      "status": "needs_review",
+      "finding": "실습 앱 이미지 부재·ErrImagePull·Ready 0·원래 digest/HTTP 복구 확인. 실제 Failed 이벤트의 이미지 표식이 있지만 규칙 v2의 ImagePullBackOff reason+progressing 조건과 달라 후보 0·insufficient_evidence였다. 규칙 보완 필요. 후속 v3 후보는 같은 저장 입력에서 원인 후보 1개와 partial/unknown을 유지했다. 기존 6건/18개 파일 보존과 로컬 289개 시험 통과, 새 이미지 미배포다."
     },
     {
       "id": "S4",
       "name": "DB 지연",
-      "status": "not_run",
-      "finding": "실습 전용 지연·부하 주입은 미수행. RDS 장애라고 주장하지 않는다."
+      "status": "observed_live_subcase",
+      "finding": "실습 앱 DB 세션 750ms 지연 3회·응답/DB histogram 증가·DB 근거 설명과 원인 유보·지연 헤더 없는 회복을 확인했다. RDS 서버 장애·부하 실험은 아니다."
     },
     {
       "id": "S5",
@@ -41,7 +41,7 @@
       "id": "S6",
       "name": "정상 상태",
       "status": "partial",
-      "finding": "앱 Ready 2개와 기존 DB·Redis·HTTPS 정상 관측은 있으나 현재 보고서는 unknown이다. 정상 진단 성공으로 채점하지 않는다."
+      "finding": "앱 Ready 2개와 Pod·배포·캐시 사실 3개를 설명했지만 자료 부족으로 unknown을 유지한다. 정상 진단 성공으로 채점하지 않는다."
     },
     {
       "id": "S7",
@@ -59,7 +59,7 @@
       "id": "S9",
       "name": "쓰기 직후 정상 Primary 조회",
       "status": "not_run",
-      "finding": "실습 데이터 생성·삭제와 marker 만료 비교를 수행하지 않았다."
+      "finding": "실습 marker 5초 설정을 준비했지만 쓰기 직후·만료 비교는 미실행이다. 단일 Primary이며 실제 Replica 전환은 검증할 수 없다."
     },
     {
       "id": "S10",
@@ -75,19 +75,26 @@
     }
   ],
   "evidence_sources": {
-    "current_live_demo": "B6-operational-demo.json",
+    "current_live_demo": "B6-operational-demo-v2.json",
     "current_slack_failure_paths": "B5-slack-delivery-validation.json",
     "historical_live_restart": "B4-worker-validation.json",
     "historical_synthetic_retention_in_live_process": "B4-retention-schedule-validation.json",
-    "synthetic_model_evaluation": "../A7-fixed-evaluation.md"
+    "synthetic_model_evaluation": "../A7-fixed-evaluation.md",
+    "initial_live_demo": "B6-operational-demo.json",
+    "quality_deployment": "B6-deployment-validation.json",
+    "isolated_lab_preparation": "B6-isolated-lab-validation.json",
+    "cache_scenarios": "B6-cache-scenarios-validation.json",
+    "db_delay_scenario": "B6-db-delay-validation.json",
+    "image_failure_scenario": "B6-image-failure-validation.json",
+    "image_rules_v3_saved_comparison": "B6-image-rules-v3-comparison.json"
   },
   "quality": {
     "captured_items": 30,
     "available": 7,
-    "invalid": 2,
+    "invalid": 0,
     "stale": 15,
-    "missing": 6,
-    "report_facts": 0,
+    "missing": 8,
+    "report_facts": 3,
     "report_hypotheses": 0,
     "diagnosis_accuracy": null,
     "false_positive_rate": null,
@@ -109,12 +116,34 @@
     "external_production_data": "blocked",
     "normal_diagnosis_quality": "not_demonstrated",
     "live_model_quality": "not_tested",
-    "isolated_fault_scenarios": "not_tested"
+    "isolated_fault_scenarios": "partial_S1_S2_S4_passed_S3_report_needs_review",
+    "isolated_lab_preparation": "passed_single_db_scope",
+    "cache_cold_key_false_cause": "passed_one_live_case",
+    "connected_redis_failure_and_recovery": "passed_one_live_case",
+    "app_db_session_delay_and_recovery": "passed_one_live_case",
+    "image_failure_and_manual_restore": "passed_one_live_case",
+    "image_failure_report_quality": "v2_needs_review_v3_candidate_passed_deployment_pending",
+    "image_rules_v3_saved_comparison": "passed_candidate_no_deployment"
   },
   "next_actions": [
-    "로그의 invalid_payload를 허용 진단 표식 부재와 형식 오류로 구분해 원인을 확인한다. 원문 허용 범위를 무작정 확대하지 않는다.",
-    "낮은 트래픽·과거 이벤트·없는 CI 이력을 진단 한계로 구분하고 유효한 관측 사실도 설명하는 보고서 범위를 검토한다.",
-    "독립 실습 대상과 ground truth를 준비해 S1/S2/S3/S4/S9/S10/S11을 재현한다.",
+    "규칙 v3 변경을 원격 CI와 이미지 등록으로 검증한 후 기존 v1/v2 재조회·새 v3 저장/조회·필요 범위의 S3 실환경 설명을 확인한다. 현재 후보 비교는 배포 성공이 아니다.",
     "captured 외부 전송 정책과 승인 범위를 별도 설계한 뒤 모델 비교를 검증한다. 현재 차단을 제거하지 않는다."
+  ],
+  "initial_live_demo": "B6-operational-demo.json",
+  "initial_quality": {
+    "captured_items": 30,
+    "available": 7,
+    "invalid": 2,
+    "stale": 15,
+    "missing": 6,
+    "report_facts": 0,
+    "report_hypotheses": 0,
+    "diagnosis_accuracy": null,
+    "false_positive_rate": null,
+    "mttr_improvement": null
+  },
+  "completed_quality_actions": [
+    "진단 표식 없는 유효 로그를 no_diagnostic_fields로 구분해 실제 수집에서 확인했다.",
+    "v2 관측 사실 3개·available 근거 인용·partial/unknown 유지와 기존 v1 3건 보존을 실제 배포에서 확인했다."
   ]
 }

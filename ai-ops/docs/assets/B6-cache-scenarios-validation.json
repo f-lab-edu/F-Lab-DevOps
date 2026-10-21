@@ -1,0 +1,66 @@
+{
+  "phase": "B-06",
+  "status": "s2_cold_key_and_s1_connected_redis_failure_verified",
+  "b_stage_completion": "held",
+  "c_stage_ready": false,
+  "local_tests": 267,
+  "new_scenario_and_control_tests": 14,
+  "scenario_results": {
+    "S2": "B6-s2-cold-miss.json",
+    "S1": "B6-s1-redis-unavailable.json"
+  },
+  "pre_investigation_observation_files": {
+    "S2": "B6-s2-cold-miss.ground-truth.json",
+    "S1": "B6-s1-redis-unavailable.ground-truth.json"
+  },
+  "pre_investigation_status_is_final": false,
+  "original_private_file_sha256": {
+    "s2-cold-miss.json": "18e789f81cdf4dcd86fae1fdf6b611f0903db65360519a685d16db367484ad69",
+    "s2-cold-miss.ground-truth.json": "462c9f6e99b5915f2dd0e4889e89c80c94a34e9b17c39e365dc9dfc39efaa758",
+    "s1-redis-unavailable.json": "de64dbe6b1ec23fbd8d2fefee781920482822aa33453cfe4fd52043bf3da1eea",
+    "s1-redis-unavailable.ground-truth.json": "c6cedac403985dc239a89dfd384d49e435561047d4af08f6fcb3c80fc6ddc812"
+  },
+  "source_sha256": {
+    "ai-ops/src/ai_ops/b6_scenarios.py": "95b744b1fb8aa4917b988750cef4347c6c87797df82f975ae79de8ad17727144",
+    "ai-ops/scripts/run_b6_scenario.py": "3a5cda53caff43b0b6726887cdcc021e1012c040c44a3b383d34c58f2ca761db",
+    "ai-ops/tests/test_b6_scenarios.py": "83a9494388f81a119fb319e04bd548d90c2debafa82712f8a866115b6561b3ff"
+  },
+  "external_model_calls": 0,
+  "external_model_cost_usd": 0,
+  "live_llm_quality_tested": false,
+  "remaining": [
+    "S2 natural TTL expiration",
+    "S1 cold/uninitialized client unavailable variant",
+    "S4 injected app DB session delay",
+    "S3 bad image and restoration",
+    "S9/S11 limited by single Primary",
+    "S10 isolated CI rollback and imported deployment history",
+    "approved live model comparison"
+  ],
+  "post_scenarios_health": {
+    "status": "passed",
+    "verified_at": "2026-10-21T05:25:16.749598+00:00",
+    "lab": {
+      "lab-api": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-collector": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-postgres": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-redis": {
+        "replicas": 1,
+        "ready": 1
+      }
+    },
+    "production_app_ready": 2,
+    "production_ai_ready_containers": 2,
+    "production_worker_probe": true
+  },
+  "verified_at": "2026-10-21T05:25:16.749598+00:00"
+}

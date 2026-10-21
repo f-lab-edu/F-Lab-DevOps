@@ -120,3 +120,13 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 ## B-06 실환경 운영 평가·데모
 
 [운영 평가와 남은 조건](docs/B6-operational-evaluation.md), [안전한 읽기 데모 절차](docs/B6-operational-demo.md), [검증 범위에 맞춘 포트폴리오 초안](docs/B6-portfolio.md)을 관리한다. 실제 큐·권한·중복·외부 전송 차단은 확인했으며, 자료 품질·독립 실습 시나리오·라이브 모델 평가는 미완료다. B 전체 완료나 C 실행 권한 부여로 해석하지 않는다.
+
+2026-10-21 [독립 실습 환경과 시나리오 준비](docs/B6-isolated-lab.md)를 완료했다. `ai-ops-lab`의 앱·Redis·단일 PostgreSQL·읽기 수집기 4개와 실제 수집·권한·Prometheus 표본 준비를 확인했다. 운영 연결값·PVC를 재사용하지 않으며 새 RDS·영구 볼륨·LB는 없다. 시나리오 정답 기준·복구 절차와 전체 253개 시험을 기록했지만 실제 장애 주입과 라이브 모델 비교는 후속이다.
+
+후속 [S2 cold miss·S1 Redis 접근 실패](docs/B6-cache-scenarios.md)를 실제 재현·원복했다. S2는 허위 후보 0개, S1은 error 증가와 HTTP 200 fallback·캐시 지표 근거 후보 1개를 확인했다. 두 사례 모두 자료 부족 판단과 외부 모델 차단을 유지했고 로컬 267개 시험이 통과했다. 다른 변형·S3/S4 및 나머지 시나리오와 라이브 모델 비교는 남아 있다.
+
+[S4 앱 DB 세션 지연](docs/B6-db-delay-scenario.md)은 요청별 750ms 주입과 실제 DB histogram·지연 해제·데이터 원복을 확인했다. 규칙은 지연 근거를 설명하고 원인 확정을 유보했다. 로컬 274개 시험이 통과했으며 RDS 서버 장애나 라이브 모델 검증과 구분한다. 다음은 S3 이미지 실패·원래 digest 복구다.
+
+[S3 이미지 취득 실패·복구](docs/B6-image-failure-scenario.md)는 실제 ErrImagePull·Ready 0·실패 이벤트 수집과 원래 digest 복구를 확인했다. 규칙 v2가 native Failed 이벤트의 이미지 오류 표식을 원인 후보로 설명하지 못해 needs_review로 남겼다. 다음은 저장 증거를 이용한 규칙 보완과 기존 보고서 호환성 검증이며 B-06 완료로 표시하지 않는다.
+
+[규칙 v3의 동일 저장 증거 비교](docs/B6-image-rules-v3.md)는 Pod 소유·같은 이미지·근접 이벤트를 대조해 후보 0→1과 partial/unknown 유지, 기존 보고서 보존을 확인했다. 로컬 289개 시험을 통과했으며 수정 이미지의 실제 배포·새 보고서 검증은 후속이다.

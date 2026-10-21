@@ -1,0 +1,384 @@
+{
+  "scenario": "S4",
+  "run_id": "0b04341ea2354f049b35c56e3f86d29d",
+  "namespace": "ai-ops-lab",
+  "status": "passed",
+  "started_at": "2026-10-21T06:36:05.760692+00:00",
+  "observations": [
+    {
+      "action": "delay-baseline",
+      "at": "2026-10-21T06:36:18.158125+00:00",
+      "http_status": 200,
+      "elapsed_seconds": 0.00931320599920582,
+      "delay_requested_ms": 0,
+      "delay_header_sent": false,
+      "bypass_header_sent": true,
+      "counters_before": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0
+      },
+      "counters_after": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 1.0
+      },
+      "db_before": {
+        "count": 9.0,
+        "seconds": 0.01944870399984211
+      },
+      "db_after": {
+        "count": 10.0,
+        "seconds": 0.023044995000418567
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "delay-read",
+      "batch": 0,
+      "at": "2026-10-21T06:36:56.355834+00:00",
+      "http_status": 200,
+      "elapsed_seconds": 0.7582533650002006,
+      "delay_requested_ms": 750,
+      "delay_header_sent": true,
+      "bypass_header_sent": true,
+      "counters_before": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 1.0
+      },
+      "counters_after": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 2.0
+      },
+      "db_before": {
+        "count": 10.0,
+        "seconds": 0.023044995000418567
+      },
+      "db_after": {
+        "count": 11.0,
+        "seconds": 0.7770693379998193
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "delay-read",
+      "batch": 1,
+      "at": "2026-10-21T06:37:34.930734+00:00",
+      "http_status": 200,
+      "elapsed_seconds": 0.7585593109997717,
+      "delay_requested_ms": 750,
+      "delay_header_sent": true,
+      "bypass_header_sent": true,
+      "counters_before": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 2.0
+      },
+      "counters_after": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 3.0
+      },
+      "db_before": {
+        "count": 11.0,
+        "seconds": 0.7770693379998193
+      },
+      "db_after": {
+        "count": 12.0,
+        "seconds": 1.5308906950003802
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "delay-read",
+      "batch": 2,
+      "at": "2026-10-21T06:38:13.263057+00:00",
+      "http_status": 200,
+      "elapsed_seconds": 0.7639023699994141,
+      "delay_requested_ms": 750,
+      "delay_header_sent": true,
+      "bypass_header_sent": true,
+      "counters_before": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 3.0
+      },
+      "counters_after": {
+        "miss": 4.0,
+        "hit": 4.0,
+        "consistency_primary": 2.0,
+        "error": 3.0,
+        "bypass": 4.0
+      },
+      "db_before": {
+        "count": 12.0,
+        "seconds": 1.5308906950003802
+      },
+      "db_after": {
+        "count": 13.0,
+        "seconds": 2.284488481999688
+      },
+      "http_calls": 3
+    }
+  ],
+  "http_calls": 20,
+  "external_model_calls": 0,
+  "scope": "single_isolated_rules_scenario_not_live_llm_accuracy",
+  "baseline": {
+    "lab-api": {
+      "uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:038046d5407d0c6843b31e26e32e8a6f4a812b1dc7e5710413b44207b696b699"
+    },
+    "lab-redis": {
+      "uid": "28b7adfb-8a1b-4040-a5e0-37d262c9360f",
+      "generation": 3,
+      "image": "docker.io/library/redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2"
+    },
+    "lab-postgres": {
+      "uid": "34ffa79b-5b39-449f-90f8-877e4f11a740",
+      "generation": 1,
+      "image": "docker.io/library/postgres@sha256:da9ee8a31159116ea979e5018ce5e3fb19d1494f43115bfb5696ed398ed2ff5a"
+    },
+    "lab-collector": {
+      "uid": "5c1a3b42-0179-4614-8c1b-cab13c1b3bc9",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:aa4dabfffb2767e64aed3d9c56ce62c9bef4bdf522d9510ec686a6a0b9d3e190"
+    }
+  },
+  "owned_item_id": 3,
+  "intervention_started_at": "2026-10-21T06:36:15.850649+00:00",
+  "ground_truth_recorded_at": "2026-10-21T06:38:48.273748+00:00",
+  "report": {
+    "incident_id": "inc-6a1cacac78d8406da50361b9ece7f980",
+    "run_id": "run-58a3e559f6554cf49765e2629aad2738",
+    "bundle_hash": "701f661ee9e06cf7cd5a7ad51ea8df25e354449da1fb1fa2b849a71f6aea2708",
+    "engine": "rules-captured-v2",
+    "analysis_status": "partial",
+    "diagnosis_status": "insufficient_evidence",
+    "current_state": "unknown",
+    "facts": 4,
+    "hypotheses": 0,
+    "hypothesis_evidence_ids": [],
+    "fact_evidence_ids": [
+      [
+        "ev-metric-db_latency"
+      ],
+      [
+        "ev-pod-0-status"
+      ],
+      [
+        "ev-deployment-object"
+      ],
+      [
+        "ev-metric-cache_outcomes"
+      ]
+    ],
+    "evidence_statuses": {
+      "available": 6,
+      "missing": 8
+    },
+    "collection_entries": [
+      {
+        "id": "ev-pod-0-status",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-pod-0-log",
+        "status": "missing",
+        "reason": "truncated"
+      },
+      {
+        "id": "ev-pod-0-previous-log",
+        "status": "missing",
+        "reason": "truncated"
+      },
+      {
+        "id": "ev-pod-0-config",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-events-empty",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-deployment-argo",
+        "status": "missing",
+        "reason": "not_found"
+      },
+      {
+        "id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history"
+      },
+      {
+        "id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-cache_hit_ratio",
+        "status": "missing",
+        "reason": "no_traffic"
+      },
+      {
+        "id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-api_latency",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-db_latency",
+        "status": "available",
+        "reason": "collected"
+      }
+    ],
+    "metric_samples": {
+      "cache_outcomes": [
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "hit",
+          "value": 0.0,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "miss",
+          "value": 0.0,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "error",
+          "value": 0.0,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "bypass",
+          "value": 3.5424499999999997,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "consistency_primary",
+          "value": 0.0,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        }
+      ],
+      "api_latency": [
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "count",
+          "value": 4.444444444444445,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "p95",
+          "value": 0.9666666666666666,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        }
+      ],
+      "db_latency": [
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "count",
+          "value": 4.444444444444445,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T06:38:50.004770Z",
+          "outcome": "p99",
+          "value": 0.9933333333333333,
+          "source_at": "2026-10-21T06:38:50.004770Z",
+          "source_offset": "Z"
+        }
+      ]
+    },
+    "external_model_blocked": true,
+    "fact_citations_available": true
+  },
+  "intervention_verified": true,
+  "report_check": "app_db_latency_observed_cause_deferred",
+  "recovery_observation": {
+    "at": "2026-10-21T06:38:53.258546+00:00",
+    "http_status": 200,
+    "elapsed_seconds": 0.005970818001514999,
+    "delay_requested_ms": 0,
+    "delay_header_sent": false,
+    "bypass_header_sent": true,
+    "counters_before": {
+      "miss": 4.0,
+      "hit": 4.0,
+      "consistency_primary": 2.0,
+      "error": 3.0,
+      "bypass": 4.0
+    },
+    "counters_after": {
+      "miss": 4.0,
+      "hit": 4.0,
+      "consistency_primary": 2.0,
+      "error": 3.0,
+      "bypass": 5.0
+    },
+    "db_before": {
+      "count": 13.0,
+      "seconds": 2.284488481999688
+    },
+    "db_after": {
+      "count": 14.0,
+      "seconds": 2.28632243499942
+    },
+    "http_calls": 3
+  },
+  "cleanup": {
+    "redis_restored": true,
+    "owned_data_removed": true,
+    "delay_disabled_and_latency_recovered": true,
+    "production_unchanged": true,
+    "lab_uids_and_images_unchanged": true
+  },
+  "finished_at": "2026-10-21T06:39:02.627642+00:00",
+  "previous_window_guard": true
+}

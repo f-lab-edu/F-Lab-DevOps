@@ -22,7 +22,7 @@ from ai_ops.incidents import IncidentStore
 from ai_ops.live_collectors import collect_snapshot
 from ai_ops.live_collectors.common import add
 from ai_ops.openai_engine import AIAnalysisError, AIConfig, analyze_ai
-from ai_ops.rules import analyze_snapshot_rules_v1
+from ai_ops.rules import analyze_snapshot_rules_v1, analyze_snapshot_rules_v2
 from ai_ops.replay_runner import run_replay
 from test_live_collectors import API, AT, Clock, SENTINEL, stamp
 
@@ -75,7 +75,7 @@ class BInvestigationTest(unittest.TestCase):
             shown = self.store.show(record.incident_id, record.run_id)
         self.assertEqual(shown.request.target.environment, "production")
         self.assertEqual(shown.bundle.target, self.target)
-        self.assertEqual(shown.report.execution.engine, "rules-captured-v2")
+        self.assertEqual(shown.report.execution.engine, "rules-captured-v3")
         transport, token_counter = Mock(), Mock()
         for engine in (analyze_ai, analyze_fixed_summary):
             with self.subTest(engine=engine.__name__), self.assertRaisesRegex(AIAnalysisError, "captured_data_not_approved"):
@@ -138,7 +138,7 @@ class BInvestigationTest(unittest.TestCase):
     def test_collect_to_private_partial_report_and_show_preserves_utc_kst(self):
         record = self.investigate()
         self.assertEqual((record.metadata["status"], record.metadata["failure_reason"]), ("partial", "collection_incomplete"))
-        self.assertEqual(record.report.execution.engine, "rules-captured-v2")
+        self.assertEqual(record.report.execution.engine, "rules-captured-v3")
         self.assertEqual(record.request.source, "manual_snapshot")
         self.assertEqual(record.report.current_state, "unknown")
         self.assertIn("captured", record.markdown)
@@ -183,7 +183,9 @@ class BInvestigationTest(unittest.TestCase):
         self.assertEqual(self.store.show(record.incident_id, record.run_id).report, record.report)
 
     def test_v2_stored_fact_cannot_be_changed_to_unproven_normality(self):
-        record = self.investigate(self.complete_snapshot(missing=True))
+        with patch("ai_ops.incidents.analyze_snapshot_rules", side_effect=analyze_snapshot_rules_v2):
+            record = self.investigate(self.complete_snapshot(missing=True))
+        self.assertEqual(self.store.show(record.incident_id, record.run_id).report, record.report)
         path = self.store_root / record.incident_id / record.run_id / "report.json"
         report = json.loads(path.read_text())
         report["facts"][0]["statement"] = "전체 서비스가 정상이라고 확정했다."

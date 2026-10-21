@@ -1,0 +1,13 @@
+{
+  "record_type": "pre_mutation_recovery_plan",
+  "scenario": "S3",
+  "run_id": "46d816aed5214940b5438eed596afd85",
+  "namespace": "ai-ops-lab",
+  "baseline": {
+    "uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+    "generation": 1,
+    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:038046d5407d0c6843b31e26e32e8a6f4a812b1dc7e5710413b44207b696b699"
+  },
+  "bad_image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:b6-missing-46d816aed5214940b5438eed596afd85",
+  "created_at": "2026-10-21T07:06:15.210638+00:00"
+}

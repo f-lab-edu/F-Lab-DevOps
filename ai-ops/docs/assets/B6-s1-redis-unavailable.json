@@ -1,0 +1,347 @@
+{
+  "scenario": "S1",
+  "run_id": "3fcf84805b0348189add934c852291eb",
+  "namespace": "ai-ops-lab",
+  "status": "passed",
+  "started_at": "2026-10-21T05:21:33.207475+00:00",
+  "observations": [
+    {
+      "action": "cold",
+      "at": "2026-10-21T05:21:45.291704+00:00",
+      "marker_absent": true,
+      "http_status": 200,
+      "counters_before": {
+        "miss": 2.0,
+        "hit": 3.0,
+        "consistency_primary": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 3.0,
+        "consistency_primary": 1.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "hit",
+      "at": "2026-10-21T05:21:47.478127+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 3.0,
+        "consistency_primary": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "fault-read",
+      "batch": 0,
+      "at": "2026-10-21T05:22:27.496083+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 1.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "fault-read",
+      "batch": 1,
+      "at": "2026-10-21T05:23:05.501834+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 1.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 2.0
+      },
+      "http_calls": 3
+    },
+    {
+      "action": "fault-read",
+      "batch": 2,
+      "at": "2026-10-21T05:23:42.980663+00:00",
+      "http_status": 200,
+      "counters_before": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 2.0
+      },
+      "counters_after": {
+        "miss": 3.0,
+        "hit": 4.0,
+        "consistency_primary": 1.0,
+        "error": 3.0
+      },
+      "http_calls": 3
+    }
+  ],
+  "http_calls": 20,
+  "external_model_calls": 0,
+  "scope": "single_isolated_rules_scenario_not_live_llm_accuracy",
+  "baseline": {
+    "lab-api": {
+      "uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:038046d5407d0c6843b31e26e32e8a6f4a812b1dc7e5710413b44207b696b699"
+    },
+    "lab-redis": {
+      "uid": "28b7adfb-8a1b-4040-a5e0-37d262c9360f",
+      "generation": 1,
+      "image": "docker.io/library/redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2"
+    },
+    "lab-postgres": {
+      "uid": "34ffa79b-5b39-449f-90f8-877e4f11a740",
+      "generation": 1,
+      "image": "docker.io/library/postgres@sha256:da9ee8a31159116ea979e5018ce5e3fb19d1494f43115bfb5696ed398ed2ff5a"
+    },
+    "lab-collector": {
+      "uid": "5c1a3b42-0179-4614-8c1b-cab13c1b3bc9",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:aa4dabfffb2767e64aed3d9c56ce62c9bef4bdf522d9510ec686a6a0b9d3e190"
+    }
+  },
+  "owned_item_id": 2,
+  "intervention_started_at": "2026-10-21T05:21:43.005255+00:00",
+  "redis_stopped_at": "2026-10-21T05:22:25.374114+00:00",
+  "ground_truth_recorded_at": "2026-10-21T05:24:17.988885+00:00",
+  "report": {
+    "incident_id": "inc-01b2af11da904ca1ad387ab055cbdfc2",
+    "run_id": "run-85f06f8e25b14ffeb99dedd3d188867e",
+    "bundle_hash": "2b55e6d129952a28325cc55b5fe9b261bb8ee349d68bb4fa137aff086efd1cf0",
+    "engine": "rules-captured-v2",
+    "analysis_status": "partial",
+    "diagnosis_status": "suspected_cause",
+    "current_state": "unknown",
+    "facts": 3,
+    "hypotheses": 1,
+    "hypothesis_evidence_ids": [
+      [
+        "ev-metric-cache_outcomes"
+      ]
+    ],
+    "evidence_statuses": {
+      "available": 7,
+      "missing": 6,
+      "stale": 8
+    },
+    "collection_entries": [
+      {
+        "id": "ev-pod-0-status",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-pod-0-log",
+        "status": "missing",
+        "reason": "truncated"
+      },
+      {
+        "id": "ev-pod-0-previous-log",
+        "status": "missing",
+        "reason": "truncated"
+      },
+      {
+        "id": "ev-pod-0-config",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-0",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-1",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-2",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-3",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-4",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-5",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-6",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-event-7",
+        "status": "stale",
+        "reason": "outside_window"
+      },
+      {
+        "id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-deployment-argo",
+        "status": "missing",
+        "reason": "not_found"
+      },
+      {
+        "id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history"
+      },
+      {
+        "id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-cache_hit_ratio",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-api_latency",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-db_latency",
+        "status": "available",
+        "reason": "collected"
+      }
+    ],
+    "metric_samples": {
+      "cache_outcomes": [
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "hit",
+          "value": 1.1111111111111112,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "miss",
+          "value": 1.1111111111111112,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "error",
+          "value": 2.480933333333333,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "consistency_primary",
+          "value": 0.0,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        }
+      ],
+      "cache_hit_ratio": [
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "requests",
+          "value": 2.2222222222222223,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "ratio",
+          "value": 0.5,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        }
+      ],
+      "api_latency": [
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "count",
+          "value": 5.555555555555555,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "p95",
+          "value": 0.021249999999999995,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        }
+      ],
+      "db_latency": [
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "count",
+          "value": 4.444444444444445,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T05:24:19.948652Z",
+          "outcome": "p99",
+          "value": 0.00496,
+          "source_at": "2026-10-21T05:24:19.948652Z",
+          "source_offset": "Z"
+        }
+      ]
+    },
+    "external_model_blocked": true,
+    "fact_citations_available": true
+  },
+  "intervention_verified": true,
+  "report_check": "cache_error_supported",
+  "cleanup": {
+    "redis_restored": true,
+    "owned_data_removed": true,
+    "production_unchanged": true,
+    "lab_uids_and_images_unchanged": true
+  },
+  "finished_at": "2026-10-21T05:24:39.505294+00:00",
+  "previous_window_guard": true
+}

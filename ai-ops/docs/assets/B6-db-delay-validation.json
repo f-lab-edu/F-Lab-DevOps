@@ -1,0 +1,82 @@
+{
+  "phase": "B-06",
+  "scenario": "S4",
+  "status": "verified_single_app_db_session_delay",
+  "b_stage_completion": "held",
+  "c_stage_ready": false,
+  "live_result": "B6-s4-db-session-delay.json",
+  "pre_investigation_observations": "B6-s4-db-session-delay.ground-truth.json",
+  "local_tests": 274,
+  "new_s4_tests": 7,
+  "manual_http_requests": 20,
+  "injected_delay_ms": 750,
+  "injected_requests": 3,
+  "observed_response_seconds": {
+    "baseline": 0.00931320599920582,
+    "delayed": [
+      0.7582533650002006,
+      0.7585593109997717,
+      0.7639023699994141
+    ],
+    "recovered": 0.005970818001514999
+  },
+  "observed_db_sum_increments_seconds": [
+    0.7540243429994007,
+    0.753821357000561,
+    0.7535977869993076
+  ],
+  "report_check": "app_db_latency_observed_cause_deferred",
+  "report_facts": 4,
+  "report_hypotheses": 0,
+  "cleanup": {
+    "redis_restored": true,
+    "owned_data_removed": true,
+    "delay_disabled_and_latency_recovered": true,
+    "production_unchanged": true,
+    "lab_uids_and_images_unchanged": true
+  },
+  "external_model_calls": 0,
+  "external_model_cost_usd": 0,
+  "live_llm_quality_tested": false,
+  "original_private_file_sha256": {
+    "s4-db-session-delay.json": "7264b72b081f4531b2f700a4106278bd0eea115669be2d51d5864c00508d809f",
+    "s4-db-session-delay.ground-truth.json": "131487d74ccbaace6c706c5f27b50c4fbe5c40b320956a7bf29a272336ffa806"
+  },
+  "source_sha256": {
+    "ai-ops/src/ai_ops/b6_scenarios.py": "9cb1443519335e5c0ef1b0bc8152ca637a8a5d57e27b8042948bd842ad2b4b16",
+    "ai-ops/scripts/run_b6_scenario.py": "c7b11db28047b4afcb8912b56254af3975ba3d7901258ca9a9b6b61f1a88e391",
+    "ai-ops/tests/test_b6_scenarios.py": "39f62030a94769bb573f89620ac45bd8de164712c4f5d94b84fb34c7b72fb20d"
+  },
+  "limitations": [
+    "one app-level pg_sleep case; not RDS server failure",
+    "single PostgreSQL; no replica",
+    "5-minute P99 is estimated and remains elevated after requests recover",
+    "no live model analysis"
+  ],
+  "post_scenario_health": {
+    "status": "passed",
+    "verified_at": "2026-10-21T06:41:20.661682+00:00",
+    "lab": {
+      "lab-api": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-collector": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-postgres": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-redis": {
+        "replicas": 1,
+        "ready": 1
+      }
+    },
+    "production_app_ready": 2,
+    "production_ai_ready_containers": 2,
+    "production_worker_probe": true
+  },
+  "verified_at": "2026-10-21T06:41:20.661682+00:00"
+}

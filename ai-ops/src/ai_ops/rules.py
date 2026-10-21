@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from ai_ops.contracts import AnalysisReport, EvidenceBundle, EvidenceItem, Fact, IncidentRequest
+import re
+
+from ai_ops.contracts import AnalysisReport, EvidenceBundle, EvidenceItem, Fact, Hypothesis, IncidentRequest
 
 
 RULES_VERSION = "rules-v1"
@@ -207,7 +209,7 @@ def analyze_snapshot_rules_v1(request: IncidentRequest, bundle: EvidenceBundle, 
     return report
 
 
-def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+def analyze_snapshot_rules_v2(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
     """v1의 판단 경계는 유지하고 일부 자료만 있어도 확인한 관측을 설명한다."""
     report = analyze_snapshot_rules_v1(request, bundle, run_id, audit)
     report.execution.engine = "rules-captured-v2"
@@ -245,4 +247,61 @@ def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run
     }
     for missing in report.missing_evidence:
         missing.reason = reasons.get(missing.reason, missing.reason)
+    return report
+
+
+def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+    """Pod 소유·동일 이미지·근접 시각이 맞는 native 이미지 실패만 후보로 설명한다."""
+    report = analyze_snapshot_rules_v2(request, bundle, run_id, audit)
+    report.execution.engine = "rules-captured-v3"
+    if audit is None:
+        return report
+    if (len(report.facts) >= 100 or len(report.hypotheses) >= 3
+            or len(report.recommended_checks) >= 30 or len(report.limitations) >= 30):
+        return report
+    entries = {entry.evidence_id: entry for entry in audit.entries}
+    available = [item for item in bundle.evidence if item.status == "available"
+                 and item.provenance.kind == "captured" and item.evidence_id in entries
+                 and entries[item.evidence_id].status == "available"]
+    deployments = [item for item in available if item.kind == "deployment"
+                   and entries[item.evidence_id].resource_uid and item.payload.get("image")]
+    for pod in available:
+        if (pod.kind != "workload_status" or pod.payload.get("phase") != "Pending"
+                or pod.payload.get("ready") is not False):
+            continue
+        owner = entries[pod.evidence_id]
+        if not all((owner.resource_uid, owner.resource_version, owner.deployment_uid,
+                    owner.replicaset_uid, owner.replicaset_resource_version)):
+            continue
+        deployment = next((item for item in deployments
+            if entries[item.evidence_id].resource_uid == owner.deployment_uid
+            and item.payload["image"] == pod.payload.get("image")
+            and abs((item.observed_at - pod.observed_at).total_seconds()) <= 120), None)
+        if deployment is None:
+            continue
+        for event in available:
+            if event.kind != "event" or event.payload.get("type") != "Warning":
+                continue
+            reason = event.payload.get("reason")
+            if reason not in {"Failed", "BackOff", "ImagePullBackOff", "ErrImagePull"}:
+                continue
+            marker = re.search(r"(?<![\w])(?:ImagePullBackOff|ErrImagePull)(?![\w])", event.payload.get("message", ""))
+            if reason not in {"ImagePullBackOff", "ErrImagePull"} and marker is None:
+                continue
+            if event.payload.get("involved_uid") != owner.resource_uid:
+                continue
+            # 과거의 다른 사건이나 Pod 관측 후 뒤늦게 발생한 이벤트를 섞지 않는다.
+            lag = (pod.observed_at - event.observed_at).total_seconds()
+            if not 0 <= lag <= 120:
+                continue
+            citations = [pod.evidence_id, event.evidence_id, deployment.evidence_id]
+            report.facts.append(Fact(statement="등록 Deployment와 같은 이미지를 사용하는 Pending/비준비 Pod에 근접 시각의 이미지 취득 실패 이벤트가 연결됐다.",
+                                     evidence_ids=citations))
+            report.hypotheses.insert(0, Hypothesis(cause="관측 Pod의 이미지 취득 실패로 컨테이너가 시작되지 못했을 가능성이 있다.",
+                                                  supporting_evidence_ids=citations))
+            report.diagnosis_status = "suspected_cause"
+            report.current_state = "unknown"
+            report.recommended_checks.insert(0, "같은 시각의 이미지 태그·digest 존재 여부와 레지스트리 접근·인증을 구분해 확인한다.")
+            report.limitations.append("이미지 오류 표식은 태그 부재·인증·네트워크 원인을 구분하지 못하며, 현재 전체 서비스 장애나 복구 완료를 확정하지 않는다.")
+            return report
     return report

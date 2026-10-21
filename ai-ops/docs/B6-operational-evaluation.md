@@ -2,7 +2,7 @@
 
 현재 판정: **운영 연결 데모 통과, B-06 진행 중·B 전체 완료 및 C단계 진입 보류**. 실제 읽기 조사 한 건이 접수→수집→정제→규칙 보고서→재조회로 이어지는 것을 확인했다. 정상·장애 진단 품질과 라이브 모델 비교가 완료된 것은 아니다.
 
-[실측 결과](assets/B6-operational-demo.json), [평가표 JSON](assets/B6-operational-evaluation.json), [재현 절차](B6-operational-demo.md), [포트폴리오 초안](B6-portfolio.md)을 함께 관리한다.
+[첫 실측 결과](assets/B6-operational-demo.json), [v2 실측 결과](assets/B6-operational-demo-v2.json), [평가표 JSON](assets/B6-operational-evaluation.json), [재현 절차](B6-operational-demo.md), [포트폴리오 초안](B6-portfolio.md)을 함께 관리한다. 아래 첫 데모 수치는 v1 이력이며 최신 v2 측정은 마지막 절에 구분한다.
 
 ## 실제로 확인한 범위
 
@@ -25,10 +25,10 @@ captured 자료 30개 중 available 7·invalid 2·stale 15·missing 6이다. Pod
 
 | ID | 시나리오 | 현재 범위 | 근거·미검증 이유 |
 |---|---|---|---|
-| S1 | Redis 접근 불가 | 미실행 | 독립 실습 Redis 없음. production Redis는 중지하지 않았다. |
-| S2 | 정상 캐시 미스 증가 | 미실행 | 의도적 cold key·TTL 실험은 미수행. 현재 트래픽 부족을 정상 miss 검증으로 대체하지 않는다. |
-| S3 | 잘못된 이미지 태그 | 미실행 | 독립 실습 Deployment와 복구 기준 미준비. 운영 앱 이미지를 바꾸지 않았다. |
-| S4 | DB 지연 | 미실행 | 실습 전용 지연·부하 주입은 미수행. RDS 장애라고 주장하지 않는다. |
+| S1 | Redis 접근 불가 | 실습 하위 사례 통과 | 연결된 실습 Redis 중단·error 3회·HTTP 200 fallback·캐시 근거 후보·원복 확인. unavailable 변형은 후속이다. |
+| S2 | 정상 캐시 미스 증가 | 실습 하위 사례 통과 | cold miss→hit 두 쌍·오류 증가 없음·허위 후보 0·원복 확인. 자연 TTL과 전체 정상 판정은 후속이다. |
+| S3 | 잘못된 이미지 태그 | 보고서 보완 필요 | 실제 ErrImagePull·Ready 0·복구 성공. Failed 이벤트 표식과 기존 규칙 형태가 달라 원인 후보를 만들지 못했다. |
+| S4 | DB 지연 | 실습 하위 사례 통과 | 앱 DB 세션 750ms 지연 3회·histogram·규칙 설명·지연 해제 확인. RDS 서버 문제의 재현은 아니다. |
 | S5 | 관측 데이터 부족 | 실환경 관측 통과 | 수집 자료 부족을 partial·insufficient_evidence·unknown으로 기록했다. 가설 0개이며 정상 또는 원인을 단정하지 않았다. |
 | S6 | 정상 상태 | 일부 근거 | 앱 Ready 2개와 기존 DB·Redis·HTTPS 정상 관측은 있으나 현재 보고서는 unknown이다. 정상 진단 성공으로 채점하지 않는다. |
 | S7 | 악성 입력·권한 경계 | 일부 근거 | 현재 identity의 Secret·exec·patch·다른 namespace 조회 거부를 확인했다. 악성 문장 라이브 주입은 하지 않았다. 기존 합성 입력 계약 시험과 구분한다. |
@@ -45,8 +45,30 @@ captured 자료 30개 중 available 7·invalid 2·stale 15·missing 6이다. Pod
 
 새 스크립트의 모델 활성화 시 접수 차단, 예상 밖 Secret 권한 거부, 인가 오류를 단순 거부로 오인하지 않는 세 가지 자동 시험도 통과했다.
 
-다음은 로그의 자료 부족 원인 분류와 부분 보고서의 유효 관측 설명 개선이다. 그 뒤 독립 실습 대상에서 장애·정상 변형을 만들고 모델 비교 정책을 검증한다. live 모델 경로는 현재 synthetic-only 정책으로 차단돼 있으므로 플래그 하나로 활성화하지 않는다. B단계의 조사 품질·운영 완료 조건이 충족되기 전 C의 실행 권한을 부여하지 않는다.
+로그 자료 부족 원인 분류와 유효 관측 설명 개선은 아래 후속 배포에서 확인했다. 다음은 독립 실습 대상에서 장애·정상 변형을 준비하고 모델 비교 정책을 검토하는 작업이다. live 모델 경로는 현재 synthetic-only 정책으로 차단돼 있으므로 플래그 하나로 활성화하지 않는다. B단계의 조사 품질·운영 완료 조건이 충족되기 전 C의 실행 권한을 부여하지 않는다.
 
 ## 로그·부분 보고서 후속 개선
 
-[개선 후보와 검증](B6-quality-improvement.md)에서 로그 진단 표식 부재의 원인을 확인하고 같은 실제 증거의 관측 사실 0→3개·partial/unknown 유지를 검증했다. 수정 이미지 배포 전이므로 위 첫 운영 데모 수치를 덮어쓰지 않는다.
+[개선과 배포 검증](B6-quality-improvement.md)에서 로그 진단 표식 부재의 원인을 확인하고 같은 실제 증거의 후보 비교로 관측 사실 0→3개·partial/unknown 유지를 검증했다. 사용자 이미지 승인 후 2026-10-21 13:29 KST Helm revision 2에 배포했고 같은 PVC의 기존 v1 보고서 3건과 입력·감사 파일 해시는 유지됐다.
+
+새 수집 1건은 약 13.66초·시도 1회에 v2 보고서로 저장됐다. available 7·missing 8·stale 15·invalid 0, 사실 3·가설 0·부족 자료 23개이며 두 로그는 no_diagnostic_fields다. 상태는 partial/insufficient_evidence/unknown으로 유보했다. 권한 경계·전후 중복·앱 불변·외부 전송 차단과 AI 2/2 Ready·Prometheus·HTTPS 정상도 확인했다. 첫 데모와 다른 시간에 수집한 자료이며, 이는 정확도·MTTR 향상 측정이 아니다. S1~S11의 독립 실환경 재현과 모델 비교 미검증 상태는 유지한다.
+
+## 독립 실습 준비 후속
+
+[실습 환경·시나리오·복구 절차](B6-isolated-lab.md)를 추가했다. 실습 Pod 4개와 최소 권한·실제 수집·지표 10개 표본 준비를 확인했고 전체 Python 253개 시험이 통과했다. 운영 앱·AI PVC는 유지했으며 외부 모델 호출과 장애 주입은 없다. 실습은 단일 Primary이므로 S9 전체와 Replica 의미를 검증하지 못하고, S10 CI·자동 롤백·이력 연결도 남아 있다. B-06 전체 완료와 C 진입 보류는 유지한다.
+
+## S2·S1 실습 하위 사례 실행
+
+[캐시 재현·보고서 대조·복구](B6-cache-scenarios.md)를 실환경에서 수행했다. S2는 miss→hit 두 쌍에 원인 후보 0개를 유지했고, S1은 실습 Redis 중단 중 error 3회와 HTTP 200 fallback을 관측해 캐시 근거 후보 1개를 설명했다. 두 실행은 305초 지표 창을 분리했고 모든 복구 조건을 통과했다. 로컬 전체 시험 267개(신규 14개), 외부 모델 호출·API 비용 0이다. 운영 DB·Redis·앱을 변경하지 않았다. S1/S2의 지정 하위 사례 결과이며 다른 변형·전체 정상 진단·라이브 모델·나머지 시나리오의 완료로 확대하지 않는다. 다음은 S4 DB 세션 지연이다.
+
+## S4 앱 DB 세션 지연 하위 사례
+
+[실측·복구](B6-db-delay-scenario.md)에서 기준선 약 9.31ms→주입 중 758.25~763.90ms→해제 후 5.97ms를 확인했다. 실제 DB histogram도 증가했다. 규칙은 DB 지연 근거를 설명하고 원인 후보 없이 partial/unknown을 유지했다. 자기 데이터·설정·운영 식별자를 보존/복구했고 로컬 전체 274개 시험이 통과했다. 단일 실습 앱의 pg_sleep 사례이며 RDS 서버 진단이나 라이브 모델 검증으로 확대하지 않는다. 다음은 S3 잘못된 이미지·원래 digest 복구다.
+
+## S3 이미지 실패·복구와 보고서 보완 필요
+
+[이미지 실측과 진단 공백](B6-image-failure-scenario.md)에서 실습 이미지 태그 부재·ErrImagePull·Ready 0과 원래 digest/HTTP 복구를 확인했다. 저장 증거의 Failed 이벤트에는 이미지 실패 표식이 있었지만 rules-captured-v2의 ImagePullBackOff reason·progressing 조합과 달라 partial/insufficient_evidence/unknown·후보 0이었다. 설명 품질은 needs_review이며 성공으로 채점하지 않는다. 다음은 실제 이벤트 형태에 맞는 버전별 규칙과 저장 증거 비교다. 이번은 운영자 수동 복구이며 CI 자동 롤백·에이전트 조치 실행이 아니다.
+
+## S3 규칙 v3 후보 비교
+
+[동일 저장 입력 비교](B6-image-rules-v3.md)는 native Failed의 이미지 표식과 해당 Pod의 소유·Deployment 이미지·120초 이내 시각을 대조해 원인 후보 0→1을 확인했다. partial/unknown은 유지했고 v1/v2 재조회·v3 내용 재검증과 로컬 전체 289개 시험을 통과했다. 실습 기존 v2 6건/18개 파일은 같았으며 수정 이미지는 배포하지 않았다. 최초 S3 v2 needs_review는 유지하고 다음 단계에서 승인 이미지 배포·새 v3 실환경 저장/조회로 확인한다.

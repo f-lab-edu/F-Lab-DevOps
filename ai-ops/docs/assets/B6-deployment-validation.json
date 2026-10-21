@@ -1,0 +1,94 @@
+{
+  "verified_at": "2026-10-21T04:30:18.817932+00:00",
+  "status": "passed",
+  "source_revision": "91a1608af06a210487bc1cf58db659f1767155db",
+  "image_run_id": 39543600322,
+  "image_digest": "sha256:aa4dabfffb2767e64aed3d9c56ce62c9bef4bdf522d9510ec686a6a0b9d3e190",
+  "helm_revision": 2,
+  "pod_ready_containers": 2,
+  "pvc_uid": "b0236f94-4395-4aaa-91ac-3b2bbe31a78d",
+  "same_pvc": true,
+  "preserved_v1_reports": 3,
+  "all_old_report_input_audit_hashes_unchanged": true,
+  "old_report_records": [
+    {
+      "incident_id": "inc-327d75c48a71452c93e9a08decbf74aa",
+      "run_id": "run-3694639399584037a7aba2aea14a7179",
+      "engine": "rules-captured-v1",
+      "files": {
+        "report.json": "dbb7e15d4b1cce2c4e8041dc72437cecc3e0f09797c47f71ab09feb158023d69",
+        "input.json": "5d348131d06c0d938c846a4ed9a2fab4ef5ad436df93ac3fd0b61465727dd2da",
+        "collection-audit.json": "56c1e9d9a20412d4db6ebf104d1963dfc64e108a78069acf48ade45794384bc4"
+      },
+      "canonical_report_sha256": "9a2ab46e9d28964487e216c4c7e67ff44af18ebab113cd6cd44fbf284e2fbf87"
+    },
+    {
+      "incident_id": "inc-b103c3c3db9a44f581e5177ebb50fd61",
+      "run_id": "run-9bd3b7c991c9425191a144ea0d2e011c",
+      "engine": "rules-captured-v1",
+      "files": {
+        "report.json": "6d34e0c6d6e677d487944de94bf4120a9a81da6d604304bf233d4eb587f9b04e",
+        "input.json": "9e118da33a0cb5cd6ef4488e962ca42f1845a613add0dfebe1d49f337990f663",
+        "collection-audit.json": "5daba5fb44c5016ada954cc0d17aa692608f317c9aa0b981b50f510d5ac03254"
+      },
+      "canonical_report_sha256": "c73e2c25448a7a8fb64f7954bbb3c84dcfa0668b3b55cbf5ebbf47aa5c7adbe9"
+    },
+    {
+      "incident_id": "inc-bca622f30c0a47abadba3ca3dc9362b4",
+      "run_id": "run-cad5d85382404dbf84d36a3d2da4befb",
+      "engine": "rules-captured-v1",
+      "files": {
+        "report.json": "68a798ffb4242d48247d9c85a4784fa6a0012cfd1be50b3dd59d3c55e170cfea",
+        "input.json": "5e53d1b2931b68a325e2045845cfd15fbeb35871de26fbfeffd976ad16aeaea1",
+        "collection-audit.json": "b40e01e4674710b887dc8d3a95b441391bf2d7e03e35388853db1d34933a2453"
+      },
+      "canonical_report_sha256": "5d7287ca3080227668ac27b55b4951f154ae72697e977b715c68cff6232a5304"
+    }
+  ],
+  "app": {
+    "uid": "06d555f1-e31c-4afd-a06e-59edb4ce84d8",
+    "generation": 2,
+    "ready_replicas": 2
+  },
+  "new_report": {
+    "engine": "rules-captured-v2",
+    "fact_count": 3,
+    "all_fact_citations_available": true,
+    "fact_evidence_ids": [
+      [
+        "ev-pod-0-status",
+        "ev-pod-1-status"
+      ],
+      [
+        "ev-deployment-object",
+        "ev-deployment-argo"
+      ],
+      [
+        "ev-metric-cache_outcomes"
+      ]
+    ]
+  },
+  "new_demo_file": "B6-operational-demo-v2.json",
+  "metrics": {
+    "up": 1.0,
+    "worker_progress_age_seconds": 30.538759231567383,
+    "retention_enabled": 1.0,
+    "retention_last_success": 1792557015.734837,
+    "retention_overdue_jobs": 0.0,
+    "queue_state_series": 8.0
+  },
+  "https": {
+    "readyz": {
+      "http_status": 200,
+      "tls_verify_result": 0
+    },
+    "items": {
+      "http_status": 200,
+      "tls_verify_result": 0
+    }
+  },
+  "external_model_calls": 0,
+  "external_model_cost_usd": 0,
+  "b_stage_completion": "held",
+  "c_stage_ready": false
+}

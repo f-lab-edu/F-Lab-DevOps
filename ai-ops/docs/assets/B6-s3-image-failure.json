@@ -1,0 +1,295 @@
+{
+  "scenario": "S3",
+  "run_id": "46d816aed5214940b5438eed596afd85",
+  "namespace": "ai-ops-lab",
+  "status": "needs_review",
+  "started_at": "2026-10-21T07:06:04.557790+00:00",
+  "external_model_calls": 0,
+  "http_calls": 4,
+  "scope": "isolated_image_failure_manual_restore_not_ci_rollback",
+  "baseline": {
+    "lab-api": {
+      "uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:038046d5407d0c6843b31e26e32e8a6f4a812b1dc7e5710413b44207b696b699"
+    },
+    "lab-redis": {
+      "uid": "28b7adfb-8a1b-4040-a5e0-37d262c9360f",
+      "generation": 3,
+      "image": "docker.io/library/redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2"
+    },
+    "lab-postgres": {
+      "uid": "34ffa79b-5b39-449f-90f8-877e4f11a740",
+      "generation": 1,
+      "image": "docker.io/library/postgres@sha256:da9ee8a31159116ea979e5018ce5e3fb19d1494f43115bfb5696ed398ed2ff5a"
+    },
+    "lab-collector": {
+      "uid": "5c1a3b42-0179-4614-8c1b-cab13c1b3bc9",
+      "generation": 1,
+      "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:aa4dabfffb2767e64aed3d9c56ce62c9bef4bdf522d9510ec686a6a0b9d3e190"
+    }
+  },
+  "bad_image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:b6-missing-46d816aed5214940b5438eed596afd85",
+  "image_absence_confirmed": true,
+  "intervention_started_at": "2026-10-21T07:06:15.212939+00:00",
+  "failure_observation": {
+    "deployment_uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+    "deployment_generation": 2,
+    "replicaset_uids": [
+      "1b6c9306-e745-45fb-a8c5-1a6e0405f0da",
+      "d5931b6c-cff8-41f7-b1f7-f2226b5df54c"
+    ],
+    "pod_uid": "a9940fad-83d8-4c67-b987-6b73f0db14c2",
+    "waiting_reason": "ErrImagePull",
+    "ready_replicas": 0,
+    "event_reasons": [
+      "BackOff",
+      "Failed",
+      "Pulling"
+    ],
+    "at": "2026-10-21T07:06:24.534199+00:00"
+  },
+  "intervention_verified": true,
+  "ground_truth_recorded_at": "2026-10-21T07:06:24.534317+00:00",
+  "report": {
+    "incident_id": "inc-966b3ed541f34cd38e8516b8217f7357",
+    "run_id": "run-12eb01ea00a641238e71c30e75db6772",
+    "bundle_hash": "907058cddb14505d8be0d8eddd817fa6084890832e31ea432ab64b12e74c522e",
+    "engine": "rules-captured-v2",
+    "analysis_status": "partial",
+    "diagnosis_status": "insufficient_evidence",
+    "current_state": "unknown",
+    "facts": 3,
+    "hypotheses": 0,
+    "hypothesis_evidence_ids": [],
+    "fact_evidence_ids": [
+      [
+        "ev-pod-0-status"
+      ],
+      [
+        "ev-deployment-object"
+      ],
+      [
+        "ev-metric-cache_outcomes"
+      ]
+    ],
+    "workload_states": [
+      {
+        "id": "ev-pod-0-status",
+        "phase": "Pending",
+        "ready": false
+      }
+    ],
+    "event_reasons": [
+      {
+        "id": "ev-event-0",
+        "reason": "Failed"
+      },
+      {
+        "id": "ev-event-1",
+        "reason": "Failed"
+      },
+      {
+        "id": "ev-event-2",
+        "reason": "Failed"
+      },
+      {
+        "id": "ev-event-3",
+        "reason": "ScalingReplicaSet"
+      },
+      {
+        "id": "ev-event-4",
+        "reason": "Scheduled"
+      },
+      {
+        "id": "ev-event-5",
+        "reason": "BackOff"
+      },
+      {
+        "id": "ev-event-6",
+        "reason": "ScalingReplicaSet"
+      },
+      {
+        "id": "ev-event-7",
+        "reason": "SuccessfulCreate"
+      },
+      {
+        "id": "ev-event-9",
+        "reason": "Pulling"
+      }
+    ],
+    "evidence_statuses": {
+      "available": 13,
+      "missing": 8,
+      "invalid": 1
+    },
+    "collection_entries": [
+      {
+        "id": "ev-pod-0-status",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-pod-0-log",
+        "status": "missing",
+        "reason": "upstream_error"
+      },
+      {
+        "id": "ev-pod-0-config",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-0",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-1",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-2",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-3",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-4",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-5",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-6",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-7",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-event-8",
+        "status": "invalid",
+        "reason": "invalid_payload"
+      },
+      {
+        "id": "ev-event-9",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-deployment-object",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-deployment-argo",
+        "status": "missing",
+        "reason": "not_found"
+      },
+      {
+        "id": "ev-deployment-ci-history",
+        "status": "missing",
+        "reason": "missing_history"
+      },
+      {
+        "id": "ev-metric-cache-outcome-gaps",
+        "status": "missing",
+        "reason": "empty_response"
+      },
+      {
+        "id": "ev-metric-cache_outcomes",
+        "status": "available",
+        "reason": "collected"
+      },
+      {
+        "id": "ev-metric-cache_hit_ratio",
+        "status": "missing",
+        "reason": "no_traffic"
+      },
+      {
+        "id": "ev-metric-http_error_ratio",
+        "status": "missing",
+        "reason": "no_traffic"
+      },
+      {
+        "id": "ev-metric-api_latency",
+        "status": "missing",
+        "reason": "no_traffic"
+      },
+      {
+        "id": "ev-metric-db_latency",
+        "status": "missing",
+        "reason": "no_traffic"
+      }
+    ],
+    "metric_samples": {
+      "cache_outcomes": [
+        {
+          "at": "2026-10-21T07:06:26.073992Z",
+          "outcome": "hit",
+          "value": 0.0,
+          "source_at": "2026-10-21T07:06:26.073992Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T07:06:26.073992Z",
+          "outcome": "miss",
+          "value": 0.0,
+          "source_at": "2026-10-21T07:06:26.073992Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T07:06:26.073992Z",
+          "outcome": "error",
+          "value": 0.0,
+          "source_at": "2026-10-21T07:06:26.073992Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T07:06:26.073992Z",
+          "outcome": "bypass",
+          "value": 0.0,
+          "source_at": "2026-10-21T07:06:26.073992Z",
+          "source_offset": "Z"
+        },
+        {
+          "at": "2026-10-21T07:06:26.073992Z",
+          "outcome": "consistency_primary",
+          "value": 0.0,
+          "source_at": "2026-10-21T07:06:26.073992Z",
+          "source_offset": "Z"
+        }
+      ]
+    },
+    "external_model_blocked": true,
+    "fact_citations_available": true
+  },
+  "report_check": "needs_review",
+  "recovery_observation": {
+    "http": {
+      "/readyz": 200,
+      "/items": 200
+    },
+    "redis_ping": true,
+    "http_calls": 2
+  },
+  "cleanup": {
+    "original_digest_ready_http_and_redis_restored": true,
+    "production_unchanged": true
+  },
+  "finished_at": "2026-10-21T07:06:42.786834+00:00",
+  "previous_window_guard": true
+}

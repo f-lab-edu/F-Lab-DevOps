@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "scope": "isolated_lab_planned_ground_truth_not_observed_results",
+  "namespace": "ai-ops-lab",
+  "keep_out_of_investigation_input": true,
+  "scenarios": [
+    {
+      "id": "S1",
+      "status": "planned",
+      "setup": "실습 Redis가 정상이고 앱 캐시 연결이 확보된 기준선을 기록한다.",
+      "intervention": "lab-redis만 replicas=0으로 바꾸고 앱 GET /items를 제한된 횟수로 요청한다.",
+      "truth_checks": ["실습 Redis의 Ready 0개", "앱의 DB fallback 응답 상태", "cache error 또는 unavailable 증가와 원문 없는 분류"],
+      "expected_interpretation": "캐시 연결 실패와 앱 응답 영향을 분리한다. unavailable과 error를 같은 값으로 가정하지 않는다.",
+      "recovery": "lab-redis replicas=1과 Redis PING·앱 GET 성공을 확인한다.",
+      "limitations": ["운영 Redis 장애가 아님", "규칙이 원인 후보를 출력하지 않아도 실제 관측과 비교해 기록한다."]
+    },
+    {
+      "id": "S2",
+      "status": "planned",
+      "setup": "별도 실습 아이템을 만들고 최근 쓰기 marker 5초 만료를 실제 확인한다.",
+      "intervention": "실습 캐시의 해당 키만 제거한 뒤 첫 조회와 반복 조회를 비교한다.",
+      "truth_checks": ["첫 조회 miss와 다음 조회 hit", "Redis PING 성공", "HTTP 성공 및 캐시 오류 증가 여부"],
+      "expected_interpretation": "cold miss를 Redis 장애로 단정하지 않는다. 없는 error 시계열을 0으로 바꾸지 않는다.",
+      "recovery": "만든 실습 아이템만 삭제하고 정상 조회를 확인한다.",
+      "limitations": ["실제 TTL 자연 만료 비교는 별도 하위 사례로 수행한다."]
+    },
+    {
+      "id": "S3",
+      "status": "planned",
+      "setup": "lab-api의 승인 이미지 digest와 준비 상태를 고정한다.",
+      "intervention": "lab-api만 존재하지 않음을 먼저 확인한 동일 저장소 태그로 변경한다.",
+      "truth_checks": ["실제 Pod 대기 reason과 이벤트", "변경 전후 이미지 및 ReplicaSet UID", "앱 가용성과 실패 시각"],
+      "expected_interpretation": "이미지 취득 실패를 지적하되 인증 실패와 태그 부재는 근거로 구분한다.",
+      "recovery": "고정한 원래 digest로 복원하고 rollout·GET 성공을 확인한다.",
+      "limitations": ["CI 자동 롤백·Argo 이력 검증이 아님", "production Deployment를 변경하지 않는다."]
+    },
+    {
+      "id": "S4",
+      "status": "planned",
+      "setup": "실습 DB 연결과 같은 요청의 지연 없는 기준선을 확보한다.",
+      "intervention": "실습 앱에만 X-Week12-Bypass-Cache=true와 X-Week12-Read-Delay-Ms=750을 적용해 제한된 요청을 보낸다.",
+      "truth_checks": ["지연 주입 요청의 시작·종료 시각", "앱 DB histogram 표본 증가", "지연 없는 요청과 실습 DB 응답"],
+      "expected_interpretation": "앱 DB 세션에 주입한 pg_sleep 지연이다. RDS 서버 장애나 SQL 최적화 문제로 단정하지 않는다.",
+      "recovery": "지연 헤더 없이 기준 요청을 반복하고 지연 감소를 확인한다.",
+      "limitations": ["5분 histogram에 이전 표본이 남으므로 즉시 복구된 P99를 강요하지 않는다."]
+    },
+    {
+      "id": "S9",
+      "status": "partial_prerequisites",
+      "setup": "실습 앱 최근 쓰기 marker와 실제 DB 역할을 함께 기록한다.",
+      "intervention": "실습 아이템 쓰기 직후·marker 만료 뒤 조회를 비교한다.",
+      "truth_checks": ["쓰기·조회 시각과 marker TTL", "consistency_primary 관측", "write/read 세션 모두 단일 Primary임을 명시"],
+      "expected_interpretation": "최근 쓰기 우회 로직을 확인하는 하위 시험이다. 실제 Replica 전환·복제 지연 검증은 아니다.",
+      "recovery": "실습 아이템만 삭제하고 marker 만료를 확인한다.",
+      "limitations": ["별도 Replica가 없어 S9 전체 완료로 채점하지 않는다."]
+    },
+    {
+      "id": "S10",
+      "status": "blocked_prerequisites",
+      "setup": "실습 대상만 변경하는 CI·자동 롤백과 신뢰된 배포 이력 import가 필요하다.",
+      "intervention": "현재는 실행하지 않는다.",
+      "truth_checks": ["실패 배포 전후 artifact", "자동 롤백 성공 시각", "현재 건강 상태와 이전 장애 구분"],
+      "expected_interpretation": "수동 이미지 복원을 CI 자동 롤백으로 채점하지 않는다.",
+      "recovery": "실습 CI 복구 절차를 먼저 검토한다.",
+      "limitations": ["실습용 Argo Application을 만들지 않았으며 실제 수집은 missing으로 기록한다."]
+    },
+    {
+      "id": "S11",
+      "status": "planned_partial",
+      "setup": "Redis 정상·캐시 미설정·접속 실패·잘못된 캐시 JSON을 독립 하위 사례로 분리한다.",
+      "intervention": "각 하위 사례 전후에 실습 설정만 변경하고 원복한다. 설정 변경은 별도 승인된 시나리오 실행기에 한정한다.",
+      "truth_checks": ["하위 사례별 실제 설정과 요청 시각", "cache miss/error/unavailable/bypass 구분", "관측 DB 역할과 논리 경로의 차이"],
+      "expected_interpretation": "miss와 장애를 구분하고 JSON 오류를 Redis 서버 장애로 확정하지 않는다.",
+      "recovery": "고정 manifest의 앱 설정·Redis 상태를 복구하고 기준 요청을 확인한다.",
+      "limitations": ["설정 변경 후 app generation 기준선 재기록 필요", "단일 DB로 Replica 의미 전체를 검증하지 않는다."]
+    }
+  ],
+  "execution_contract": {
+    "one_scenario_at_a_time": true,
+    "time_storage": "UTC",
+    "human_display": "Asia/Seoul",
+    "record_actual_ground_truth_before_scoring": true,
+    "observation_and_injection_records_separate": true,
+    "external_model_enabled": false,
+    "restore_in_finally": true,
+    "failure_must_not_be_marked_passed": true,
+    "maximum_http_requests_per_scenario": 20,
+    "prometheus_window_seconds": 300,
+    "scrape_interval_seconds": 30,
+    "minimum_scrape_samples": 8,
+    "previous_scenario_window_must_clear_before_next_score": true
+  }
+}

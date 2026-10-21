@@ -1,0 +1,138 @@
+{
+  "phase": "B-06",
+  "scenario": "S3",
+  "status": "intervention_and_restore_verified_report_needs_review",
+  "b_stage_completion": "held",
+  "c_stage_ready": false,
+  "live_result": "B6-s3-image-failure.json",
+  "pre_investigation_observations": "B6-s3-image-failure.ground-truth.json",
+  "pre_mutation_recovery_plan": "B6-s3-image-failure.recovery-plan.json",
+  "initial_full_tests_passed": 282,
+  "final_targeted_image_tests_passed": 9,
+  "failure_observed": {
+    "deployment_uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+    "deployment_generation": 2,
+    "replicaset_uids": [
+      "1b6c9306-e745-45fb-a8c5-1a6e0405f0da",
+      "d5931b6c-cff8-41f7-b1f7-f2226b5df54c"
+    ],
+    "pod_uid": "a9940fad-83d8-4c67-b987-6b73f0db14c2",
+    "waiting_reason": "ErrImagePull",
+    "ready_replicas": 0,
+    "event_reasons": [
+      "BackOff",
+      "Failed",
+      "Pulling"
+    ],
+    "at": "2026-10-21T07:06:24.534199+00:00"
+  },
+  "report_check": "needs_review",
+  "cleanup": {
+    "original_digest_ready_http_and_redis_restored": true,
+    "production_unchanged": true
+  },
+  "post_scenario_validation": {
+    "status": "recovered_report_quality_needs_review",
+    "verified_at": "2026-10-21T07:08:06.617267+00:00",
+    "lab": {
+      "lab-api": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-collector": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-postgres": {
+        "replicas": 1,
+        "ready": 1
+      },
+      "lab-redis": {
+        "replicas": 1,
+        "ready": 1
+      }
+    },
+    "production_app_ready": 2,
+    "production_ai_ready_containers": 2,
+    "production_worker_probe": true,
+    "saved_bundle_shape": {
+      "available_events": [
+        {
+          "id": "ev-event-0",
+          "reason": "Failed",
+          "image_failure_marker": true
+        },
+        {
+          "id": "ev-event-1",
+          "reason": "Failed",
+          "image_failure_marker": true
+        },
+        {
+          "id": "ev-event-2",
+          "reason": "Failed",
+          "image_failure_marker": false
+        },
+        {
+          "id": "ev-event-3",
+          "reason": "ScalingReplicaSet",
+          "image_failure_marker": false
+        },
+        {
+          "id": "ev-event-4",
+          "reason": "Scheduled",
+          "image_failure_marker": false
+        },
+        {
+          "id": "ev-event-5",
+          "reason": "BackOff",
+          "image_failure_marker": false
+        },
+        {
+          "id": "ev-event-6",
+          "reason": "ScalingReplicaSet",
+          "image_failure_marker": false
+        },
+        {
+          "id": "ev-event-7",
+          "reason": "SuccessfulCreate",
+          "image_failure_marker": false
+        },
+        {
+          "id": "ev-event-9",
+          "reason": "Pulling",
+          "image_failure_marker": false
+        }
+      ],
+      "deployment_statuses": [
+        "unknown"
+      ],
+      "report_revalidation_passed": true
+    }
+  },
+  "external_model_calls": 0,
+  "external_model_cost_usd": 0,
+  "diagnostic_gap": {
+    "actual_event_reasons": [
+      "Failed",
+      "BackOff"
+    ],
+    "image_error_marker_present_on_failed_events": true,
+    "actual_deployment_status": "unknown",
+    "v2_required_event_reason": "ImagePullBackOff",
+    "v2_required_deployment_status": "progressing",
+    "report_engine_changed": false,
+    "proposed_next_step": "versioned captured rules for native event reason and finite image-error tokens with Pod ownership/time correlation"
+  },
+  "final_source_sha256": {
+    "ai-ops/src/ai_ops/b6_scenarios.py": "533df4a796882d511c95bf26fc334e5baf2d8d14a437f79b664421bb8e65488f",
+    "ai-ops/scripts/run_b6_scenario.py": "af1bd64aaa9cc6b7b0aea4e11cdd3b50a0d30403abe2724c0097ba1f1fb15c37",
+    "ai-ops/tests/test_b6_image_scenario.py": "36126b762a83610ffed46c726dfdff4b67b32d4aeee1f3f563af982a2ba7b71c"
+  },
+  "post_live_changes": "metadata export includes image marker boolean; evaluator no longer accepts generic Failed without image-error marker. Existing needs_review remains unchanged; live injection not repeated.",
+  "original_private_file_sha256": {
+    "s3-image-failure.json": "fc568a79ce07afb9525e88b2be3a7a13215fdec4a39a9736db78f3eb9f9d8dc7",
+    "s3-image-failure.ground-truth.json": "9fea0e66da875d9a15d141d05a984ac6dd833f230d30f1b8d9bc962d61e4885f",
+    "s3-image-failure.recovery-plan.json": "a2ef80bb3e45ab706efb68f3ffce3a264a199d5721bfac9287ca0fcd8bc10128"
+  },
+  "final_full_tests_passed": 283
+}

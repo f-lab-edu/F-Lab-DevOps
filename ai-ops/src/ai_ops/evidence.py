@@ -316,6 +316,10 @@ def normalize_payload(
     return payload, counts
 
 
+class NoDiagnosticFields(ValueError):
+    """유효한 로그를 선별했으나 허용 진단 필드가 하나도 없는 경우다."""
+
+
 CAPTURED_LOG_MARKERS = (
     "RedisError", "ConnectionError", "TimeoutError", "ImagePullBackOff",
     "ErrImagePull", "CrashLoopBackOff", "OOMKilled", "recent write marker",
@@ -376,7 +380,7 @@ def normalize_captured_payload(
                 line_times.append({"at": _utc_text(at), "source_at": raw_time, "source_offset": offset})
             privacy_counts["captured_log_projection"] = privacy_counts.get("captured_log_projection", 0) + 1
         if not cleaned:
-            raise ValueError("captured log has no allowed diagnostic fields")
+            raise NoDiagnosticFields("captured log has no allowed diagnostic fields")
         filtered = {"container": source.get("container"), "lines": cleaned}
     elif kind == "event":
         if source.get("reason") not in CAPTURED_EVENT_REASONS or source.get("type") not in {"Normal", "Warning"}:

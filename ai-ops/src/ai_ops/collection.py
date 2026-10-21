@@ -17,7 +17,7 @@ from ai_ops.contracts import (
     EvidenceBundle, EvidenceId, EvidenceItem, Sha256, StrictModel, Target, TimeWindow,
     UTCDateTime, _utc_datetime, build_evidence_bundle, canonical_json_bytes, sha256_json,
 )
-from ai_ops.evidence import _safe_parts, normalize_captured_payload, normalize_source_time
+from ai_ops.evidence import NoDiagnosticFields, _safe_parts, normalize_captured_payload, normalize_source_time
 
 
 class CapturedSource(StrictModel):
@@ -38,6 +38,7 @@ class CollectionEntry(StrictModel):
         "future_observation", "payload_too_large",
         "scope_mismatch", "truncated", "empty_response", "scrape_unavailable",
         "invalid_metric", "no_traffic", "revision_changed", "not_configured", "missing_history",
+        "no_diagnostic_fields", "invalid_log_encoding", "invalid_log_timestamp",
     ]
     time_field: StrictStr
     observed_raw: StrictStr | None
@@ -80,7 +81,8 @@ class ReadFailure:
         allowed = {"permission_denied", "not_found", "timeout", "upstream_error",
                    "response_too_large", "raw_budget_exceeded", "log_budget_exceeded", "deadline_exceeded", "invalid_payload",
                    "scope_mismatch", "truncated", "empty_response", "scrape_unavailable",
-                   "invalid_metric", "no_traffic", "revision_changed", "not_configured", "missing_history"}
+                   "invalid_metric", "no_traffic", "revision_changed", "not_configured", "missing_history",
+                   "no_diagnostic_fields", "invalid_log_encoding", "invalid_log_timestamp"}
         if self.status not in {"missing", "permission_denied", "invalid"} or self.reason not in allowed:
             raise ValueError("read failure requires a fixed status and reason code")
 
@@ -301,6 +303,8 @@ class SnapshotBuilder:
                         }
                         if len(canonical_json_bytes(normalized)) > limits.payload_bytes:
                             status, reason = "invalid", "payload_too_large"
+                except NoDiagnosticFields:
+                    status, reason = "missing", "no_diagnostic_fields"
                 except (ValueError, TypeError, AttributeError, OverflowError, RecursionError):
                     status, reason = "invalid", "invalid_payload"
         if status != "available":

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ai_ops.contracts import AnalysisReport, EvidenceBundle, EvidenceItem, IncidentRequest
+from ai_ops.contracts import AnalysisReport, EvidenceBundle, EvidenceItem, Fact, IncidentRequest
 
 
 RULES_VERSION = "rules-v1"
@@ -143,7 +143,7 @@ def analyze_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str)
     )
 
 
-def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+def analyze_snapshot_rules_v1(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
     """captured 묶음의 출처·전체 Pod·부분 수집을 구분하는 별도 규칙 버전이다."""
     report = analyze_rules(request, bundle, run_id)
     report.execution.engine = "rules-captured-v1"
@@ -204,4 +204,45 @@ def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run
         report.limitations.append(f"수집 상태는 {audit.collection_status}이며 일부 또는 전체 출처가 부족한 규칙 부분 결과다.")
     if audit is None:
         report.limitations.append("수집 감사가 없는 captured 입력이므로 전체 Pod 범위와 수집 완전성을 검증하지 못했다.")
+    return report
+
+
+def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+    """v1의 판단 경계는 유지하고 일부 자료만 있어도 확인한 관측을 설명한다."""
+    report = analyze_snapshot_rules_v1(request, bundle, run_id, audit)
+    report.execution.engine = "rules-captured-v2"
+    available = [item for item in bundle.evidence if item.status == "available"]
+    cited = {key for fact in report.facts for key in fact.evidence_ids}
+
+    def append(statement: str, items: list[EvidenceItem]) -> None:
+        # 입력 전체를 정상으로 일반화하지 않고 인용 가능한 최대 20개만 요약한다.
+        selected = items[:20]
+        if selected and len(report.facts) < 100 and not all(item.evidence_id in cited for item in selected):
+            report.facts.append(Fact(statement=statement, evidence_ids=[item.evidence_id for item in selected]))
+            cited.update(item.evidence_id for item in selected)
+
+    workloads = [item for item in available if item.kind == "workload_status"][:20]
+    if workloads:
+        ready = sum(item.payload.get("phase") == "Running" and item.payload.get("ready") is True for item in workloads)
+        append(f"확보한 Pod 상태 {len(workloads)}개 중 {ready}개가 관측 시점에 Running/Ready였다. 전체 서비스 정상 여부와는 구분한다.", workloads)
+    statuses = {
+        "healthy": "정상 동기화 상태", "progressing": "배포 진행 상태", "failed": "실패 상태",
+        "healthy_after_rollback": "롤백 이후 정상 기록", "unknown": "판단 불가 상태",
+    }
+    for status, label in statuses.items():
+        deployments = [item for item in available if item.kind == "deployment" and item.payload.get("status") == status][:20]
+        append(f"인용한 배포 자료 {len(deployments)}개는 {label}로 기록됐다. 사용자 요청 경로의 정상 여부를 직접 입증하지는 않는다.", deployments)
+    for item in available:
+        if item.kind != "metric" or item.payload.get("query_id") != "cache_outcomes":
+            continue
+        samples = item.payload["samples"]
+        values = ", ".join(f"{sample['outcome']}={float(sample['value']):.3g}" for sample in samples)
+        append(f"캐시 결과의 추정 증가량 집계값은 {values}였다. 표본이 없는 다른 지표를 0으로 채우거나 연결 정상으로 해석하지 않는다.", [item])
+    reasons = {
+        "no_diagnostic_fields": "로그 응답과 시각은 유효하지만 허용된 진단 표식이 없어 본문을 저장하지 않았다. 오류가 없다는 뜻은 아니다.",
+        "invalid_log_encoding": "로그 응답이 UTF-8 검사를 통과하지 못해 본문을 저장하지 않았다.",
+        "invalid_log_timestamp": "로그 행의 시각 형식이 유효하지 않아 본문을 저장하지 않았다.",
+    }
+    for missing in report.missing_evidence:
+        missing.reason = reasons.get(missing.reason, missing.reason)
     return report

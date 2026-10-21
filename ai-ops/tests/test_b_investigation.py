@@ -22,6 +22,7 @@ from ai_ops.incidents import IncidentStore
 from ai_ops.live_collectors import collect_snapshot
 from ai_ops.live_collectors.common import add
 from ai_ops.openai_engine import AIAnalysisError, AIConfig, analyze_ai
+from ai_ops.rules import analyze_snapshot_rules_v1
 from ai_ops.replay_runner import run_replay
 from test_live_collectors import API, AT, Clock, SENTINEL, stamp
 
@@ -74,7 +75,7 @@ class BInvestigationTest(unittest.TestCase):
             shown = self.store.show(record.incident_id, record.run_id)
         self.assertEqual(shown.request.target.environment, "production")
         self.assertEqual(shown.bundle.target, self.target)
-        self.assertEqual(shown.report.execution.engine, "rules-captured-v1")
+        self.assertEqual(shown.report.execution.engine, "rules-captured-v2")
         transport, token_counter = Mock(), Mock()
         for engine in (analyze_ai, analyze_fixed_summary):
             with self.subTest(engine=engine.__name__), self.assertRaisesRegex(AIAnalysisError, "captured_data_not_approved"):
@@ -137,7 +138,7 @@ class BInvestigationTest(unittest.TestCase):
     def test_collect_to_private_partial_report_and_show_preserves_utc_kst(self):
         record = self.investigate()
         self.assertEqual((record.metadata["status"], record.metadata["failure_reason"]), ("partial", "collection_incomplete"))
-        self.assertEqual(record.report.execution.engine, "rules-captured-v1")
+        self.assertEqual(record.report.execution.engine, "rules-captured-v2")
         self.assertEqual(record.request.source, "manual_snapshot")
         self.assertEqual(record.report.current_state, "unknown")
         self.assertIn("captured", record.markdown)
@@ -165,6 +166,30 @@ class BInvestigationTest(unittest.TestCase):
                 self.assertEqual(record.report.current_state, expected_state)
                 self.assertEqual(record.metadata["status"], "partial" if options.get("missing") else "completed")
                 self.assertEqual(self.store.show(record.incident_id, record.run_id).report, record.report)
+
+    def test_partial_snapshot_keeps_available_facts_without_claiming_healthy(self):
+        record = self.investigate(self.complete_snapshot(missing=True))
+        self.assertEqual(record.report.current_state, "unknown")
+        self.assertEqual(record.report.analysis_status, "partial")
+        self.assertTrue(record.report.facts)
+        available = {item.evidence_id for item in record.bundle.evidence if item.status == "available"}
+        self.assertTrue(all(set(fact.evidence_ids) <= available for fact in record.report.facts))
+        self.assertTrue(any("Pod 상태" in fact.statement for fact in record.report.facts))
+
+    def test_stored_v1_report_remains_readable_after_v2_upgrade(self):
+        with patch("ai_ops.incidents.analyze_snapshot_rules", side_effect=analyze_snapshot_rules_v1):
+            record = self.investigate(self.complete_snapshot(missing=True))
+        self.assertEqual(record.report.execution.engine, "rules-captured-v1")
+        self.assertEqual(self.store.show(record.incident_id, record.run_id).report, record.report)
+
+    def test_v2_stored_fact_cannot_be_changed_to_unproven_normality(self):
+        record = self.investigate(self.complete_snapshot(missing=True))
+        path = self.store_root / record.incident_id / record.run_id / "report.json"
+        report = json.loads(path.read_text())
+        report["facts"][0]["statement"] = "전체 서비스가 정상이라고 확정했다."
+        path.write_text(json.dumps(report))
+        with self.assertRaisesRegex(ValueError, "facts contradict"):
+            self.store.show(record.incident_id, record.run_id)
 
     def test_all_sources_unavailable_remain_partial_without_claiming_healthy(self):
         clock = Clock()

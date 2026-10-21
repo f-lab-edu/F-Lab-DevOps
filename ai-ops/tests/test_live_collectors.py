@@ -188,6 +188,23 @@ class LiveCollectorsTest(unittest.TestCase):
     def item(self, snapshot, key):
         return next(item for item in snapshot.bundle.evidence if item.evidence_id == "ev-" + key)
 
+    def test_explicit_empty_redis_env_remains_disabled_when_api_omits_value(self):
+        for entry in ({"name":"REDIS_URL"},{"name":"REDIS_URL","value":""}):
+            with self.subTest(entry=entry):
+                self.api.docs["pod"]["spec"]["containers"][0]["env"]=[entry]
+                snapshot=self.snapshot()
+                self.assertIs(self.item(snapshot,"pod-0-config").payload["redis_url_configured"],False)
+
+    def test_redis_reference_and_env_from_are_not_assumed_disabled(self):
+        for source in ({"secretKeyRef":{"name":"app-secret","key":"REDIS_URL"}},
+                       {"configMapKeyRef":{"name":"app-config","key":"REDIS_URL"}}):
+            with self.subTest(source=source):
+                container=self.api.docs["pod"]["spec"]["containers"][0]
+                container["env"]=[{"name":"REDIS_URL","valueFrom":source}]
+                self.assertNotIn("redis_url_configured",self.item(self.snapshot(),"pod-0-config").payload)
+        container["env"]=[]; container["envFrom"]=[{"secretRef":{"name":"app-secret"}}]
+        self.assertNotIn("redis_url_configured",self.item(self.snapshot(),"pod-0-config").payload)
+
     def test_full_scoped_collection_preserves_meaning_time_and_privacy(self):
         snapshot = self.snapshot(route="/items/{item_id}", operation="select_one")
         self.assertEqual(parse_evidence_bundle_json(snapshot.bundle.model_dump_json().encode()), snapshot.bundle)

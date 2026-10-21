@@ -172,6 +172,9 @@ def _configuration(builder, pod, prefix, at):
         secret_ref = bool(entries and entries[0].get("valueFrom", {}).get("secretKeyRef"))
         if entries and "value" in entries[0]:
             payload["redis_url_configured"] = bool(entries[0]["value"])
+        elif entries and not entries[0].get("valueFrom"):
+            # API 응답은 명시적인 빈 value를 생략할 수 있다. 출처 참조가 없으면 빈 문자열이다.
+            payload["redis_url_configured"] = False
         elif not entries and not container.get("envFrom"):
             payload["redis_url_configured"] = False
         add(builder, prefix + "-config", "config_summary", at=at, payload=payload,

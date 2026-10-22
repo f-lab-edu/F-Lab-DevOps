@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "task": "B-06-S10-03",
+  "checked_at_kst": "2026-10-22T13:06:44.912759+09:00",
+  "status": "live_ci_failure_and_automatic_rollback_verified",
+  "run_url": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39719907612",
+  "run_conclusion": "failure",
+  "final_failure_expected": true,
+  "artifact": {
+    "artifact_id": 12401091372,
+    "name": "b6-lab-observation-39719907612-1",
+    "archive_digest": "sha256:08bfb43a9b3070c25f2824b592e3070f99e5724675652e1143767bbaedef6332",
+    "hash_verified": true,
+    "run_id": 39719907612,
+    "run_attempt": 1,
+    "source_revision": "b0a667fd77484eb126985b3dd6ea811e7831fd7c"
+  },
+  "observations": {
+    "deployment": {
+      "application": "argocd/lab-target",
+      "baseline_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+      "cluster_arn": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+      "evidence_import_enabled": false,
+      "failure_revision": "8c3c837dec7a196484a770afecf68953eb9c8e79",
+      "namespace": "ai-ops-lab",
+      "observed": {
+        "application_uid": "10b2ce92-b8ed-4f94-9c83-22882407f6ff",
+        "deployment_uid": "d4e4a4ba-5848-4f83-80cd-c45520c0e601",
+        "generation_observed": true,
+        "health_status": "Progressing",
+        "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:b6-missing-75149d8b9ae5450eb17e515889319436",
+        "image_pull_reasons": [
+          "ErrImagePull"
+        ],
+        "operation_phase": "Succeeded",
+        "operation_revision": "8c3c837dec7a196484a770afecf68953eb9c8e79",
+        "ready_replicas": 0,
+        "sync_status": "OutOfSync"
+      },
+      "observed_at": "2026-10-22T04:02:13.283976Z",
+      "record_type": "b6_lab_ci_observation",
+      "repository": "f-lab-edu/F-Lab-DevOps",
+      "run_attempt": "1",
+      "run_id": "39719907612",
+      "schema_version": 2,
+      "source_revision": "b0a667fd77484eb126985b3dd6ea811e7831fd7c",
+      "stage": "deployment",
+      "started_at": "2026-10-22T04:01:57.676595Z",
+      "user_path_recovery_verified": false,
+      "verification_result": "failure",
+      "workflow": ".github/workflows/ai-ops-lab-ci.yml"
+    },
+    "rollback": {
+      "application": "argocd/lab-target",
+      "baseline_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+      "cluster_arn": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+      "evidence_import_enabled": false,
+      "failure_revision": "8c3c837dec7a196484a770afecf68953eb9c8e79",
+      "namespace": "ai-ops-lab",
+      "observed": {
+        "application_uid": "10b2ce92-b8ed-4f94-9c83-22882407f6ff",
+        "deployment_uid": "d4e4a4ba-5848-4f83-80cd-c45520c0e601",
+        "generation_observed": true,
+        "health_status": "Healthy",
+        "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:e5b0ac5d3963b63afe913584204b7d1a33f9c07a9ee8df3956a6a0af154bb142",
+        "image_pull_reasons": [],
+        "operation_phase": "Succeeded",
+        "operation_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+        "ready_replicas": 1,
+        "sync_status": "Synced"
+      },
+      "observed_at": "2026-10-22T04:02:33.155937Z",
+      "record_type": "b6_lab_ci_observation",
+      "repository": "f-lab-edu/F-Lab-DevOps",
+      "run_attempt": "1",
+      "run_id": "39719907612",
+      "schema_version": 2,
+      "source_revision": "b0a667fd77484eb126985b3dd6ea811e7831fd7c",
+      "stage": "rollback",
+      "started_at": "2026-10-22T04:02:13.540949Z",
+      "user_path_recovery_verified": false,
+      "verification_result": "success",
+      "workflow": ".github/workflows/ai-ops-lab-ci.yml"
+    },
+    "result": {
+      "application": "argocd/lab-target",
+      "baseline_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+      "cluster_arn": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+      "evidence_import_enabled": false,
+      "failure_revision": "8c3c837dec7a196484a770afecf68953eb9c8e79",
+      "namespace": "ai-ops-lab",
+      "observed": null,
+      "observed_at": "2026-10-22T04:02:37.357507Z",
+      "record_type": "b6_lab_ci_observation",
+      "repository": "f-lab-edu/F-Lab-DevOps",
+      "run_attempt": "1",
+      "run_id": "39719907612",
+      "schema_version": 2,
+      "source_revision": "b0a667fd77484eb126985b3dd6ea811e7831fd7c",
+      "stage": "result",
+      "started_at": "2026-10-22T04:02:37.357497Z",
+      "user_path_recovery_verified": false,
+      "verification_result": "recovered_after_failure",
+      "workflow": ".github/workflows/ai-ops-lab-ci.yml"
+    }
+  },
+  "post_recovery": {
+    "checked_at": "2026-10-22T13:05:18.727090+09:00",
+    "ready_pods": 4,
+    "production_identity_unchanged": true,
+    "deployment_uid_and_original_templates_restored": true,
+    "non_app_pod_uids_unchanged": true,
+    "api_pod_recreated_by_experiment": true,
+    "connection": {
+      "http": {
+        "/readyz": 200,
+        "/items": 200,
+        "/items/_db": 200
+      },
+      "redis_ping": true,
+      "single_primary": true
+    },
+    "lease_holder_empty": true,
+    "not_before": "2026-10-22T04:07:39.649554+00:00",
+    "application_baseline_unchanged": true,
+    "source_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+    "sync": "Synced",
+    "health": "Healthy",
+    "automatic_rollback_verified": true
+  },
+  "live_oidc_and_eks_access_verified": true,
+  "scope": {
+    "fault_cases_executed": 1,
+    "external_model_calls": 0,
+    "ci_evidence_import_enabled": false,
+    "report_interpreting_ci_history_verified": false,
+    "b_stage_complete": false,
+    "c_stage_ready": false
+  },
+  "limitations": [
+    "One isolated missing-image case only",
+    "No runner termination or recovery-failure live experiment",
+    "CI artifact user_path_recovery_verified remains false; separate operator HTTP checks recorded in post_recovery",
+    "S10-04 trusted import and S10-05 report verification remain pending"
+  ]
+}

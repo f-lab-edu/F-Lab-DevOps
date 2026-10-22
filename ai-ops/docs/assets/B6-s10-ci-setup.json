@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "task": "B-06-S10-03",
+  "verified_at": "2026-10-22T13:01:02.279443+09:00",
+  "status": "implementation_and_identity_ready_pending_human_approval",
+  "implementation_pr": 55,
+  "implementation_revision": "b0a667fd77484eb126985b3dd6ea811e7831fd7c",
+  "tests": {
+    "full_python": 335,
+    "new_ci_tests": 8,
+    "gitops_tests": 21,
+    "terraform_validate": true,
+    "registry_plan": {
+      "add": 3,
+      "change": 0,
+      "destroy": 0
+    }
+  },
+  "terraform_apply": {
+    "add": 3,
+    "change": 0,
+    "destroy": 0
+  },
+  "environment": {
+    "environment": "ai-ops-lab-ci",
+    "main_only": true,
+    "required_reviewers": [
+      149856960
+    ],
+    "existing_image_environment_modified": false
+  },
+  "identity": {
+    "role": "b6-s10-coordinator",
+    "pod_list_and_rs_get": true,
+    "secret_patch_exec_denied": true,
+    "argo_role": "b6-lab:ci-sync",
+    "token_id": "s10-ci-06b7ce677e584f3195b22157509b0db9",
+    "issued_at": 1792641568,
+    "expires_at": 1792727968,
+    "secret_environment": "ai-ops-lab-ci",
+    "token_value_stored_locally": false
+  },
+  "failure_source": {
+    "branch": "codex/s10-missing-image-20261022",
+    "baseline_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+    "failure_revision": "8c3c837dec7a196484a770afecf68953eb9c8e79",
+    "missing_image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:b6-missing-75149d8b9ae5450eb17e515889319436",
+    "merged_to_main": false
+  },
+  "run_url": "https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39719907612",
+  "live_oidc_verified": false,
+  "live_failure_injection_executed": false,
+  "automatic_rollback_verified": false,
+  "external_model_calls": 0,
+  "evidence_import_enabled": false
+}

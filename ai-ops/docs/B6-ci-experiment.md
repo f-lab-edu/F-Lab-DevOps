@@ -1,6 +1,6 @@
 # B-06 S10-03 실습 전용 CI 실패·자동 복구
 
-상태: **구현·로컬 검증 완료, 실제 CI 실행은 승인 후 별도 확인**. S10-04 이력 가져오기와 S10-05 보고서 검증 완료를 의미하지 않는다.
+상태: **승인된 실습 CI에서 최초 실패·자동 복구·원래 설정 및 운영 불변 검증 완료**. S10-04 이력 가져오기와 S10-05 보고서 검증 완료를 의미하지 않는다.
 
 ## 동작 흐름과 파일
 
@@ -39,3 +39,22 @@ runner 강제 종료·job 시간 초과·AWS 세션 만료 등으로 `always()` 
 전체 AWS 정리는 AI root를 production보다 먼저 destroy해 EKS access entry·전용 역할도 제거한다. state 버킷·이전 버전 보존 정책은 기존 사용자 결정을 유지한다. **S10을 사용 중인 같은 state에 일반 AI 설치를 다시 적용할 때 `enable_b6_lab_ci=true`를 빠뜨리면 CI 역할 삭제 계획이 나올 수 있으므로 중단하고 입력을 대조한다.** 새 전체 재설치의 기본 AI 설치는 S10 비활성으로 진행하고 선택 실습 준비 후 명시적으로 활성화한다. GitHub 환경·변수는 AWS 자원이 아니며 AWS 삭제만으로 지워지지 않는다. 재설치 후 Argo 토큰은 옛 클러스터의 것을 쓰지 않고 재발급한다.
 
 로컬 전체 Python 335개·S10 신규 8개·기존 GitOps 21개와 Terraform validate를 확인했다. Python 3.13 전체 검사의 기존 SQLite ResourceWarning 로그 캡처 현상은 앞 단계와 같은 경고 필터로 분리했다. 실제 OIDC·실패·자동 복구의 완료 여부는 승인된 실행 결과에 별도로 기록한다.
+
+## 2026-10-22 실제 승인 실행과 최종 복구
+
+[실행 39719907612](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/39719907612)·attempt 1은 `ai-ops-lab-ci`의 사용자 승인 뒤 main `b0a667fd77484eb126985b3dd6ea811e7831fd7c`에서 실행됐다. 전용 GitHub OIDC 인증·도구 준비·정상 기준선/실패 소스·EKS 최소 group과 공유 Lease 검사를 통과했다. [검증 JSON](assets/B6-s10-ci-validation.json)에 실제 artifact 원문 중 허용된 관측과 별도 복구 확인을 보존했다. 준비 당시 [설정 요약](assets/B6-s10-ci-setup.json)은 승인 대기 시점의 역사적 기록이다.
+
+| 시각 KST | 실제 확인 |
+|---|---|
+| 13:01:57~13:02:13 | 실패 SHA `8c3c837dec7a196484a770afecf68953eb9c8e79` 적용, 대상 Pod `ErrImagePull`, Ready 0·OutOfSync·Progressing, deployment 관측 failure |
+| 13:02:13~13:02:33 | CI가 기준 SHA `bf3d377cf89525643cf71da5ac711c9f24f1e543`와 원래 digest로 자동 복구, Ready 1·Synced·Healthy·Succeeded, rollback 관측 success |
+| 13:02:37 | result는 recovered_after_failure, 완료 단계가 최초 실패 보존을 위해 종료 코드 1 반환, artifact 업로드 성공 |
+| 13:05:18 | 별도 운영자 검사에서 실습 HTTP 3경로·Redis PING·두 DB 세션의 단일 Primary와 운영 불변·공유 잠금 해제 확인 |
+
+복구 검증 단계는 약 19.61초였으며 단일 제한 실습의 실행 구간이다. 일반 장애의 MTTR·개선율·모델 성능으로 확대하지 않는다. 최종 CI failure는 finish 단계의 설계된 결과이며 자동 복구 실패가 아니다. `continue-on-error`인 실패 배포 step이 GitHub 화면에서 success로 보일 수 있으므로 관측의 verification_result와 rollback을 함께 확인한다. finish 로그도 일반 실패 문구가 아니라 단계 처리 완료임을 대조했다.
+
+artifact ID `12401091372`의 이름·run/attempt·head SHA·main 출처와 API의 ZIP SHA-256 `08bfb43a9b3070c25f2824b592e3070f99e5724675652e1143767bbaedef6332`를 실제 바이트와 대조했다. ZIP은 deployment.json·rollback.json·result.json 세 파일뿐이었다. 두 관측의 같은 Application/Deployment UID, 서로 다른 실패/복구 이미지와 revision, 시각 순서도 확인했다. 이 운영자 점검은 아직 S10-04의 자동 이력 가져오기 계약이 아니다. artifact는 기존 evidence_import_enabled=false·user_path_recovery_verified=false를 그대로 유지한다. 이후 별도 운영자 HTTP 검사와 구분하며 원본 필드를 고치지 않는다.
+
+원래 앱 template·Deployment UID와 영구 Application 기준 SHA가 복구됐고, 실습 Pod 4개가 Ready다. 실습 앱 Pod만 교체됐으며 DB·Redis·수집기 Pod UID, 운영 앱·AI StatefulSet·PVC 식별자는 같았다. 운영 API도 HTTPS 200·TLS 검증 0이다. 공유 Lease holder는 비었고 13:07:39 KST까지의 305초 지표 창은 유지했다. 권한/승인 설정을 완화하거나 잠금을 초기화하지 않았다.
+
+이번 실제 장애 주입은 실습 이미지 오류 1회, 외부 모델 호출 0회다. 추가 반복 시험은 하지 않았다. Argo 전용 Secret은 설정한 24시간 만료 정책을 유지하므로 다음 실행 전 만료·클러스터 일치를 확인한다. 실패 입력 브랜치는 main에 병합하지 않는다. 다음은 **S10-04: 실습 v2 이력의 신뢰 계약·가져오기**이며 이후 S10-05 보고서 설명을 검증한다. S10 전체·B-06 전체 완료 및 C 진입은 계속 보류한다.

@@ -142,3 +142,7 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 ## 2026-10-22 S10-03 실제 CI 실패·자동 복구 확인
 
 [실측](docs/B6-ci-experiment.md)에서 승인 실행 39719907612의 실제 ErrImagePull·Ready 0과 CI 자동 원복·Ready 1·Synced/Healthy를 확인했다. 원본 artifact 출처/ZIP 해시·운영 불변·HTTP/Redis/DB·잠금 해제도 대조했다. 최종 CI failure는 최초 실패를 보존한 의도된 결과다. 실습 1회·외부 모델 0회이며 S10-04 신뢰 이력 가져오기·S10-05 보고서는 남아 있다.
+
+## S10-04~05 검증 이력과 규칙 보고서
+
+[운영자 가져오기](docs/B6-ci-history-import.md)는 CI 실행 출처·해시·현재 대상 UID를 대조한다. [CI 보고서](docs/B6-ci-report.md)는 최초 실패·자동 원복·최종 failure를 구분하고 사용자 경로 복구는 단정하지 않는다. 모의 유효 구간과 실제 stale 제외·저장/재조회를 확인했다. 기존 보고서·900초 창·외부 모델 거부·worker 권한을 유지하며 최신 실시간 보고서·자동 worker 입력은 미검증이다.

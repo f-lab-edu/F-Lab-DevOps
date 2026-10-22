@@ -289,7 +289,7 @@ module "vpc" {
 # EKS — terraform-aws-modules/eks/aws
 module "eks" {
   source  = "terraform-aws-modules/eks/aws" # Terraform Registry에 있는 공식 EKS 모듈 다운로드
-  version = "21.18.0"
+  version = "21.26.0"
 
   name               = var.project_name
   kubernetes_version = var.eks_cluster_version

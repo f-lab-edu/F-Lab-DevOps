@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
 import json
+import hmac
 import math
 import os
 from pathlib import Path
@@ -147,6 +148,48 @@ class JobQueue:
         now = self.now()
         with self.transaction() as db:
             return self._submit(db, payload=payload, fingerprint=fingerprint, episode_key=episode_key, now=now)
+
+    def submit_ci(self, settings: BSettings, history) -> tuple[str, bool]:
+        """검증 프로세스만 호출하는 실습 CI 접수다. 토큰이나 임의 질문을 받지 않는다."""
+        from ai_ops.ci_handoff import pack_history, SOURCE, TARGET, QUESTION
+        value = pack_history(history)
+        binding = next((item for item in settings.bindings.bindings if item.alias == TARGET), None)
+        if (binding is None or binding.target.cluster_id != "urlshortener"
+                or binding.target.environment != "practice" or binding.target.namespace != "ai-ops-lab"
+                or binding.target.workload != "lab-api" or binding.target.service != "lab-api"
+                or binding.container != "api" or binding.pod_selector != {"app": "lab-api"}
+                or binding.argo.namespace != "argocd" or binding.argo.application != "lab-target"
+                or binding.argo.path != "ai-ops/lab"
+                or binding.argo.repo_url != "https://github.com/f-lab-edu/F-Lab-DevOps.git"):
+            raise ValueError("CI 접수는 등록된 격리 실습 대상에만 허용됩니다")
+        settings.metrics.render("api_latency", binding, dimension=None)
+        settings.metrics.render("db_latency", binding, dimension=None)
+        payload = {"target": TARGET, "question": QUESTION, "config_hash": settings.config_hash,
+                   "route": None, "operation": None, "mode": "rules", "source": SOURCE, "ci_history": value}
+        episode_key = sha256_json({"source": SOURCE, "repository": value["repository"], "workflow": value["workflow"],
+                                  "run_id": value["run_id"], "run_attempt": value["run_attempt"]})
+        fingerprint = self.ci_fingerprint(payload, episode_key)
+        with self.transaction() as db:
+            return self._submit(db, payload=payload, fingerprint=fingerprint, episode_key=episode_key, now=self.now())
+
+    def ci_fingerprint(self, payload: dict, episode_key: str) -> str:
+        """CI 입력과 중복 키를 기존 저장소 전용 HMAC 키로 함께 결합한다."""
+        return self.engine.request_fingerprint({"source": "ci-queue-integrity-v1", "payload": payload, "episode_key": episode_key})
+
+    def verify_ci_payload(self, job: dict, payload: dict):
+        """비공개 큐의 HMAC을 먼저 검사한 뒤에만 CI 기록을 복원한다."""
+        from ai_ops.ci_handoff import unpack_history, CIInputError, SOURCE, TARGET, QUESTION
+        if (payload.get("source") != SOURCE or payload.get("target") != TARGET or payload.get("question") != QUESTION
+                or payload.get("route") is not None or payload.get("operation") is not None
+                or not hmac.compare_digest(self.ci_fingerprint(payload, job["episode_key"]), job["fingerprint"])):
+            raise CIInputError("CI 큐 입력의 무결성을 확인할 수 없습니다")
+        history = unpack_history(payload["ci_history"])
+        value = payload["ci_history"]
+        expected = sha256_json({"source": SOURCE, "repository": value["repository"], "workflow": value["workflow"],
+                               "run_id": history.run_id, "run_attempt": history.run_attempt})
+        if expected != job["episode_key"]:
+            raise CIInputError("CI 중복 키와 실행 출처가 다릅니다")
+        return history
 
     def _submit(self, db, *, payload: dict, fingerprint: str, episode_key: str, now: float) -> tuple[str, bool]:
         """검증한 입력을 호출자의 트랜잭션 안에서 접수한다."""

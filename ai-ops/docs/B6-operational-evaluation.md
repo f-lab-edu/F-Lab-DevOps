@@ -84,3 +84,7 @@ captured 자료 30개 중 available 7·invalid 2·stale 15·missing 6이다. Pod
 ## 2026-10-22 S10-04~05 가져오기·보고서 해석
 
 [이력 가져오기](B6-ci-history-import.md)와 [보고서 검증](B6-ci-report.md)에서 출처·현재 대상 연결과 최초 실패/자동 원복/최종 failure 구분을 구현했다. 유효한 쌍은 모의 구간에서, 실제 보존 snapshot은 stale 제외·부분 관측 설명·저장/재조회로 확인했다. 신규 11개 포함 Python 354개 통과, 새 실험·외부 호출 0회다. 최신 실시간 보고서·자동 worker 입력·라이브 모델은 미검증이며 S10 전체·B 전체 완료로 확대하지 않는다.
+
+## CI 검증 이력의 worker 접수
+
+[CI 전달기·worker 큐 연결](B6-ci-worker-bridge.md)에서 검증된 이력 접수와 worker 수집/보고서를 실제 기존 CI로 연결했다. 자동 발견·중복·복원 등 신규 10개 포함 364개 시험 통과. 실제 결과는 과거 관측 stale·partial/unknown이며, 클러스터 상시 배포와 최근 완료 자동 처리 실측은 미검증이다.

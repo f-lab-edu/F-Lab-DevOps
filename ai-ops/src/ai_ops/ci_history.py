@@ -24,6 +24,7 @@ from ai_ops.evidence import _json_object
 REPOSITORY = "f-lab-edu/F-Lab-DevOps"
 WORKFLOW = ".github/workflows/ci-cd.yml"
 PREFIX = f"repos/{REPOSITORY}/actions"
+LAB_RUNS_PATH = PREFIX + "/workflows/ai-ops-lab-ci.yml/runs?branch=main&event=workflow_dispatch&status=completed&per_page=20"
 MAX_API_BYTES = 2 * 1024 * 1024
 MAX_ZIP_BYTES = 1024 * 1024
 MAX_RECORD_BYTES = 65536
@@ -85,7 +86,7 @@ class GitHubReader:
 
     def get(self, path: str, *, max_bytes: int = MAX_API_BYTES) -> bytes:
         # 기존 호스트 설정과 무관하게 접속할 GitHub 호스트와 경로를 고정한다.
-        if not re.fullmatch(re.escape(PREFIX) + r"/(?:runs/[1-9][0-9]*(?:/artifacts\?per_page=100)?|artifacts/[1-9][0-9]*/zip)", path):
+        if path != LAB_RUNS_PATH and not re.fullmatch(re.escape(PREFIX) + r"/(?:runs/[1-9][0-9]*(?:/artifacts\?per_page=100)?|artifacts/[1-9][0-9]*/zip)", path):
             raise ValueError("CI API path rejected")
         process = subprocess.Popen(["gh", "api", "--hostname", "github.com", path],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)

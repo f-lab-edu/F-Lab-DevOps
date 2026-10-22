@@ -1,0 +1,593 @@
+{
+  "schema_version": 1,
+  "phase": "B-06",
+  "task": "S10-02-live-adoption",
+  "verified_at": "2026-10-22T12:41:49.603899+09:00",
+  "status": "isolated_lab_reinstalled_and_gitops_adopted",
+  "source_revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+  "source_pr": 53,
+  "deployment": {
+    "namespace": "ai-ops-lab",
+    "resources": {
+      "Namespace": 1,
+      "ResourceQuota": 1,
+      "ServiceAccount": 2,
+      "Secret": 1,
+      "ConfigMap": 1,
+      "Role": 1,
+      "RoleBinding": 1,
+      "Deployment": 4,
+      "Service": 3,
+      "ServiceMonitor": 1,
+      "NetworkPolicy": 5
+    },
+    "requests": {
+      "cpu": "350m",
+      "memory": "576Mi"
+    },
+    "persistent_storage": false,
+    "external_model_enabled": false,
+    "database_topology": "single_primary_no_replica",
+    "status": "deployed",
+    "context": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+    "bundle_sha256": "9b136aa7d363b0400b28d67e0e03e656e845d3b1997af4a66ddca2a9e01e9773",
+    "ready_pods": 4,
+    "production_identity_unchanged": true,
+    "production_identity": {
+      "url-shortener/url-shortener-api": {
+        "uid": "625c55f9-f3a6-4a2a-902d-73aab9fb2ec7",
+        "generation": 2
+      },
+      "ai-ops/ai-ops": {
+        "uid": "35fb8dee-97f1-40b9-8134-549a4cdabaf5",
+        "generation": 2
+      },
+      "ai-ops/data-ai-ops-0": {
+        "uid": "85e8c105-e05e-4541-8ffc-0e364987602f"
+      }
+    },
+    "images": {
+      "lab-api": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:e5b0ac5d3963b63afe913584204b7d1a33f9c07a9ee8df3956a6a0af154bb142",
+      "lab-collector": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:cb8dfac5071e74e5c6a953d7cc3cbc9b7ad0b4e9f6f7e7d227a6cc8709020fd1",
+      "lab-postgres": "docker.io/library/postgres@sha256:da9ee8a31159116ea979e5018ce5e3fb19d1494f43115bfb5696ed398ed2ff5a",
+      "lab-redis": "docker.io/library/redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2"
+    },
+    "verified_at": "2026-10-22T03:31:49.555539+00:00",
+    "scenarios_executed": [],
+    "external_model_calls": 0,
+    "cluster_lock": {
+      "name": "b6-scenario-lock",
+      "uid": "e612732e-8563-4750-93f4-448c949a98cd",
+      "holder": "adoption-d81cd4bb77b84f67a05d2dc4fd301011",
+      "released": true,
+      "not_before": "2026-10-22T03:36:55.142911+00:00"
+    }
+  },
+  "adoption": {
+    "revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543",
+    "external_model_calls": 0,
+    "failure_injection_executed": false,
+    "automatic_rollback_executed": false,
+    "permissions": [
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "get",
+        "resource": "leases.coordination.k8s.io/b6-scenario-lock",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "update",
+        "resource": "leases.coordination.k8s.io/b6-scenario-lock",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "create",
+        "resource": "leases.coordination.k8s.io",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "get",
+        "resource": "leases.coordination.k8s.io/other",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "get",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "patch",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "get",
+        "resource": "secrets",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "s10-validation",
+        "groups": [
+          "b6-s10-coordinator"
+        ],
+        "verb": "get",
+        "resource": "deployments.apps/url-shortener-api",
+        "namespace": "url-shortener",
+        "allowed": false
+      },
+      {
+        "actor": "system:serviceaccount:ai-ops-lab:lab-investigator",
+        "groups": [],
+        "verb": "get",
+        "resource": "applications.argoproj.io/lab-target",
+        "namespace": "argocd",
+        "allowed": true
+      },
+      {
+        "actor": "system:serviceaccount:ai-ops-lab:lab-investigator",
+        "groups": [],
+        "verb": "get",
+        "resource": "applications.argoproj.io/url-shortener",
+        "namespace": "argocd",
+        "allowed": false
+      },
+      {
+        "actor": "system:serviceaccount:ai-ops-lab:lab-investigator",
+        "groups": [],
+        "verb": "get",
+        "resource": "secrets",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "system:serviceaccount:ai-ops-lab:lab-investigator",
+        "groups": [],
+        "verb": "patch",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "system:serviceaccount:ai-ops-lab:lab-investigator",
+        "groups": [],
+        "verb": "create",
+        "resource": "pods/exec",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "actor": "system:serviceaccount:ai-ops-lab:lab-investigator",
+        "groups": [],
+        "verb": "update",
+        "resource": "leases.coordination.k8s.io/b6-scenario-lock",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      }
+    ],
+    "policy_checks": [
+      {
+        "case": "target_update",
+        "allowed": true,
+        "server_dry_run": true
+      },
+      {
+        "case": "other_create",
+        "allowed": false,
+        "server_dry_run": true
+      },
+      {
+        "case": "target_delete",
+        "allowed": false,
+        "server_dry_run": true
+      }
+    ],
+    "before": {
+      "production": {
+        "url-shortener/url-shortener-api": {
+          "uid": "625c55f9-f3a6-4a2a-902d-73aab9fb2ec7",
+          "generation": 2
+        },
+        "ai-ops/ai-ops": {
+          "uid": "35fb8dee-97f1-40b9-8134-549a4cdabaf5",
+          "generation": 2
+        },
+        "ai-ops/data-ai-ops-0": {
+          "uid": "85e8c105-e05e-4541-8ffc-0e364987602f"
+        }
+      },
+      "lab": {
+        "lab-api": {
+          "uid": "d4e4a4ba-5848-4f83-80cd-c45520c0e601",
+          "template_sha256": "298a10991a714d018ca0f24b3d94beb4711ab3488c85a68a8177bb8acc51e076"
+        },
+        "lab-collector": {
+          "uid": "523ec0a4-c194-4f3b-98d3-8ad7ca4c9102",
+          "template_sha256": "723410bc76b7e97601177449e3c2b594dd38d188244c6c2671830fbaa1607c86"
+        },
+        "lab-postgres": {
+          "uid": "65453619-1f87-43c3-a2c5-02aa43c128bd",
+          "template_sha256": "827d2ac299170e87820cf43c9ac96db67837441484531ebab4b5cbbc5f5fca20"
+        },
+        "lab-redis": {
+          "uid": "71b9d53b-d94e-402b-9263-e9d6d3495c10",
+          "template_sha256": "a62d8990955eff01b467a75e2765fa12a35213bcd672d1499dd0cf8edb20e0cb"
+        }
+      },
+      "pod_uids": {
+        "lab-api": "6a605126-fcb8-4599-a490-3cc2cfae12e0",
+        "lab-collector": "af359feb-6a59-4855-8dff-f9b3ce9af074",
+        "lab-postgres": "de52f754-7632-46d1-8a9a-bd511ef25907",
+        "lab-redis": "61e2a8bd-10a8-488b-9c1f-8dfc38138ec8"
+      }
+    },
+    "lease": {
+      "name": "b6-scenario-lock",
+      "uid": "e612732e-8563-4750-93f4-448c949a98cd",
+      "holder": "adoption-837bde44e34246edae36bf778a0513cc",
+      "released": true,
+      "not_before": "2026-10-22T03:38:49.164603+00:00"
+    },
+    "application_created": true,
+    "argo_permissions": [
+      {
+        "action": "get",
+        "resource": "applications",
+        "target": "b6-lab/lab-target",
+        "allowed": true
+      },
+      {
+        "action": "sync",
+        "resource": "applications",
+        "target": "b6-lab/lab-target",
+        "allowed": true
+      },
+      {
+        "action": "update",
+        "resource": "applications",
+        "target": "b6-lab/lab-target",
+        "allowed": false
+      },
+      {
+        "action": "delete",
+        "resource": "applications",
+        "target": "b6-lab/lab-target",
+        "allowed": false
+      },
+      {
+        "action": "override",
+        "resource": "applications",
+        "target": "b6-lab/lab-target",
+        "allowed": false
+      },
+      {
+        "action": "sync",
+        "resource": "applications",
+        "target": "default/url-shortener",
+        "allowed": false
+      },
+      {
+        "action": "get",
+        "resource": "applications",
+        "target": "default/url-shortener",
+        "allowed": false
+      }
+    ],
+    "argo_status": {
+      "sync": "Synced",
+      "health": "Healthy",
+      "operation": "Succeeded",
+      "revision": "bf3d377cf89525643cf71da5ac711c9f24f1e543"
+    },
+    "collector_binding_applied": true,
+    "after": {
+      "production": {
+        "url-shortener/url-shortener-api": {
+          "uid": "625c55f9-f3a6-4a2a-902d-73aab9fb2ec7",
+          "generation": 2
+        },
+        "ai-ops/ai-ops": {
+          "uid": "35fb8dee-97f1-40b9-8134-549a4cdabaf5",
+          "generation": 2
+        },
+        "ai-ops/data-ai-ops-0": {
+          "uid": "85e8c105-e05e-4541-8ffc-0e364987602f"
+        }
+      },
+      "lab": {
+        "lab-api": {
+          "uid": "d4e4a4ba-5848-4f83-80cd-c45520c0e601",
+          "template_sha256": "298a10991a714d018ca0f24b3d94beb4711ab3488c85a68a8177bb8acc51e076"
+        },
+        "lab-collector": {
+          "uid": "523ec0a4-c194-4f3b-98d3-8ad7ca4c9102",
+          "template_sha256": "723410bc76b7e97601177449e3c2b594dd38d188244c6c2671830fbaa1607c86"
+        },
+        "lab-postgres": {
+          "uid": "65453619-1f87-43c3-a2c5-02aa43c128bd",
+          "template_sha256": "827d2ac299170e87820cf43c9ac96db67837441484531ebab4b5cbbc5f5fca20"
+        },
+        "lab-redis": {
+          "uid": "71b9d53b-d94e-402b-9263-e9d6d3495c10",
+          "template_sha256": "a62d8990955eff01b467a75e2765fa12a35213bcd672d1499dd0cf8edb20e0cb"
+        }
+      },
+      "pod_uids": {
+        "lab-api": "6a605126-fcb8-4599-a490-3cc2cfae12e0",
+        "lab-collector": "af359feb-6a59-4855-8dff-f9b3ce9af074",
+        "lab-postgres": "de52f754-7632-46d1-8a9a-bd511ef25907",
+        "lab-redis": "61e2a8bd-10a8-488b-9c1f-8dfc38138ec8"
+      }
+    },
+    "identities_unchanged": true,
+    "manual_owner_guard_rejected": true,
+    "status": "adopted_and_validated",
+    "temporary_role_token_revoked": true
+  },
+  "post_adoption_guards": {
+    "old_installer_rejected": true,
+    "manual_scenario_guard_rejected": true,
+    "managed_resources": [
+      {
+        "group": "apps",
+        "kind": "Deployment",
+        "name": "lab-api",
+        "namespace": "ai-ops-lab",
+        "status": "Synced",
+        "version": "v1"
+      }
+    ],
+    "role_tokens_remaining": 0,
+    "production_identity_unchanged": true
+  },
+  "readiness": {
+    "status": "passed",
+    "scope": "lab_readiness_not_fault_accuracy",
+    "namespace": "ai-ops-lab",
+    "verified_at": "2026-10-22T03:39:13.389634+00:00",
+    "permissions": [
+      {
+        "verb": "get",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "verb": "list",
+        "resource": "pods",
+        "namespace": "ai-ops-lab",
+        "allowed": true
+      },
+      {
+        "verb": "get",
+        "resource": "secrets",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "patch",
+        "resource": "deployments.apps/lab-api",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "create",
+        "resource": "pods/exec",
+        "namespace": "ai-ops-lab",
+        "allowed": false
+      },
+      {
+        "verb": "list",
+        "resource": "pods",
+        "namespace": "url-shortener",
+        "allowed": false
+      },
+      {
+        "verb": "get",
+        "resource": "applications.argoproj.io/url-shortener",
+        "namespace": "argocd",
+        "allowed": false
+      }
+    ],
+    "api": {
+      "http": {
+        "/readyz": 200,
+        "/items": 200,
+        "/items/_db": 200
+      },
+      "redis_ping": true,
+      "database_topology": "single_primary_no_replica"
+    },
+    "collection": {
+      "prometheus_up": 1,
+      "scrape_quality": {
+        "up": 1.0,
+        "scrape_samples": 10.0,
+        "scrape_health": 1.0,
+        "last_scrape_age_seconds": 10.533474683761597
+      },
+      "ready_for_metric_scenarios": true,
+      "incident_id": "inc-b95dbf0731074ce9a8ecd07a6bc9bfeb",
+      "run_id": "run-8a597ae81ea34ff7b958e82b5eff0ba5",
+      "bundle_hash": "ed22c60efe4e6a6a5b6f159f30a9acc1431fe001435cd3aa727c7df79b0628da",
+      "engine": "rules-captured-v3",
+      "analysis_status": "partial",
+      "diagnosis_status": "insufficient_evidence",
+      "current_state": "unknown",
+      "evidence_statuses": {
+        "available": 15,
+        "missing": 7
+      },
+      "collection_entries": [
+        {
+          "id": "ev-pod-0-status",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-pod-0-log",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-pod-0-previous-log",
+          "status": "missing",
+          "reason": "truncated"
+        },
+        {
+          "id": "ev-pod-0-config",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-0",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-1",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-2",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-3",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-4",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-5",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-6",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-event-7",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-object",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-argo",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-history-0",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-deployment-ci-history",
+          "status": "missing",
+          "reason": "missing_history"
+        },
+        {
+          "id": "ev-metric-cache-outcome-gaps",
+          "status": "missing",
+          "reason": "empty_response"
+        },
+        {
+          "id": "ev-metric-cache_outcomes",
+          "status": "available",
+          "reason": "collected"
+        },
+        {
+          "id": "ev-metric-cache_hit_ratio",
+          "status": "missing",
+          "reason": "empty_response"
+        },
+        {
+          "id": "ev-metric-http_error_ratio",
+          "status": "missing",
+          "reason": "no_traffic"
+        },
+        {
+          "id": "ev-metric-api_latency",
+          "status": "missing",
+          "reason": "no_traffic"
+        },
+        {
+          "id": "ev-metric-db_latency",
+          "status": "missing",
+          "reason": "no_traffic"
+        }
+      ],
+      "facts": 3,
+      "hypotheses": 0,
+      "fact_citations_available": true,
+      "external_model_blocked": true,
+      "source": "captured",
+      "store_persistence": "emptyDir"
+    },
+    "external_model_calls": 0,
+    "scenarios_executed": []
+  },
+  "scope": {
+    "live_policy_and_rbac_verified": true,
+    "ci_identity_mapping_created": false,
+    "github_credentials_created": false,
+    "ci_automatic_rollback_executed": false,
+    "failure_injection_executed": false,
+    "external_model_calls": 0,
+    "b_stage_complete": false,
+    "c_stage_ready": false
+  },
+  "limitations": [
+    "Single PostgreSQL primary for both write/read URLs; not an RDS replica test",
+    "Initial app startup restarted twice before DB readiness",
+    "Rules-only report remains partial/insufficient_evidence/unknown",
+    "CI history remains missing_history",
+    "Pod emptyDir data and reports are not persistent"
+  ]
+}

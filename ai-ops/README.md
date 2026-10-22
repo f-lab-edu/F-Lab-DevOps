@@ -134,3 +134,5 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 ## S10 배포 이력·GitOps 준비
 
 [CI 출처 사전 점검](docs/B6-ci-history-preflight.md)과 [실습 GitOps 준비](docs/B6-gitops-preparation.md)는 운영자용 준비 기능이다. 실행·artifact 출처를 검사하고 실습 앱 한 개의 수동 Argo 정의와 공유 Lease를 준비한다. worker에 GitHub 인증·쓰기 권한을 추가하지 않는다. 실제 실습 설치·Argo 인계·CI 자동 롤백·조사 입력 연결은 후속 작업이다.
+
+2026-10-22 [S10 실습 재설치·Argo 인계](docs/B6-gitops-adoption.md)를 완료했다. 현재 실습 Application은 읽기 수집과 제한된 수동 sync만 연결했으며 CI 실패·자동 롤백은 후속이다.

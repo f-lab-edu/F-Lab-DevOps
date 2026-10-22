@@ -74,3 +74,7 @@ python ai-ops/scripts/probe_b6_lab.py --output "$AI_OPS_FILES_ROOT/readiness-che
 첫 읽기 조사에서는 Prometheus up=1이었지만 표본 품질 조건 미충족으로 지표가 scrape_unavailable이었다. 기준을 낮추지 않고 충분한 표본이 쌓인 뒤 확인했다. 후속 실제 값은 최근 5분 표본 10개·up=1·scrape_health=1이며 최소 8개 조건을 충족했다. 새 captured 조사 결과는 available 13·missing 8, 규칙 v2 사실 3개·가설 0개·partial/insufficient_evidence/unknown이다. 없는 Argo Application과 CI 이력·트래픽 부족은 계속 누락으로 남겼다. 두 검사는 실습 연결 준비 확인이며 정상 진단·장애 정확도 표본으로 채점하지 않는다.
 
 새 경계 시험 7개와 전체 Python 253개가 통과했다. 추가 읽기 지표 품질 확인까지 실환경에서 실행했다. 앱의 설치 초기 재시작 2회가 관측됐으며 이를 의도적 장애 주입 성공으로 계산하지 않았다. 실제 S1~S11 장애 시나리오 실행은 0회, 외부 모델 호출도 0회다. 다음은 S2 cold miss 기준선과 S1 Redis 실패의 제한된 주입·복구 실행기 구현이며 추천 추론 깊이는 GPT-6 SOL high다.
+
+## 2026-10-22 실제 인계 완료
+
+[현재 실측](B6-gitops-adoption.md)에서 PR #53 병합 SHA 고정·독립 실습 재설치·정책/권한 실제 검사·Argo 수동 인계와 수집을 확인했다. 운영 식별자·실습 Pod는 유지했고 임시 토큰은 폐기했다. 위 10월 21일 자료와 구분하며 CI 자동 롤백·S10 전체 완료를 의미하지 않는다.

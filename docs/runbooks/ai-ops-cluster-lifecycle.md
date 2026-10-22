@@ -181,3 +181,7 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 수신기는 내부 ClusterIP TLS 9443이며 2개 컨테이너 모두 Ready여야 한다. 위 TLS Secret 사전 준비와 두 overlay가 필수다. Alertmanager의 인증 Secret 마운트·CA 호스트명·Bearer 인증과 실제 경보 접수를 확인한다. TCP Ready만으로 전달 완료라 판단하지 않는다. 새 설치에는 예전 중복/해제 장부와 보고서가 복원되지 않는다.
 
 정리 시 monitoring의 `ai-ops-alertmanager-auth`는 AI Helm 종료 직후가 아니라 기존 모니터링 종료·수동 Secret 삭제 단계에서 제거한다. AI namespace의 수신기 Secret은 전용 namespace 삭제로 제거된다. 추가 ECR·IAM·state·외부 LoadBalancer는 만들지 않는다. 외부 Slack 시험 전송이 필요하면 별도 승인한 범위에서 수행한다.
+
+## S10 실습을 Argo에 인계한 경우
+
+2026-10-22 이후 선택 실습에는 `argocd/lab-target`·Project `b6-lab`과 namespace 밖 실습 전용 읽기 Role/RoleBinding·AdmissionPolicy/Binding이 추가됐다. 실습만 정리할 때는 namespace 삭제만으로 끝내지 않는다. 전체 삭제 권한과 목적 label·실제 관리 Deployment 하나·finalizer/토큰 부재를 확인하고 Application → 실습 namespace → 실습 전용 namespace 밖 구성 순으로 정리한다. 정확한 이름·제한과 실제 연결 상태는 [S10 인계 기록](../../ai-ops/docs/B6-gitops-adoption.md)을 따른다. 기본 운영 설치는 이 선택 실습을 자동 생성하지 않으며 재설치는 검토 SHA·현재 환경·권한 검증 후 별도로 인계한다.

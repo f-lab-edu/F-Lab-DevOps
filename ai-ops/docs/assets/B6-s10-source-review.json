@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "task": "B-06-S10-source-review",
+  "checked_on_kst": "2026-10-22",
+  "base_revision": "d7a57295951aa24b5d43a976cdc0e68200798200",
+  "scope": [
+    "S10-01-ci-source-inspection",
+    "S10-02-gitops-preparation",
+    "shared-lease-and-manual-owner-guards"
+  ],
+  "tests": {
+    "ci_history": 14,
+    "gitops_and_lease": 21,
+    "full_suite": 327,
+    "full_suite_passed": true,
+    "python": "3.13",
+    "warning_filter": "ignore::ResourceWarning",
+    "initial_full_suite_failure": "existing SQLite ResourceWarning mixed into deployment_check stderr JSON capture",
+    "deployment_check_isolated": 7
+  },
+  "static_checks": [
+    "compileall",
+    "four-fixture-suites",
+    "helm-and-existing-deployment-boundaries",
+    "generated-schemas-unchanged"
+  ],
+  "deployment_sha256": "b65129371f62caf4fb878e40ad809e64cd4b425585b7ecb45b5922ef940c545c",
+  "app_image_digest": "sha256:e5b0ac5d3963b63afe913584204b7d1a33f9c07a9ee8df3956a6a0af154bb142",
+  "app_image_ecr_exists": true,
+  "current_lab_deployed": false,
+  "current_cluster_dry_run_performed": false,
+  "bootstrap_applied": false,
+  "application_synced": false,
+  "ci_credentials_created": false,
+  "live_automatic_rollback_executed": false,
+  "ready_to_adopt": false,
+  "external_model_calls": 0,
+  "next_action": "Publish reviewed source; reinstall isolated lab; revalidate current spec and scope; adopt pinned revision before S10-03."
+}

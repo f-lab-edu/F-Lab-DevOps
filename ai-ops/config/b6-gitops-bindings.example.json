@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "bindings": [
+    {
+      "alias": "url-shortener-b6-lab",
+      "target": {
+        "cluster_id": "urlshortener",
+        "namespace": "ai-ops-lab",
+        "workload": "lab-api",
+        "service": "lab-api",
+        "environment": "practice"
+      },
+      "pod_selector": {
+        "app": "lab-api"
+      },
+      "container": "api",
+      "kubernetes_connection": "lab-kubernetes",
+      "prometheus_connection": "lab-prometheus",
+      "argo": {
+        "namespace": "argocd",
+        "application": "lab-target",
+        "repo_url": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+        "path": "ai-ops/lab",
+        "destination_server": "https://kubernetes.default.svc"
+      },
+      "routes": [
+        "/items",
+        "/items/{item_id}",
+        "/items/_db"
+      ],
+      "operations": [
+        "select_one",
+        "select_all",
+        "insert",
+        "delete"
+      ]
+    }
+  ]
+}

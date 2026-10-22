@@ -63,6 +63,25 @@ class LabCIHistoryTest(unittest.TestCase):
         self.assertEqual(history.summary()["pair_status"], "failure_then_rollback_verification_success")
         self.assertFalse(history.summary()["user_path_recovery_verified"])
 
+    def test_async_failure_running_is_preserved_but_recovery_must_succeed(self):
+        reader = Reader()
+        reader.records["deployment"]["observed"]["operation_phase"] = "Running"
+        reader.records["deployment"]["observed"]["health_status"] = "Healthy"
+        history = self.verify(reader)
+        self.assertEqual(history.parsed()[0].observed.operation_phase, "Running")
+        reader.records["rollback"]["observed"]["operation_phase"] = "Running"
+        with self.assertRaises(ValueError):
+            self.verify(reader)
+
+    def test_async_failure_still_requires_failure_revision_and_pull_evidence(self):
+        for key, value in (("image_pull_reasons", []), ("operation_revision", "a" * 40),
+                           ("ready_replicas", 1), ("operation_phase", "Failed")):
+            reader = Reader()
+            reader.records["deployment"]["observed"].update(operation_phase="Running")
+            reader.records["deployment"]["observed"][key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.verify(reader)
+
     def test_run_identity_conflicts_rejected(self):
         for field, value in (("id", True), ("run_attempt", 2), ("head_sha", "a" * 40),
                              ("head_branch", "other"), ("path", ".github/workflows/ci-cd.yml"),

@@ -68,15 +68,20 @@ class LabRecord(StrictModel):
                 raise ValueError("lab CI result conflict")
             return self
         obs = self.observed
-        if obs is None or not obs.generation_observed or obs.operation_phase != "Succeeded":
+        if obs is None or not obs.generation_observed:
             raise ValueError("lab CI observation incomplete")
         if self.stage == "deployment":
-            if (self.verification_result != "failure" or obs.ready_replicas != 0
-                    or not obs.image_pull_reasons or obs.health_status == "Healthy"
+            if (obs.operation_phase not in ("Running", "Succeeded")
+                    or self.verification_result != "failure" or obs.ready_replicas != 0
+                    or not obs.image_pull_reasons
+                    # 비동기 동기화 중 Argo 집계 건강값은 이전 Healthy가 남을 수 있다.
+                    # 새 generation·Pod 취득 실패·Ready=0·실패 revision을 함께 요구한다.
+                    or obs.health_status == "Healthy" and obs.operation_phase != "Running"
                     or obs.operation_revision != self.failure_revision
                     or not re.fullmatch(re.escape(REGISTRY) + r":b6-missing-[0-9a-f]{32}", obs.image)):
                 raise ValueError("lab CI failure conflict")
-        elif (self.verification_result != "success" or obs.ready_replicas != 1
+        elif (obs.operation_phase != "Succeeded"
+                or self.verification_result != "success" or obs.ready_replicas != 1
                 or obs.image_pull_reasons or obs.sync_status != "Synced" or obs.health_status != "Healthy"
                 or obs.operation_revision != self.baseline_revision
                 or not re.fullmatch(re.escape(REGISTRY) + r"@sha256:[0-9a-f]{64}", obs.image)):

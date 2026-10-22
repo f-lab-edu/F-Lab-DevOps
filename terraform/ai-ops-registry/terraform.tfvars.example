@@ -4,3 +4,6 @@ expected_account_id    = "716174522908"
 project_name           = "urlshortener-practice"
 environment            = "practice"
 enable_ai_ops_registry = true
+
+# 실습 설치·승인 환경 준비 후 S10 연결에만 명시적으로 활성화한다.
+enable_b6_lab_ci = false

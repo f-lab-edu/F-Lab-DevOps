@@ -95,11 +95,16 @@ class B6GitOpsTest(unittest.TestCase):
         project = next(item for item in plan["bootstrap"] if item["kind"] == "AppProject")
         self.assertEqual(len(project["spec"]["roles"][0]["policies"]), 2)
         for rule in next(item for item in plan["bootstrap"] if item["kind"] == "Role" and item["metadata"]["name"] == "b6-s10-coordinator")["rules"]:
-            self.assertTrue(set(rule["verbs"]) <= {"get", "update"})
+            self.assertTrue(set(rule["verbs"]) <= {"get", "update", "list"})
             self.assertNotIn("secrets", rule["resources"])
             if rule["resources"] == ["deployments"]:
                 self.assertEqual(rule["verbs"], ["get"])
-            self.assertEqual(len(rule["resourceNames"]), 1)
+            if rule["resources"] == ["pods"]:
+                self.assertEqual(rule["verbs"], ["list"])
+            elif rule["resources"] == ["replicasets"]:
+                self.assertEqual(rule["verbs"], ["get"])
+            else:
+                self.assertEqual(len(rule["resourceNames"]), 1)
 
     def test_repository_deployment_is_exact_generated_lab_app(self):
         document = json.loads((Path(__file__).resolve().parents[1] / "lab/deployment.json").read_text())

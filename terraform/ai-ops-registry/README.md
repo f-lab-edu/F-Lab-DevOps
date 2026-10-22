@@ -45,3 +45,7 @@ terraform -chdir=terraform/ai-ops-registry plan -input=false -out=plan.out
 최초 적용 전 예상 결과는 create 4/update 0/delete 0이었으며, 현재 같은 입력의 plan은 변경 없음이어야 한다. managed resource에 OIDC·EKS·RDS·VPC가 없어야 한다. 출력 이름·권한·backend key도 확인한다. 위 절차의 원격 plan은 정상적인 state 잠금을 사용하며, 이번 점검에서 사용한 `-lock=false` 임시 local 사본 방식과 구분한다. `plan.out`과 `terraform.tfvars`는 Git에서 제외된다. 이 실행 안내와 별도로 후속 적용 기록을 보관하며, 추가 적용 전에는 최신 AWS 상태로 다시 계획해야 한다.
 
 GitHub `ai-ops-image` environment의 main 제한·검토자와 네 가지 등록 변수는 설정했다. main의 수동 workflow 반영과 실제 OIDC 인증·이미지 등록·digest 대조가 다음 작업이다. 자세한 미완료 항목과 점검 결과는 [AWS 사전 점검 기록](../../ai-ops/docs/B3-aws-preflight.md), [이미지 등록 안내](../../ai-ops/docs/B3-image-and-observations.md)를 참고한다.
+
+## S10 선택 실습 CI
+
+`enable_b6_lab_ci=true`는 기존 4개에 실습 역할·inline policy·EKS group entry 3개를 추가한다. production cluster 생성 뒤 적용하고 AI root를 먼저 정리한다. 같은 state의 후속 apply에서 활성 값을 빠뜨려 삭제 계획이 나오면 중단한다. [인증·복구·재설치 절차](../../ai-ops/docs/B6-ci-experiment.md)를 따른다.

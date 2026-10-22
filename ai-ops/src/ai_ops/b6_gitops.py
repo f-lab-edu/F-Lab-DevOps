@@ -54,7 +54,9 @@ def build_gitops(bundle: dict, revision: str) -> dict:
         roleRef={"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": "b6-lab-argo-read"})
     coordinator = _object("Role", "b6-s10-coordinator", NAMESPACE, api="rbac.authorization.k8s.io/v1", rules=[
         {"apiGroups": ["coordination.k8s.io"], "resources": ["leases"], "resourceNames": [LEASE_NAME], "verbs": ["get", "update"]},
-        {"apiGroups": ["apps"], "resources": ["deployments"], "resourceNames": ["lab-api"], "verbs": ["get"]}])
+        {"apiGroups": ["apps"], "resources": ["deployments"], "resourceNames": ["lab-api"], "verbs": ["get"]},
+        {"apiGroups": [""], "resources": ["pods"], "verbs": ["list"]},
+        {"apiGroups": ["apps"], "resources": ["replicasets"], "verbs": ["get"]}])
     coordinator_binding = _object("RoleBinding", "b6-s10-coordinator", NAMESPACE, api="rbac.authorization.k8s.io/v1",
         subjects=[{"kind": "Group", "name": "b6-s10-coordinator", "apiGroup": "rbac.authorization.k8s.io"}],
         roleRef={"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": "b6-s10-coordinator"})

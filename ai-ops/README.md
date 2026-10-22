@@ -138,3 +138,7 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 2026-10-22 [S10 실습 재설치·Argo 인계](docs/B6-gitops-adoption.md)를 완료했다. 현재 실습 Application은 읽기 수집과 제한된 수동 sync만 연결했으며 CI 실패·자동 롤백은 후속이다.
 
 [S10 전용 CI](docs/B6-ci-experiment.md)는 승인된 main 수동 실행에서 실습 배포 실패·별도 원복·최초 실패 보존을 처리한다. 실제 완료는 승인 실행과 실패/복구 artifact를 함께 확인한다. 이력의 조사 입력 연결은 후속이다.
+
+## 2026-10-22 S10-03 실제 CI 실패·자동 복구 확인
+
+[실측](docs/B6-ci-experiment.md)에서 승인 실행 39719907612의 실제 ErrImagePull·Ready 0과 CI 자동 원복·Ready 1·Synced/Healthy를 확인했다. 원본 artifact 출처/ZIP 해시·운영 불변·HTTP/Redis/DB·잠금 해제도 대조했다. 최종 CI failure는 최초 실패를 보존한 의도된 결과다. 실습 1회·외부 모델 0회이며 S10-04 신뢰 이력 가져오기·S10-05 보고서는 남아 있다.

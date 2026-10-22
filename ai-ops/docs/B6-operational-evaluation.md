@@ -76,3 +76,7 @@ captured 자료 30개 중 available 7·invalid 2·stale 15·missing 6이다. Pod
 ## 2026-10-22 실제 인계 완료
 
 [현재 실측](B6-gitops-adoption.md)에서 PR #53 병합 SHA 고정·독립 실습 재설치·정책/권한 실제 검사·Argo 수동 인계와 수집을 확인했다. 운영 식별자·실습 Pod는 유지했고 임시 토큰은 폐기했다. 위 10월 21일 자료와 구분하며 CI 자동 롤백·S10 전체 완료를 의미하지 않는다.
+
+## 2026-10-22 S10-03 실제 CI 실패·자동 복구 확인
+
+[실측](B6-ci-experiment.md)에서 승인 실행 39719907612의 실제 ErrImagePull·Ready 0과 CI 자동 원복·Ready 1·Synced/Healthy를 확인했다. 원본 artifact 출처/ZIP 해시·운영 불변·HTTP/Redis/DB·잠금 해제도 대조했다. 최종 CI failure는 최초 실패를 보존한 의도된 결과다. 실습 1회·외부 모델 0회이며 S10-04 신뢰 이력 가져오기·S10-05 보고서는 남아 있다.

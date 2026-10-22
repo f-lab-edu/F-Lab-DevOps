@@ -1,0 +1,144 @@
+{
+  "checked_at": "2026-10-22T20:40:04.685792+00:00",
+  "image": {
+    "schema_version": 1,
+    "record_type": "ai_ops_image_registration",
+    "source_revision": "37a3484a52134dccae32787098d7e93caf4165f6",
+    "image_id": "sha256:bfe2444de73a6e6fb76546861d9558efa45b27ca4056a37d80a09394f4a24739",
+    "tag": "sha-37a3484a52134dccae32787098d7e93caf4165f6-r39850059064-a1",
+    "published": true,
+    "repository": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
+    "registry_digest": "sha256:bd17687e9bfbaadd4756615bebb5e8242a0f8d95075b3229ba7b97d45e91afe6",
+    "source_hashes": {
+      "ai-ops/Dockerfile": "a0cf9187337e1c7eb51a2328cd6cf308b6af9ac5521af58b30432c32034f2c96",
+      "ai-ops/requirements.lock": "628955a48213d5adfc435c5676f05fb4459c0b27ed2d6586441aa6b88002ea7a",
+      "ai-ops/runbooks/index.yaml": "c794f91bd51e15c8c28e0177bf2e9e5a798b74db9a401274205af68a8ba9968c"
+    },
+    "recorded_at": "2026-10-22T20:36:00.083647Z"
+  },
+  "pods": [
+    {
+      "role": "ci-worker",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "role": "ci-relay",
+      "ready": true,
+      "restarts": 0
+    }
+  ],
+  "ebs": {
+    "volume_id": "vol-06cbaa8ba704e2d5b",
+    "encrypted": true,
+    "size_gib": 1
+  },
+  "token_value_recorded": false,
+  "credential_mount_isolation_verified": true,
+  "worker_probe_verified": true,
+  "relay_listing_verified": true,
+  "latest_ci_auto_submission_verified": true,
+  "ci_run_id": 39848636802,
+  "ci_state": "completed_expected_failure_and_recovered",
+  "startup_fixes": [
+    "explicit config/store relay arguments",
+    "OnRootMismatch shared PVC permissions"
+  ],
+  "operating_namespace": "ai-ci",
+  "operational_worker_modified": false,
+  "report_created": true,
+  "automatic_report": {
+    "queue": {
+      "job_id": "job-07c0445cd060434cb1f290f999f269df",
+      "state": "partial",
+      "attempts": 1,
+      "generation": 1,
+      "reason": null,
+      "incident_id": "inc-9c7cee70debd4590bdff1567a4ba57e6",
+      "run_id": "run-0809ad1c12e5485eb4b7befd906bceba",
+      "bundle_hash": "0576d6150a7bf8eaf754a3db78ee9d8ca0d5a234e6255aa4b4acdd7b6ba472e0",
+      "created_at": "2026-10-22T20:37:29.772877Z",
+      "updated_at": "2026-10-22T20:37:30.780757Z",
+      "lease_until": null,
+      "retention_deadline": "2026-10-29T20:37:29.772877Z",
+      "attempt_history": [
+        {
+          "generation": 1,
+          "parent_generation": null,
+          "state": "partial",
+          "reason": null
+        }
+      ]
+    },
+    "ci_run_id": "39848636802",
+    "artifact_id": "12456328649",
+    "archive_digest": "sha256:578fdfe5cd1dd9d44a12bd45e7136c2fc5c1cbc03aa2fe287afe339124a2c025",
+    "source_revision": "ccbb475a02a2ced15adbabbaa23136d0d4fd833f",
+    "report_contract_verified": true,
+    "snapshot_ci_binding_verified": true,
+    "engine": "rules-captured-ci-v1",
+    "mode": "rules",
+    "model": null,
+    "analysis_status": "partial",
+    "diagnosis_status": "suspected_cause",
+    "current_state": "unknown",
+    "fact_count": 4,
+    "hypothesis_count": 1,
+    "missing_evidence_count": 10,
+    "evidence_states": {
+      "available": 18,
+      "missing": 7,
+      "invalid": 2,
+      "stale": 1
+    },
+    "ci_entries": [
+      {
+        "stage": "deployment",
+        "status": "available",
+        "observed_raw": "2026-10-22T20:29:23.944294Z",
+        "reason": "collected"
+      },
+      {
+        "stage": "rollback",
+        "status": "available",
+        "observed_raw": "2026-10-22T20:29:37.278659Z",
+        "reason": "collected"
+      }
+    ],
+    "report_json_exists": true
+  },
+  "ci_recovery": {
+    "run_id": "39848636802",
+    "baseline_revision": "ccbb475a02a2ced15adbabbaa23136d0d4fd833f",
+    "failure_revision": "09c874c56bc429db58ccf6f755f4710ff5cdf694",
+    "stages": [
+      {
+        "stage": "result",
+        "verification_result": "recovered_after_failure",
+        "observed_at": "2026-10-22T20:29:40.844242Z"
+      },
+      {
+        "stage": "deployment",
+        "verification_result": "failure",
+        "observed_at": "2026-10-22T20:29:23.944294Z"
+      },
+      {
+        "stage": "rollback",
+        "verification_result": "success",
+        "observed_at": "2026-10-22T20:29:37.278659Z"
+      }
+    ]
+  },
+  "duplicate_listing_verified": true,
+  "validation_tests": 374,
+  "startup_fix_pr": 62,
+  "observation_fix_pr": 63,
+  "observation_fix_main": "37a3484a52134dccae32787098d7e93caf4165f6",
+  "limitations": [
+    "규칙 기반 보고서이며 외부 모델 호출 없음",
+    "최근 20개·15분 이내 실패 완료만 자동 조회",
+    "집계 오류/누락 자료는 성공으로 간주하지 않음",
+    "relay는 외부 TCP443을 허용하며 FQDN 전용 네트워크 필터 아님",
+    "RWO PVC 공유로 노드 이동·worker 교체 전 relay 중지 필요"
+  ]
+}

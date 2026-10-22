@@ -45,7 +45,7 @@ def build_service(image, config, api_cidrs):
         mounts = [{'name': 'config', 'mountPath': '/etc/ai-ops', 'readOnly': True}, {'name': 'data', 'mountPath': '/data'}, {'name': 'tmp', 'mountPath': '/tmp'}]
         volumes = [{'name': 'config', 'configMap': {'name': 'ci-config'}}, {'name': 'data', 'persistentVolumeClaim': {'claimName': 'ci-queue'}}, {'name': 'tmp', 'emptyDir': {'sizeLimit': '32Mi'}}]
         container = {'name': name, 'image': image, 'command': ['python', '-m', 'ai_ops.' + module],
-                     'args': ['--retention', '--metrics'] if worker else ['--watch'],
+                     'args': ['--retention', '--metrics'] if worker else ['--config', '/etc/ai-ops', '--store', '/data/incidents', '--watch'],
                      'securityContext': security, 'resources': {'requests': {'cpu': '50m', 'memory': '96Mi'}, 'limits': {'cpu': '500m', 'memory': '256Mi'}},
                      'env': [{'name': 'HOME', 'value': '/tmp'}], 'volumeMounts': mounts}
         if worker:
@@ -59,7 +59,7 @@ def build_service(image, config, api_cidrs):
             volumes.append({'name': 'github', 'secret': {'secretName': 'ci-relay-github', 'defaultMode': 288}})
             container['env'].append({'name': 'AI_CI_GITHUB_TOKEN_FILE', 'value': '/etc/ai-ci-github/token'})
         pod = {'serviceAccountName': name, 'automountServiceAccountToken': False, 'enableServiceLinks': False,
-               'terminationGracePeriodSeconds': 90, 'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001, 'fsGroup': 10001, 'seccompProfile': {'type': 'RuntimeDefault'}},
+               'terminationGracePeriodSeconds': 90, 'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001, 'fsGroup': 10001, 'fsGroupChangePolicy': 'OnRootMismatch', 'seccompProfile': {'type': 'RuntimeDefault'}},
                'containers': [container], 'volumes': volumes}
         if not worker:
             pod['affinity'] = {'podAffinity': {'requiredDuringSchedulingIgnoredDuringExecution': [{'labelSelector': {'matchLabels': {'app': 'ci-worker'}}, 'topologyKey': 'kubernetes.io/hostname'}]}}

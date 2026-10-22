@@ -21,11 +21,13 @@ class CIServiceTests(unittest.TestCase):
         for x in pods.values():
             self.assertEqual(x['spec']['replicas'], 0)
             self.assertFalse(x['spec']['template']['spec']['automountServiceAccountToken'])
+            self.assertEqual(x['spec']['template']['spec']['securityContext']['fsGroupChangePolicy'], 'OnRootMismatch')
         worker = pods['ci-worker']['spec']['template']['spec']
         relay = pods['ci-relay']['spec']['template']['spec']
         self.assertFalse(any('secret' in v for v in worker['volumes']))
         self.assertFalse(any('projected' in v for v in relay['volumes']))
         self.assertTrue(any('secret' in v for v in relay['volumes']))
+        self.assertEqual(relay['containers'][0]['args'], ['--config', '/etc/ai-ops', '--store', '/data/incidents', '--watch'])
         self.assertEqual([x['metadata']['namespace'] for x in docs if x['kind']=='RoleBinding'], ['ai-ops-lab','argocd'])
         self.assertFalse(any(x['kind'] in ['ClusterRole','ClusterRoleBinding'] for x in docs))
 

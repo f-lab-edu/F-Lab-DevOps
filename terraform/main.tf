@@ -253,7 +253,7 @@
 # VPC — terraform-aws-modules/vpc/aws
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "6.6.1"
+  version = "6.7.3"
 
   name = "${var.project_name}-vpc"
   cidr = var.vpc_cidr

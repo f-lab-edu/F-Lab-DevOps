@@ -250,7 +250,7 @@ def analyze_snapshot_rules_v2(request: IncidentRequest, bundle: EvidenceBundle, 
     return report
 
 
-def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+def analyze_snapshot_rules_v3(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
     """Pod 소유·동일 이미지·근접 시각이 맞는 native 이미지 실패만 후보로 설명한다."""
     report = analyze_snapshot_rules_v2(request, bundle, run_id, audit)
     report.execution.engine = "rules-captured-v3"
@@ -305,3 +305,12 @@ def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run
             report.limitations.append("이미지 오류 표식은 태그 부재·인증·네트워크 원인을 구분하지 못하며, 현재 전체 서비스 장애나 복구 완료를 확정하지 않는다.")
             return report
     return report
+
+
+def analyze_snapshot_rules(request: IncidentRequest, bundle: EvidenceBundle, run_id: str, audit=None) -> AnalysisReport:
+    """CI 출처의 배포 이력은 전용 규칙으로 분리하고 기존 v3 보고서는 보존한다."""
+    from ai_ops.ci_rules import analyze_ci_snapshot, has_ci_history
+
+    if has_ci_history(bundle, audit):
+        return analyze_ci_snapshot(request, bundle, run_id, audit)
+    return analyze_snapshot_rules_v3(request, bundle, run_id, audit)

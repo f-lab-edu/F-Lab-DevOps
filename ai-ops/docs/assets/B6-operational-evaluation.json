@@ -64,8 +64,8 @@
     {
       "id": "S10",
       "name": "자동 복구 이후 배포 사건",
-      "status": "not_run",
-      "finding": "독립 실습 CI의 실패·자동 롤백과 전후 증거 보존 미검증. 현재 CI 이력이 없는 것을 사건 부재로 단정하지 않는다."
+      "status": "partial",
+      "finding": "실습 CI 최초 실패·자동 원복·artifact 검증 및 운영자 가져오기 확인. CI 전용 규칙 저장/재조회는 모의 유효 구간과 실제 stale snapshot으로 검증했다. 최신 실시간 CI 보고서·worker 자동 입력·라이브 모델은 미검증이다."
     },
     {
       "id": "S11",
@@ -86,7 +86,10 @@
     "cache_scenarios": "B6-cache-scenarios-validation.json",
     "db_delay_scenario": "B6-db-delay-validation.json",
     "image_failure_scenario": "B6-image-failure-validation.json",
-    "image_rules_v3_saved_comparison": "B6-image-rules-v3-comparison.json"
+    "image_rules_v3_saved_comparison": "B6-image-rules-v3-comparison.json",
+    "s10_live_ci": "B6-s10-ci-validation.json",
+    "s10_history_import": "B6-s10-history-import-validation.json",
+    "s10_report": "B6-s10-report-validation.json"
   },
   "quality": {
     "captured_items": 30,
@@ -145,5 +148,6 @@
   "completed_quality_actions": [
     "진단 표식 없는 유효 로그를 no_diagnostic_fields로 구분해 실제 수집에서 확인했다.",
     "v2 관측 사실 3개·available 근거 인용·partial/unknown 유지와 기존 v1 3건 보존을 실제 배포에서 확인했다."
-  ]
+  ],
+  "s10_updated_at": "2026-10-22T13:33:28.764899+09:00"
 }

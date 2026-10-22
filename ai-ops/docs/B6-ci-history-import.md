@@ -62,4 +62,8 @@ PYTHONPATH=ai-ops/src python ai-ops/scripts/import_lab_ci_history.py \
 
 [검증 요약](assets/B6-s10-history-import-validation.json)에 run `39719907612`·attempt 1·artifact `12401091372`의 원본 해시 및 현재 대상과의 연결 결과를 기록했다. 실제 두 CI 관측은 원래 13:02:13/13:02:33 KST를 보존한 `stale/outside_window`였다. 현재 AWS endpoint/CA와 Application/Deployment UID가 일치했고, 수집 권한 확대·추가 장애 실험·외부 모델 호출은 0회다. 사용한 임시 토큰 파일과 port-forward는 종료했다.
 
-S10-04의 명시적 운영자 검증·가져오기는 완료했다. worker의 자동 GitHub 조회나 이력 큐 입력은 이번 범위에 포함하지 않는다. **다음은 S10-05: 보고서가 최초 CI 실패, 자동 원복, 사용자 경로 복구 여부와 시각 누락을 구분해 설명하는지 확인**하는 작업이다. 과거 자료가 제외된 현재 snapshot을 최신 성공 증거로 사용해서는 안 된다. 우선 합성의 유효 시간 창에서 보고서 해석을 검증하고 실제 과거 자료는 stale/한계 설명을 확인한다. S10 전체·B-06 전체 완료와 C 진입은 계속 보류한다.
+S10-04의 명시적 운영자 검증·가져오기는 완료했다. worker의 자동 GitHub 조회나 이력 큐 입력은 이번 범위에 포함하지 않는다. 후속 [S10-05 보고서 검증](B6-ci-report.md)에서 전용 규칙·저장/재조회와 모의 유효 구간/실제 stale 자료의 해석을 확인했다. 과거 자료가 제외된 현재 snapshot을 최신 성공 증거로 사용해서는 안 된다. 우선 합성의 유효 시간 창에서 보고서 해석을 검증하고 실제 과거 자료는 stale/한계 설명을 확인한다. S10 전체·B-06 전체 완료와 C 진입은 계속 보류한다.
+
+## S10-05 보고서 저장 옵션
+
+운영자 명령의 `--store <개인 저장소>`로 같은 검증 snapshot의 CI 전용 규칙 보고서를 함께 저장할 수 있다. 생략하면 snapshot만 저장한다. 최신 실시간 보고서·자동 worker 입력과의 차이는 [보고서 검증](B6-ci-report.md)을 확인한다.

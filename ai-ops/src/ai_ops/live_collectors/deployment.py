@@ -114,6 +114,9 @@ def _import_ci_history(builder, workload, application, history):
                 payload["rollback_revision"] = record.baseline_revision
             add(builder, "deployment-ci-" + record.stage, "deployment",
                 at=record.observed_at.isoformat().replace("+00:00", "Z"),
-                time_field="artifact_observed_at", payload=payload, context=context)
+                time_field="artifact_observed_at", payload=payload,
+                context={**context, "ci_workflow": record.workflow, "ci_run_conclusion": "failure",
+                         "ci_stage": record.stage, "ci_verification_result": record.verification_result,
+                         "ci_user_path_recovery_verified": record.user_path_recovery_verified})
     except (ValueError, KeyError, TypeError, AttributeError):
         add(builder, "deployment-ci-history", "deployment", failure=ReadFailure("invalid", "scope_mismatch"))

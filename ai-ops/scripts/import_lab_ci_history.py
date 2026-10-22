@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ai_ops.b_contracts import load_b_settings
 from ai_ops.evidence import _json_object
+from ai_ops.incidents import IncidentStore
 from ai_ops.lab_ci_history import CLUSTER, verify_lab_ci_history
 from ai_ops.live_collectors import collect_snapshot
 from ai_ops.path_policy import cli_paths, write_private_json
@@ -39,8 +40,9 @@ def main():
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--metrics", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--store", type=Path, help="검증 snapshot의 규칙 보고서를 함께 저장할 개인 저장소")
     args = cli_paths(parser, parser.parse_args(), {"bindings": "input", "runtime": "input",
-                                                "metrics": "input", "output": "output"})
+                                                "metrics": "input", "output": "output", "store": "store"})
     try:
         settings = load_b_settings(args.bindings, args.runtime, args.metrics)
         bindings = [item for item in settings.bindings.bindings if item.alias == "url-shortener-b6-lab"]
@@ -53,9 +55,17 @@ def main():
         entries = [entry for entry in snapshot.audit.entries if entry.time_field == "artifact_observed_at"]
         if len(entries) != 2 or any(entry.status not in {"available", "stale"} for entry in entries):
             raise ValueError("lab CI evidence binding rejected")
+        investigation = None
+        if args.store is not None:
+            record = IncidentStore(args.store).investigate_snapshot(snapshot=snapshot, settings=settings,
+                question="CI 최초 실패와 자동 원복 기록, 사용자 경로 복구 여부와 자료 시각의 한계를 설명해 주세요.",
+                request_id=f"s10-{history.run_id}-{history.run_attempt}-{snapshot.bundle.bundle_hash[:16]}")
+            investigation = {"incident_id": record.incident_id, "run_id": record.run_id,
+                             "status": record.metadata["status"], "engine": record.report.execution.engine}
         write_private_json(args.output, {"schema_version": 1, "history": history.summary(),
             "cluster_identity_verified": True, "snapshot": snapshot.bundle.model_dump(mode="json"),
-            "audit": snapshot.audit.model_dump(mode="json"), "external_model_calls": 0})
+            "audit": snapshot.audit.model_dump(mode="json"), "external_model_calls": 0,
+            "investigation": investigation})
     except Exception:
         # 예외·응답 원문과 인증값을 출력하지 않는다.
         parser.exit(1, "S10 이력 가져오기 실패: 출처·대상·시각·연결 권한을 확인하세요.\n")

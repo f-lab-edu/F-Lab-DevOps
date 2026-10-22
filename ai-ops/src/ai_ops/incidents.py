@@ -31,7 +31,8 @@ from ai_ops.data_policy import POLICY_VERSION, ensure_external_model_allowed, va
 from ai_ops.openai_engine import AIAnalysisError, AIConfig, AIOutcome
 from ai_ops.reports import render_markdown, validate_report
 from ai_ops.replay_runner import ReplayLimits, ReplayResult, SelectionModel, run_replay
-from ai_ops.rules import analyze_rules, analyze_snapshot_rules, analyze_snapshot_rules_v1, analyze_snapshot_rules_v2
+from ai_ops.rules import analyze_rules, analyze_snapshot_rules, analyze_snapshot_rules_v1, analyze_snapshot_rules_v2, analyze_snapshot_rules_v3
+from ai_ops.ci_rules import ENGINE as CI_RULES_ENGINE, analyze_ci_snapshot
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -286,7 +287,7 @@ class IncidentStore:
             snapshot = validate_snapshot(CapturedSnapshot(bundle, CollectionAudit.model_validate(envelope["audit"])))
             collection_audit = snapshot.audit
             versions = {"rules-captured-v1": analyze_snapshot_rules_v1, "rules-captured-v2": analyze_snapshot_rules_v2,
-                        "rules-captured-v3": analyze_snapshot_rules}
+                        "rules-captured-v3": analyze_snapshot_rules_v3, CI_RULES_ENGINE: analyze_ci_snapshot}
             if report.execution.engine not in versions:
                 raise ValueError("unsupported captured rules version")
             expected = versions[report.execution.engine](request, bundle, run_id, collection_audit)
@@ -298,9 +299,12 @@ class IncidentStore:
                 raise ValueError("stored snapshot report contradicts verified collection state")
             if report.execution.engine == "rules-captured-v2" and report.facts != expected.facts:
                 raise ValueError("stored snapshot facts contradict verified evidence")
-            if report.execution.engine == "rules-captured-v3" and any(
+            interpretation_fields = ("facts", "hypotheses", "recommended_checks", "suggested_actions", "limitations")
+            if report.execution.engine == CI_RULES_ENGINE:
+                interpretation_fields += ("missing_evidence",)
+            if report.execution.engine in {"rules-captured-v3", CI_RULES_ENGINE} and any(
                     getattr(report, field) != getattr(expected, field)
-                    for field in ("facts", "hypotheses", "recommended_checks", "suggested_actions", "limitations")):
+                    for field in interpretation_fields):
                 raise ValueError("stored snapshot interpretation contradicts verified evidence")
         elif metadata.get("collection_audit_hash") is not None:
             raise ValueError("stored replay cannot contain a snapshot audit")
@@ -311,7 +315,7 @@ class IncidentStore:
             raise ValueError("stored report mode does not match run")
         collection_partial = (
             collection_audit is not None and collection_audit.collection_status != "complete"
-            and report.execution.mode == "rules" and report.execution.engine in {"rules-captured-v1", "rules-captured-v2", "rules-captured-v3"}
+            and report.execution.mode == "rules" and report.execution.engine in {"rules-captured-v1", "rules-captured-v2", "rules-captured-v3", CI_RULES_ENGINE}
             and report.analysis_status == "partial" and metadata.get("failure_reason") == "collection_incomplete"
         )
         if metadata["status"] == "partial" and not (fallback or collection_partial):

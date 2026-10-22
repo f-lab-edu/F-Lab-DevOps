@@ -30,3 +30,7 @@ worker는 내부 API /32·Prometheus·DNS만 접근한다. relay는 DNS와 사�
 전체 정리에서는 **실습 namespace와 EBS CSI 삭제 전에** relay를 0개로 중지하고 worker도 중지한다. `ai-ci/ci-queue`의 PV·실제 Volume ID를 기록한 뒤 PVC를 삭제하고 EBS 부재를 확인한다. `ai-ci` namespace와 두 `ci-worker-read` RoleBinding(ai-ops-lab/argocd)을 제거한다. GitHub 자격은 로컬 원본을 보존하되 클러스터 Secret은 namespace 삭제로 제거된다. 운영 PVC나 다른 프로젝트 볼륨을 삭제하지 않는다. 노드·클러스터가 먼저 삭제된 재개에서는 기록한 available/unattached 볼륨의 소유권을 확인한 뒤 별도로 정리한다.
 
 재설치는 새 API 주소·이미지 digest·실습 UID·새 Argo 자격을 검증하고 위 절차를 다시 수행한다. 전달기만 먼저 실행하지 않는다. 현재 15분 이내 실패 완료 목록 20개 조회 제한이 있으며 전달기 중단 기간의 전체 이력 처리를 보장하지 않는다.
+
+### 최초 배포에서 발견한 시작 조건
+
+전달기에는 `--config /etc/ai-ops --store /data/incidents --watch`를 모두 전달해야 한다. 공유 PVC를 사용하는 두 Pod에는 `fsGroupChangePolicy: OnRootMismatch`를 지정해 후발 Pod가 0700/0600 큐 권한을 재귀 변경하지 않도록 한다. 기존 잘못된 정책으로 이미 권한이 바뀌었다면 두 프로세스를 먼저 중지하고 전용 PVC의 소유권·접수 상태를 확인한 뒤 같은 UID로 비공개 권한을 복구한다. 강제 볼륨 분리나 운영 PVC 수정으로 우회하지 않는다. worker 교체·노드 이동 시에는 relay를 먼저 0개로 중지하고 worker가 새 노드에서 Ready가 된 뒤 relay를 활성화해 RWO 연결 충돌을 피한다.

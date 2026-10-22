@@ -78,7 +78,12 @@ def main(argv=None) -> int:
         signal.signal(signal.SIGINT, lambda *_: stopped.set())
     try:
         settings = load_b_settings(args.config / "bindings.json", args.config / "runtime.json", args.config / "metric-queries.json")
-        relay = CIRelay(JobQueue(args.store), settings)
+        token_file = os.environ.get("AI_CI_GITHUB_TOKEN_FILE")
+        reader = None
+        if token_file:
+            from ai_ops.ci_token_reader import TokenGitHubReader
+            reader = TokenGitHubReader(token_file)
+        relay = CIRelay(JobQueue(args.store), settings, reader=reader)
         if args.run_id is not None:
             print(json.dumps(relay.submit_run(args.run_id, args.expected_head)), flush=True)
             return 0

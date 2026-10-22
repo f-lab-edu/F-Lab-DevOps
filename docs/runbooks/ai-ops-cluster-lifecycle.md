@@ -185,3 +185,9 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 ## S10 실습을 Argo에 인계한 경우
 
 2026-10-22 이후 선택 실습에는 `argocd/lab-target`·Project `b6-lab`과 namespace 밖 실습 전용 읽기 Role/RoleBinding·AdmissionPolicy/Binding이 추가됐다. 실습만 정리할 때는 namespace 삭제만으로 끝내지 않는다. 전체 삭제 권한과 목적 label·실제 관리 Deployment 하나·finalizer/토큰 부재를 확인하고 Application → 실습 namespace → 실습 전용 namespace 밖 구성 순으로 정리한다. 정확한 이름·제한과 실제 연결 상태는 [S10 인계 기록](../../ai-ops/docs/B6-gitops-adoption.md)을 따른다. 기본 운영 설치는 이 선택 실습을 자동 생성하지 않으며 재설치는 검토 SHA·현재 환경·권한 검증 후 별도로 인계한다.
+
+## S10 상시 전달기·실습 worker 추가 구성
+
+`ai-ci` 별도 namespace·전용 1Gi 암호화 PVC·GitHub Secret·두 Deployment를 추가하는 경우 [상시 CI 서비스 절차](../../ai-ops/docs/B6-ci-service.md)를 따른다. 기본 replicas=0 정의 생성은 상시 설치 완료가 아니다. 현재 main 이미지에 기능이 포함되고 승인 이미지 검사·worker probe·relay 조회·실제 CI 자동 접수까지 검증한 범위만 완료로 기록한다.
+
+전체 삭제에서 `ai-ops-lab` 및 EBS CSI보다 **먼저** `ai-ci`의 relay/worker를 0개로 중지하고 실제 PV/Volume ID를 기록한다. `ci-queue` PVC를 삭제하고 EBS 실물 부재를 확인한 뒤 namespace를 제거한다. `ai-ops-lab`·`argocd`의 `ci-worker-read` RoleBinding도 제거한다. 새 namespace가 없더라도 기록한 PVC/EBS와 태그 소유권을 대조하며 이전 볼륨 ID를 재사용하지 않는다. 로컬 전용 토큰 파일·소스·GitHub 설정은 AWS 전체 삭제와 별도로 보존한다. 재설치에서는 운영 설치·실습 복원·GitOps 인계와 새 자격 검증 후 worker→relay 순으로 활성화한다.

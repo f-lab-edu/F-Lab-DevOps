@@ -1,0 +1,83 @@
+name: S10 격리 실습 배포 실패·자동 복구
+on:
+  workflow_dispatch:
+    inputs:
+      failure_revision:
+        description: 검토한 실습 이미지 실패 커밋의 전체 SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ai-ops-b6-lab
+  cancel-in-progress: false
+jobs:
+  experiment:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: ai-ops-lab-ci
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      PYTHONPATH: ai-ops/src
+      S10_BASELINE_REVISION: ${{ vars.S10_BASELINE_REVISION }}
+      S10_FAILURE_REVISION: ${{ inputs.failure_revision }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+        with:
+          fetch-depth: 0
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
+        with:
+          role-to-assume: ${{ vars.S10_CI_ROLE_ARN }}
+          aws-region: ap-northeast-2
+          role-duration-seconds: 900
+      - name: 고정 실행 도구 준비
+        run: |
+          set -euo pipefail
+          umask 077
+          export AI_OPS_FILES_ROOT="$RUNNER_TEMP/s10"
+          echo "AI_OPS_FILES_ROOT=$AI_OPS_FILES_ROOT" >> "$GITHUB_ENV"
+          mkdir -p "$AI_OPS_FILES_ROOT"
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
+          curl -fsSL -o "$RUNNER_TEMP/argocd" https://github.com/argoproj/argo-cd/releases/download/v3.5.3/argocd-linux-amd64
+          echo "b860f73f57cbddd993cd446f5236d797c1b1ac8554857b2683d2669f17e765b4  $RUNNER_TEMP/argocd" | sha256sum --check --status
+          curl -fsSL -o "$RUNNER_TEMP/kubectl" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl
+          curl -fsSL -o "$RUNNER_TEMP/kubectl.sha256" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl.sha256
+          echo "$(cat "$RUNNER_TEMP/kubectl.sha256")  $RUNNER_TEMP/kubectl" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/argocd" "$RUNNER_TEMP/kubectl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          aws eks update-kubeconfig --region ap-northeast-2 --name urlshortener
+      - name: 정상 기준선·실패 소스·공유 잠금 확인
+        id: prepare
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+        run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci prepare'
+      - name: 실패 배포와 최초 실패 기록
+        id: deploy
+        continue-on-error: true
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+        run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci deploy'
+      - name: 실패해도 원래 고정 revision으로 복구
+        if: always() && steps.prepare.outcome == 'success'
+        continue-on-error: true
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+        run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci rollback'
+      - name: 복구 검증 후 잠금 해제·최초 CI 실패 유지
+        if: always() && steps.prepare.outcome == 'success'
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+        run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci finish'
+      - name: 본문 없는 실패·복구 관측만 보관
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        with:
+          name: b6-lab-observation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/s10/records/*.json
+          if-no-files-found: warn
+          retention-days: 7

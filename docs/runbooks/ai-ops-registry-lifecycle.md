@@ -138,3 +138,7 @@ test "$(printf '%s' "$S3_DELETE_RESULT" | jq '(.Errors // []) | length')" -eq 0
 ```
 
 마지막에 `list-object-versions`에서 `Versions`와 `DeleteMarkers`가 모두 빈 배열인지, `list-objects-v2`도 비었는지 확인한다. 그때만 전용 bucket에 대해 `aws s3api delete-bucket --bucket "$STATE_BUCKET" --region ap-northeast-2`를 실행한다. 이 명령은 **모든 root 종료 이후 별도의 파괴적 단계**이며 자동으로 이어붙이지 않는다. 실패하면 bucket 상태를 재조회하고 임의로 `--force` 옵션을 사용하지 않는다. GitHub `ai-ops-image` environment 설정은 AWS 삭제와 별개로 남으므로, 재설치 시 output과 다시 대조한다.
+
+## S10 선택 CI 연결 추가
+
+S10 활성 시 같은 AI state에서 `enable_b6_lab_ci=true`로 전용 OIDC 역할·inline policy·EKS access entry 3개도 관리한다. 관리자 정책은 연결하지 않는다. 현재 계정/클러스터·main 제한/필수 승인의 `ai-ops-lab-ci` 환경과 실습 RBAC가 필요하다. 기존 이미지 등록 역할은 확장하지 않는다. 전체 정리는 여전히 AI root → production root 순서이며 같은 state의 후속 apply는 활성 플래그 누락으로 3개 삭제 계획이 생기지 않게 확인한다. 기본 새 AI 설치는 실습 미활성이고 선택 연결 시 값을 명시한다. GitHub 환경은 AWS 정리와 별개다. [상세](../../ai-ops/docs/B6-ci-experiment.md).

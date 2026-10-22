@@ -130,3 +130,7 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 [S3 이미지 취득 실패·복구](docs/B6-image-failure-scenario.md)는 실제 ErrImagePull·Ready 0·실패 이벤트 수집과 원래 digest 복구를 확인했다. 규칙 v2가 native Failed 이벤트의 이미지 오류 표식을 원인 후보로 설명하지 못해 needs_review로 남겼다. 다음은 저장 증거를 이용한 규칙 보완과 기존 보고서 호환성 검증이며 B-06 완료로 표시하지 않는다.
 
 [규칙 v3의 동일 저장 증거 비교](docs/B6-image-rules-v3.md)는 Pod 소유·같은 이미지·근접 이벤트를 대조해 후보 0→1과 partial/unknown 유지, 기존 보고서 보존을 확인했다. 로컬 289개 시험을 통과했으며 수정 이미지의 실제 배포·새 보고서 검증은 후속이다.
+
+## S10 배포 이력·GitOps 준비
+
+[CI 출처 사전 점검](docs/B6-ci-history-preflight.md)과 [실습 GitOps 준비](docs/B6-gitops-preparation.md)는 운영자용 준비 기능이다. 실행·artifact 출처를 검사하고 실습 앱 한 개의 수동 Argo 정의와 공유 Lease를 준비한다. worker에 GitHub 인증·쓰기 권한을 추가하지 않는다. 실제 실습 설치·Argo 인계·CI 자동 롤백·조사 입력 연결은 후속 작업이다.

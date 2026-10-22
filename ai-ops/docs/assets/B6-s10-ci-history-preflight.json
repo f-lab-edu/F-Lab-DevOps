@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "phase": "B-06",
+  "scenario": "S10",
+  "scope": "github_source_preflight_only",
+  "new_local_tests_passed": 13,
+  "full_suite_rerun": false,
+  "live_valid_zip_verified": false,
+  "live_automatic_rollback_executed": false,
+  "investigation_input_connected": false,
+  "cluster_resources_modified": false,
+  "external_model_calls": 0,
+  "inspections": [
+    {
+      "run_id": "39538744371",
+      "run_attempt": "1",
+      "source_revision": "c9a3f772c2f8ca1bf4a4f7c99a97afc8993dd5e9",
+      "conclusion": "success",
+      "pair_status": "incomplete",
+      "missing_stages": [
+        "deployment_verification",
+        "rollback_verification"
+      ],
+      "cluster_identity_verified": false,
+      "evidence_import_enabled": false,
+      "lab_target_compatible": false,
+      "user_path_recovery_verified": false,
+      "selected_records": 0,
+      "inspection_file_sha256": "e786de2cda9defdfa418e614b0dcc1685f7a3e2f809d3344e4e3672a922301bc"
+    },
+    {
+      "run_id": "39202258522",
+      "run_attempt": "1",
+      "source_revision": "432f9bde203c42cd643174f8bacd1eabce4bd73b",
+      "conclusion": "success",
+      "pair_status": "incomplete",
+      "missing_stages": [
+        "deployment_verification",
+        "rollback_verification"
+      ],
+      "cluster_identity_verified": false,
+      "evidence_import_enabled": false,
+      "lab_target_compatible": false,
+      "user_path_recovery_verified": false,
+      "selected_records": 0,
+      "inspection_file_sha256": "5996244cf89b6111c99cc497bbfab326d4c87c5435138f6233e85c1862d0b330"
+    }
+  ],
+  "next_task": "S10-02 isolated GitOps ownership and execution permissions"
+}

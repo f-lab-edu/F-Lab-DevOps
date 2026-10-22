@@ -5,9 +5,11 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import uuid
 from datetime import datetime, timezone
 
 from ai_ops.b6_lab import CONTEXT, NAMESPACE, PURPOSE, validate_lab
+from ai_ops.b6_coordination import LabLease, require_manual_deployment
 from ai_ops.path_policy import cli_paths, write_private_json
 
 
@@ -24,7 +26,7 @@ def production_identity():
     for namespace, resource, name in (("url-shortener", "deployment", "url-shortener-api"),
                                       ("ai-ops", "statefulset", "ai-ops"),
                                       ("ai-ops", "pvc", "data-ai-ops-0")):
-        item = json.loads(command("kubectl", "-n", namespace, "get", resource, name, "-o", "json"))
+        item = json.loads(command("kubectl", "--context", CONTEXT, "-n", namespace, "get", resource, name, "-o", "json"))
         identities[namespace + "/" + name] = {key: item["metadata"][key] for key in ("uid", "generation") if key in item["metadata"]}
     return identities
 
@@ -36,7 +38,7 @@ def deploy(bundle):
     before = production_identity()
     payload = json.dumps(bundle, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(payload.encode()).hexdigest()
-    existing = command("kubectl", "get", "namespace", NAMESPACE, "--ignore-not-found", "-o", "json").strip()
+    existing = command("kubectl", "--context", CONTEXT, "get", "namespace", NAMESPACE, "--ignore-not-found", "-o", "json").strip()
     marker = "ai-ops/b6-bundle-sha256"
     if existing:
         metadata = json.loads(existing)["metadata"]
@@ -46,14 +48,30 @@ def deploy(bundle):
     else:
         namespace = json.loads(json.dumps(bundle["items"][0]))
         namespace["metadata"]["annotations"] = {marker: digest}
-        command("kubectl", "create", "-f", "-", payload=json.dumps(namespace))
-    command("kubectl", "apply", "--dry-run=server", "-f", "-", payload=payload)
-    command("kubectl", "apply", "-f", "-", payload=payload)
+        command("kubectl", "--context", CONTEXT, "create", "-f", "-", payload=json.dumps(namespace))
+    def scoped(*args, **kwargs):
+        return command("kubectl", "--context", CONTEXT, *args, **kwargs)
+    if scoped("-n", "argocd", "get", "application", "lab-target", "--ignore-not-found", "-o", "json").strip():
+        raise ValueError("GitOps 등록 후에는 기존 실습 전체 설치기를 적용하지 않습니다")
+    current = scoped("-n", NAMESPACE, "get", "deployment", "lab-api", "--ignore-not-found", "-o", "json").strip()
+    if current:
+        require_manual_deployment(json.loads(current))
+    lease = LabLease(scoped, "adoption-" + uuid.uuid4().hex)
+    lock_identity = lease.acquire()
+    # 설치 실패 때는 공유 잠금을 보존하고 기존 cleanup_required 경로로 운영자가 확인한다.
+    result = _finish_deployment(scoped, payload, before, summary, digest)
+    result["cluster_lock"] = {**lock_identity, **lease.release(recovery_verified=True)}
+    return result
+
+
+def _finish_deployment(scoped, payload, before, summary, digest):
+    scoped("apply", "--dry-run=server", "-f", "-", payload=payload)
+    scoped("apply", "-f", "-", payload=payload)
     for name in ("lab-postgres", "lab-redis", "lab-api", "lab-collector"):
-        command("kubectl", "-n", NAMESPACE, "rollout", "status", "deployment/" + name, "--timeout=180s", timeout=195)
+        scoped("-n", NAMESPACE, "rollout", "status", "deployment/" + name, "--timeout=180s", timeout=195)
     if production_identity() != before:
         raise ValueError("실습 설치 중 운영 리소스 식별자가 변경됐습니다")
-    pods = json.loads(command("kubectl", "-n", NAMESPACE, "get", "pods", "-o", "json"))["items"]
+    pods = json.loads(scoped("-n", NAMESPACE, "get", "pods", "-o", "json"))["items"]
     ready = [p for p in pods if any(c["type"] == "Ready" and c["status"] == "True" for c in p["status"].get("conditions", []))]
     if len(pods) != 4 or len(ready) != 4:
         raise ValueError("실습 Pod 네 개의 준비 상태가 다릅니다")

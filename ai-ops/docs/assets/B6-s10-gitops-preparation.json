@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "phase": "B-06",
+  "task": "S10-02",
+  "status": "preparation_validated_not_adopted",
+  "checked_at": "2026-10-21T10:15:05.652259+00:00",
+  "new_tests_passed": 19,
+  "related_b6_tests_passed": 79,
+  "full_suite_rerun": false,
+  "source_revision_checked": "38b5d85db58507f02b84b158f612e385748b5f10",
+  "source_commit_matches_deployment": false,
+  "ready_to_adopt": false,
+  "managed_resources": [
+    "apps/Deployment:ai-ops-lab/lab-api"
+  ],
+  "server_dry_run_passed": true,
+  "bootstrap_dry_run_resources": 8,
+  "deployment_spec_unchanged": true,
+  "identities_unchanged": true,
+  "identities": {
+    "production": {
+      "url-shortener/url-shortener-api": {
+        "uid": "06d555f1-e31c-4afd-a06e-59edb4ce84d8",
+        "generation": 2
+      },
+      "ai-ops/ai-ops": {
+        "uid": "53f43df5-def1-4ecb-8d86-137fd225b243",
+        "generation": 8
+      },
+      "ai-ops/data-ai-ops-0": {
+        "uid": "b0236f94-4395-4aaa-91ac-3b2bbe31a78d"
+      }
+    },
+    "lab": {
+      "lab-api": {
+        "uid": "b4d16b99-31af-4e15-8084-99b46b0056b0",
+        "generation": 9,
+        "template_sha256": "2fc3e897f5e33afa48feff9e8eab79f706217a8a4ebfad0594cdd015026b6314"
+      },
+      "lab-collector": {
+        "uid": "5c1a3b42-0179-4614-8c1b-cab13c1b3bc9",
+        "generation": 3,
+        "template_sha256": "b631b64f9e1919b64871be3f4df89f9f72fb77e7b0066948817357913282a836"
+      },
+      "lab-postgres": {
+        "uid": "34ffa79b-5b39-449f-90f8-877e4f11a740",
+        "generation": 1,
+        "template_sha256": "827d2ac299170e87820cf43c9ac96db67837441484531ebab4b5cbbc5f5fca20"
+      },
+      "lab-redis": {
+        "uid": "28b7adfb-8a1b-4040-a5e0-37d262c9360f",
+        "generation": 3,
+        "template_sha256": "a62d8990955eff01b467a75e2765fa12a35213bcd672d1499dd0cf8edb20e0cb"
+      }
+    }
+  },
+  "shared_lease": {
+    "exercised": true,
+    "name": "b6-scenario-lock",
+    "uid": "668843be-435e-4eaf-b3a3-43c7a6784a24",
+    "holder": "preflight-46795260b42a411b837f28ad15eee6c4",
+    "concurrent_acquire_rejected": true,
+    "released": true,
+    "not_before": "2026-10-21T10:15:04.757006+00:00"
+  },
+  "investigator_can_update_lease": false,
+  "shared_scenario_cooldown_seconds": 305,
+  "cooldown_live_scenario_tested": false,
+  "bootstrap_applied": false,
+  "policy_effective_denial_tested": false,
+  "application_synced": false,
+  "collector_binding_applied": false,
+  "ci_credentials_created": false,
+  "iam_mapping_created": false,
+  "live_automatic_rollback_executed": false,
+  "external_model_calls": 0,
+  "report_files_modified_by_step": false,
+  "report_hashes_rechecked": false,
+  "inspection_file_sha256": "831a7f671f501487822655ce2b35880d44c289f2781770b7932d56892b55b275",
+  "deployment_file_sha256": "647509f459d224b0118780e9eb936a269918c71bf16485c1228740c80903e828",
+  "next_action": "Publish reviewed GitOps source; apply and verify scope policies/roles; adopt pinned baseline; implement S10-03 CI and trusted identity."
+}

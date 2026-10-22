@@ -10,6 +10,7 @@ import time
 import uuid
 
 from ai_ops.b6_lab import CONTEXT, NAMESPACE, PURPOSE
+from ai_ops.b6_coordination import require_manual_deployment
 
 
 def utc_now():
@@ -221,8 +222,8 @@ print(json.dumps(values))
 class LabClient:
     """고정 실습 Redis replicas와 실습 앱 이미지의 제한된 변경만 지원한다."""
 
-    def command(self, *args, timeout=45):
-        result = subprocess.run(["kubectl", "--context", CONTEXT, *args], capture_output=True, text=True, timeout=timeout)
+    def command(self, *args, timeout=45, payload=None):
+        result = subprocess.run(["kubectl", "--context", CONTEXT, *args], input=payload, capture_output=True, text=True, timeout=timeout)
         if result.returncode:
             raise ValueError("고정 실습 명령이 실패했습니다")
         return result.stdout
@@ -240,11 +241,14 @@ class LabClient:
 
     def guard(self, *, require_quality=True):
         namespace = self.get(NAMESPACE, "namespace", NAMESPACE)
+        require_manual_deployment(namespace)
         if any(namespace["metadata"].get("labels", {}).get(k) != v for k, v in PURPOSE.items()):
             raise ValueError("실습 소유 label이 다릅니다")
         identity = {}
         for name in ("lab-api", "lab-redis", "lab-postgres", "lab-collector"):
             obj = self.get(NAMESPACE, "deployment", name)
+            if name == "lab-api":
+                require_manual_deployment(obj)
             if (any(obj["metadata"].get("labels", {}).get(k) != v for k, v in PURPOSE.items())
                     or obj["spec"]["replicas"] != 1 or obj["status"].get("readyReplicas") != 1):
                 raise ValueError("실습 대상이 정상 기준선이 아닙니다")
@@ -252,6 +256,8 @@ class LabClient:
                               "image": obj["spec"]["template"]["spec"]["containers"][0]["image"]}
         if not hasattr(self, "redis_uid"):
             self.redis_uid = identity["lab-redis"]["uid"]
+        if self.command("-n", "argocd", "get", "application", "lab-target", "--ignore-not-found", "-o", "json").strip():
+            raise ValueError("실습 Application 등록 후에는 수동 실습 실행기를 사용하지 않습니다")
         # 기존 인가 검사와 동일하게 실제 Secret 조회나 쓰기는 실행하지 않는다.
         for verb, resource, namespace, expected in (
             ("get", "deployments.apps/lab-api", NAMESPACE, "yes"),
@@ -290,6 +296,7 @@ class LabClient:
             if not re.fullmatch(re.escape(repository) + r"(?:@sha256:[a-f0-9]{64}|:b6-missing-[a-f0-9]{32})", image):
                 raise ValueError("실습용 앱 저장소 밖의 이미지는 사용할 수 없습니다")
         obj = self.get(NAMESPACE, "deployment", "lab-api")
+        require_manual_deployment(obj)
         containers = obj["spec"]["template"]["spec"]["containers"]
         if (obj["metadata"]["uid"] != baseline["uid"] or len(containers) != 1 or containers[0]["name"] != "api"
                 or obj["spec"]["replicas"] != 1 or obj["spec"]["strategy"]["type"] != "Recreate"

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "task": "B-06 CI relay to worker queue",
+  "checked_at_kst": "2026-10-22T16:36:36.668319+09:00",
+  "status": "existing_ci_verified_enqueued_collected_and_reported_by_isolated_host_worker",
+  "run_id": "39719907612",
+  "run_attempt": "1",
+  "artifact_id": "12401091372",
+  "archive_digest": "08bfb43a9b3070c25f2824b592e3070f99e5724675652e1143767bbaedef6332",
+  "job": {
+    "job_id": "job-17ff8e76bb92422cb5a8594f3a96c064",
+    "state": "partial",
+    "attempts": 1,
+    "generation": 1,
+    "reason": null,
+    "incident_id": "inc-05cb2a39ca0042f3bf04f14660725b4a",
+    "run_id": "run-b36e4ae4872045f1b027ab054153c35d",
+    "bundle_hash": "dc140bf63a3243c56b59116f630e079283519aa26f9db57d53039143a52b48b2",
+    "created_at": "2026-10-22T07:36:33.250162Z",
+    "updated_at": "2026-10-22T07:36:34.017010Z",
+    "lease_until": null,
+    "retention_deadline": "2026-10-29T07:36:33.250162Z",
+    "attempt_history": [
+      {
+        "generation": 1,
+        "parent_generation": null,
+        "state": "partial",
+        "reason": null
+      }
+    ]
+  },
+  "discovery_scan": {
+    "inspected": 1,
+    "submitted": 0,
+    "duplicates": 0,
+    "skipped": 1,
+    "rejected": 0,
+    "listing_limited": false
+  },
+  "explicit_historical_replay": true,
+  "duplicate_same_job": true,
+  "worker_github_calls": 0,
+  "external_model_calls": 0,
+  "cluster_identity_provisioned_from_current_eks": true,
+  "lab_pod_uids_unchanged": true,
+  "report_engine": "rules-captured-ci-v1",
+  "report_current_state": "unknown",
+  "ci_observations": [
+    {
+      "stage": "deployment",
+      "status": "stale",
+      "observed_raw": "2026-10-22T04:02:13.283976Z"
+    },
+    {
+      "stage": "rollback",
+      "status": "stale",
+      "observed_raw": "2026-10-22T04:02:33.155937Z"
+    }
+  ],
+  "scope": {
+    "host_worker_with_existing_lab_read_only_identity": true,
+    "cluster_worker_redeployed": false,
+    "continuous_relay_activated": false,
+    "new_faults": 0,
+    "aws_iam_or_rbac_changes": 0,
+    "fresh_ci_completion_auto_handoff_tested_live": false,
+    "b_stage_complete": false,
+    "c_stage_ready": false
+  }
+}

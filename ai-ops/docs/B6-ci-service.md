@@ -34,3 +34,7 @@ worker는 내부 API /32·Prometheus·DNS만 접근한다. relay는 DNS와 사�
 ### 최초 배포에서 발견한 시작 조건
 
 전달기에는 `--config /etc/ai-ops --store /data/incidents --watch`를 모두 전달해야 한다. 공유 PVC를 사용하는 두 Pod에는 `fsGroupChangePolicy: OnRootMismatch`를 지정해 후발 Pod가 0700/0600 큐 권한을 재귀 변경하지 않도록 한다. 기존 잘못된 정책으로 이미 권한이 바뀌었다면 두 프로세스를 먼저 중지하고 전용 PVC의 소유권·접수 상태를 확인한 뒤 같은 UID로 비공개 권한을 복구한다. 강제 볼륨 분리나 운영 PVC 수정으로 우회하지 않는다. worker 교체·노드 이동 시에는 relay를 먼저 0개로 중지하고 worker가 새 노드에서 Ready가 된 뒤 relay를 활성화해 RWO 연결 충돌을 피한다.
+
+### 비동기 실패 관측의 집계 상태
+
+2026-10-23 실습 CI는 실제 새 generation의 Pod가 ErrImagePull·Ready=0인 동안 Argo operation이 Running이고 집계 health는 이전 Healthy였다. 원본 artifact를 수정하지 않는다. 실패 관측은 Running 또는 Succeeded에서 고정 실패 이미지·revision·새 generation·직접 Pod 취득 실패·Ready=0을 모두 요구한다. Healthy 집계값은 Running 시점에만 이전 상태로 남을 수 있음을 허용하며, Succeeded의 Healthy를 실패로 받아주지 않는다. 복구는 계속 Succeeded·Synced·Healthy·Ready=1·실패 이유 없음·원래 digest를 모두 요구한다. CI 최종 failure와 사용자 경로 복구 성공을 혼동하지 않는다.

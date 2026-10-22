@@ -49,6 +49,11 @@ class CollectionEntry(StrictModel):
     resource_uid: StrictStr | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,80}$")
     resource_version: StrictStr | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]{1,100}$")
     deployment_uid: StrictStr | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,80}$")
+    ci_run_id: StrictStr | None = Field(default=None, pattern=r"^[1-9][0-9]{0,19}$")
+    ci_run_attempt: StrictStr | None = Field(default=None, pattern=r"^[1-9][0-9]{0,19}$")
+    ci_artifact_id: StrictStr | None = Field(default=None, pattern=r"^[1-9][0-9]{0,19}$")
+    ci_archive_digest: Sha256 | None = None
+    ci_source_revision: StrictStr | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
     replicaset_uid: StrictStr | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,80}$")
     replicaset_resource_version: StrictStr | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]{1,100}$")
     dimension: StrictStr | None = Field(default=None, max_length=160,

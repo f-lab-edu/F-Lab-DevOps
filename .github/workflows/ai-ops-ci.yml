@@ -34,7 +34,7 @@ jobs:
   contracts:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 버전 7.0.1
       - name: 잠금된 데이터 계약 의존성 설치
         run: |
           python3 -m venv /tmp/ai-ops-venv
@@ -60,7 +60,7 @@ jobs:
     needs: contracts
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 버전 7.0.1
       - name: 독립 에이전트 이미지 빌드
         run: docker build --tag ai-ops:ci ai-ops
       - name: 통신 없는 읽기 전용 이미지 실행 검사

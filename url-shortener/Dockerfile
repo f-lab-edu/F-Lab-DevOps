@@ -2,7 +2,7 @@
 # ---- stage 1: 빌드 단계 -------------------------------------------------------
 # Python 3.11.16 builder/runtime 이미지를 tag와 digest로 고정한다.
 # runtime은 불필요한 패키지가 적은 slim 변형을 사용한다.
-FROM python:3.11.16@sha256:70e8e937c1da72df1688e883a2108b0feff03381187fa78eca6d9b10df411320 AS builder
+FROM python:3.14.7@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d AS builder
 
 # ── 작업 디렉토리 설정 ──────────────────────────────
 # 이후 모든 명령(COPY, RUN, CMD)이 /build 경로에서 실행됨.
@@ -20,7 +20,7 @@ COPY requirements.lock .
 RUN pip install --no-cache-dir --require-hashes --prefix=/install -r requirements.lock # 잠긴 패키지를 /install 디렉토리에 따로 설치
 
 # ---- stage 2: 실행 단계 -------------------------------------------------------
-FROM python:3.11.16-slim@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9
+FROM python:3.14.7-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
 WORKDIR /app
 # ── 애플리케이션 코드 복사 ──────────────────────────
 COPY --from=builder /install /usr/local

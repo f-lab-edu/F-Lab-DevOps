@@ -1,6 +1,6 @@
 # B-06-M4 실습 상시 모델 연결 설계
 
-상태: **2026-10-24 KST 설계와 [M5 로컬 모의 구현](B6-continuous-model-mock-implementation.md) 완료, [M6 비활성 배포 정의](B6-model-service-deployment.md) 준비·서버 API 형식 검증, 실제 배포·상시 전송 승인 전**. 현재 배포된 운영 worker와 실습 CI worker는 규칙 보고서만 만든다. [M3](B6-model-projection-live-comparison.md)의 한 입력에 대한 승인과 API 호출은 이 설계의 상시 전송을 승인하지 않는다. 다음 구현 순서는 M6 배포 검증→M7이며, [B 종료 판정](B6-scope-and-exit.md)은 계속 보류한다.
+상태: **2026-10-24 KST 설계와 [M5 로컬 모의 구현](B6-continuous-model-mock-implementation.md) 완료, [M6 비활성 배포 정의](B6-model-service-deployment.md) 준비·서버 API 형식 검증, 실제 배포·상시 전송 승인 전**. 현재 배포된 운영 worker와 실습 CI worker는 규칙 보고서만 만든다. [M3](B6-model-projection-live-comparison.md)의 한 입력에 대한 승인과 API 호출은 이 설계의 상시 전송을 승인하지 않는다. 다음 구현 순서는 M6 배포 검증→M7이며, [B 운영 평가](B6-operational-evaluation.md)은 계속 보류한다.
 
 ## 목적과 첫 적용 범위
 

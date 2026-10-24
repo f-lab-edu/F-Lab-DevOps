@@ -1,0 +1,107 @@
+"""실습 모델 gateway·고정 proxy의 기본 비활성 배포 정의다."""
+
+from __future__ import annotations
+
+import re
+
+
+NAMESPACE = "ai-model"
+IMAGE_PATTERN = re.compile(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}\Z")
+
+
+def build_service(image: str) -> dict:
+    """Secret 값과 활성 스위치를 생성하지 않고 복제수 0만 정의한다."""
+    if not IMAGE_PATTERN.fullmatch(image):
+        raise ValueError("model_image_digest_required")
+    items = []
+
+    def add(kind, name, spec=None, *, api="v1", namespace=NAMESPACE, **fields):
+        metadata = {"name": name, "labels": {"app.kubernetes.io/part-of": "ai-model"}}
+        if namespace:
+            metadata["namespace"] = namespace
+        item = {"apiVersion": api, "kind": kind, "metadata": metadata}
+        if spec is not None:
+            item["spec"] = spec
+        item.update(fields)
+        items.append(item)
+        return item
+
+    namespace = add("Namespace", NAMESPACE, namespace=None)
+    namespace["metadata"]["labels"].update({"pod-security.kubernetes.io/enforce": "restricted"})
+    for name in ("model-gateway", "model-egress-proxy"):
+        add("ServiceAccount", name, automountServiceAccountToken=False)
+    add("PersistentVolumeClaim", "model-ledger", {
+        "accessModes": ["ReadWriteOnce"], "storageClassName": "ai-ops-gp3-encrypted",
+        "resources": {"requests": {"storage": "1Gi"}}})
+
+    security = {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
+                "capabilities": {"drop": ["ALL"]}}
+    pod_security = {"runAsNonRoot": True, "runAsUser": 10001, "runAsGroup": 10001,
+                    "fsGroup": 10001, "fsGroupChangePolicy": "OnRootMismatch",
+                    "seccompProfile": {"type": "RuntimeDefault"}}
+    for name, module in (("model-gateway", "model_gateway"),
+                         ("model-egress-proxy", "model_egress_proxy")):
+        gateway = name == "model-gateway"
+        volumes = [{"name": "tmp", "emptyDir": {"sizeLimit": "16Mi"}}]
+        mounts = [{"name": "tmp", "mountPath": "/tmp"}]
+        if gateway:
+            volumes += [
+                {"name": "ledger", "persistentVolumeClaim": {"claimName": "model-ledger"}},
+                {"name": "api-key", "secret": {"secretName": "model-openai-key", "defaultMode": 288}},
+                {"name": "client", "secret": {"secretName": "model-client-auth", "defaultMode": 288}},
+            ]
+            mounts += [{"name": "ledger", "mountPath": "/data"},
+                       {"name": "api-key", "mountPath": "/etc/ai-model-key", "readOnly": True},
+                       {"name": "client", "mountPath": "/etc/ai-model-client", "readOnly": True}]
+        container = {"name": name, "image": image, "command": ["python", "-m", "ai_ops." + module],
+                     "securityContext": security, "volumeMounts": mounts,
+                     "env": [{"name": "HOME", "value": "/tmp"}],
+                     "resources": {"requests": {"cpu": "25m", "memory": "64Mi"},
+                                   "limits": {"cpu": "250m", "memory": "192Mi"}}}
+        if gateway:
+            container["env"].append({"name": "AI_MODEL_ENABLED", "value": "false"})
+        template = {"metadata": {"labels": {"app": name}},
+                    "spec": {"serviceAccountName": name, "automountServiceAccountToken": False,
+                             "enableServiceLinks": False, "securityContext": pod_security,
+                             "containers": [container], "volumes": volumes}}
+        add("Deployment", name, {"replicas": 0, "selector": {"matchLabels": {"app": name}},
+                                 "strategy": {"type": "Recreate"}, "template": template}, api="apps/v1")
+
+    add("Service", "model-gateway", {"type": "ClusterIP", "selector": {"app": "model-gateway"},
+                                      "ports": [{"name": "http", "port": 8081, "targetPort": 8081}]})
+    add("Service", "model-egress-proxy", {"type": "ClusterIP",
+                                           "selector": {"app": "model-egress-proxy"},
+                                           "ports": [{"name": "connect", "port": 8080,
+                                                      "targetPort": 8080}]})
+    network = "networking.k8s.io/v1"
+    add("NetworkPolicy", "model-deny-all", {"podSelector": {},
+                                            "policyTypes": ["Ingress", "Egress"],
+                                            "ingress": [], "egress": []}, api=network)
+    add("NetworkPolicy", "model-gateway", {
+        "podSelector": {"matchLabels": {"app": "model-gateway"}},
+        "policyTypes": ["Ingress", "Egress"],
+        "ingress": [{"from": [{"namespaceSelector": {"matchLabels": {
+            "kubernetes.io/metadata.name": "ai-ci"}},
+            "podSelector": {"matchLabels": {"app": "ci-worker"}}}],
+            "ports": [{"protocol": "TCP", "port": 8081}]}],
+        "egress": [{"to": [{"podSelector": {"matchLabels": {
+            "app": "model-egress-proxy"}}}],
+            "ports": [{"protocol": "TCP", "port": 8080}]}]}, api=network)
+    add("NetworkPolicy", "model-egress-proxy", {
+        "podSelector": {"matchLabels": {"app": "model-egress-proxy"}},
+        "policyTypes": ["Ingress", "Egress"],
+        "ingress": [{"from": [{"podSelector": {"matchLabels": {
+            "app": "model-gateway"}}}],
+            "ports": [{"protocol": "TCP", "port": 8080}]}],
+        "egress": [
+            {"to": [{"namespaceSelector": {"matchLabels": {
+                "kubernetes.io/metadata.name": "kube-system"}},
+                "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}}}],
+             "ports": [{"protocol": protocol, "port": 53} for protocol in ("UDP", "TCP")]},
+            {"to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": [
+                "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+                "169.254.0.0/16", "127.0.0.0/8", "100.64.0.0/10",
+                "192.0.0.0/24", "198.18.0.0/15", "224.0.0.0/4"]}}],
+             "ports": [{"protocol": "TCP", "port": 443}]}
+        ]}, api=network)
+    return {"apiVersion": "v1", "kind": "List", "items": items}

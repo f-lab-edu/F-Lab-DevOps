@@ -193,3 +193,9 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 전체 삭제에서 `ai-ops-lab` 및 EBS CSI보다 **먼저** `ai-ci`의 relay/worker를 0개로 중지하고 실제 PV/Volume ID를 기록한다. `ci-queue` PVC를 삭제하고 EBS 실물 부재를 확인한 뒤 namespace를 제거한다. `ai-ops-lab`·`argocd`의 `ci-worker-read` RoleBinding도 제거한다. 새 namespace가 없더라도 기록한 PVC/EBS와 태그 소유권을 대조하며 이전 볼륨 ID를 재사용하지 않는다. 로컬 전용 토큰 파일·소스·GitHub 설정은 AWS 전체 삭제와 별도로 보존한다. 재설치에서는 운영 설치·실습 복원·GitOps 인계와 새 자격 검증 후 worker→relay 순으로 활성화한다.
 
 2026-10-23에는 ai-ci worker·relay를 실제 활성화하고 최신 실습 CI 자동 접수와 보고서 저장을 확인했다. 전체 정리에서 이 namespace의 **전용 1Gi PVC/EBS**를 누락하지 않는다. 실제 Volume ID는 항상 새 조회로 기록하며 [실측](../../ai-ops/docs/B6-ci-service-deployment.md)을 참고한다. 재설치 시 기존 Secret 값·Pod UID·API 주소를 그대로 재사용하지 않는다.
+
+## B-06-M6 모델 서비스 추가 구성
+
+실습 모델용 `ai-model` namespace·gateway/proxy·전용 1Gi 암호화 PVC·NetworkPolicy의 비활성 설치와 검증은 [M6 절차](../../ai-ops/docs/B6-model-service-deployment.md)를 따른다. 기본 두 Deployment는 replicas=0이고 기존 `ai-ci` worker egress·운영 AI 경로는 변경하지 않는다. manifest의 Secret 이름 참조는 키 생성이나 상시 모델 승인으로 간주하지 않는다. 새 코드가 포함된 승인 이미지와 서버 dry-run, 실제 네트워크 허용/거부 검증 전에는 활성화하지 않는다.
+
+전체 삭제에서는 `ai-model`을 `ai-ci`·`ai-ops-lab`·EBS CSI보다 먼저 중지한다. `model-ledger` PVC/PV의 현재 Volume ID를 기록하고 EBS 실물 부재를 확인한 뒤 Secret·Service·NetworkPolicy·ServiceAccount·namespace 잔여를 확인한다. 다른 AI PVC가 남아 있는 동안 공용 암호화 StorageClass를 먼저 제거하지 않는다. 재설치에서는 이전 Secret·승인·digest·PVC/PV 식별자를 그대로 재사용하지 않는다.

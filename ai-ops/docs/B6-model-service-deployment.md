@@ -1,14 +1,13 @@
 # B-06-M6 실습 모델 gateway·proxy 비활성 배포
 
-상태: **2026-10-24 KST 코드·기본 비활성 정의 준비**. M5의 규칙 보고서와 모의 outbox는 유지한다. M3의 입력 한 건 전송 승인은 상시 캠페인 승인이 아니다. 이 단계는 실제 모델 전송이나 운영 자동 조치를 켜지 않는다.
+상태: **2026-10-24 KST 기본 비활성 배포·임시 Pod 네트워크 실측 완료**. M5의 규칙 보고서와 모의 outbox는 유지한다. M3의 입력 한 건 전송 승인은 상시 캠페인 승인이 아니다. 이 단계는 실제 모델 전송이나 운영 자동 조치를 켜지 않는다.
 
 ## 이번 검증 결과
 
-- `model_service.py`의 기본 비활성 정의와 gateway/proxy 경계 시험 6개, 현재 작업 브랜치 전체 Python **445개 시험**이 통과했다. 기존 전체 시험의 SQLite `ResourceWarning`은 종료 상태에 영향을 주지 않았다.
-- AWS 계정 `716174522908`와 현재 EKS 컨텍스트를 확인했다. `ai-ci`/`ai-ops-lab` namespace가 있고 `ai-model`은 없었다. `ai-ops-gp3-encrypted`는 `encrypted=true`, `WaitForFirstConsumer`, `Delete`다.
-- 현재 ECR digest `e0bbce4f…`로 **형식 검사 전용** manifest를 만들었다. 새 코드는 이 이미지에 포함되지 않는다. 신규 namespace와 그 namespace의 항목을 한 번에 server dry-run하면 namespace가 실제로 생기지 않아 후속 항목이 `NotFound`로 실패한다. 기존 `ai-ci` namespace로만 바꾼 사본을 `kubectl apply --dry-run=server --validate=strict`로 검증했으며 ServiceAccount 2개, PVC 1개, Deployment 2개, ClusterIP Service 2개, NetworkPolicy 3개가 모두 통과했다. 이 사본을 실제 적용하지 않았다.
-- 새 이미지가 없고 Pod 네트워크 허용/거부 실측이 전이므로 M6은 **진행 중**이다. `ai-model` 자원·Secret·EBS를 실제 생성하지 않았고 모델 API 호출은 0회다.
-- server dry-run 뒤 `ai-model` namespace는 여전히 없고, 기존 `ai-ci/ci-worker`·`ci-relay`는 각각 1/1 Ready, 운영 `ai-ops` StatefulSet은 1/1 Ready다. 이 조회만으로 알림 경로 전체의 통합 동작을 검증했다고 보지는 않는다.
+- [PR #67](https://github.com/f-lab-edu/F-Lab-DevOps/pull/67)의 계약·이미지 CI 통과 후 `main` SHA `9c2a29f2…`를 병합했다. 사용자 승인한 [이미지 등록 실행](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40071684645)은 성공했다. ECR digest `sha256:14678e4858ba365fc784ccf989fb0a81b16794e3746c2f72bb3d63a9233801c9`를 artifact와 ECR 실물에 대조했고 이미지 검사 `COMPLETE`, 지적 0건을 확인했다.
+- `ai-model` namespace를 먼저 생성한 뒤 전체 manifest가 EKS 서버의 strict dry-run을 통과했다. ServiceAccount 2개·PVC 1개·Deployment 2개·ClusterIP Service 2개·NetworkPolicy 3개를 적용했다. 두 Deployment는 **0/0**, Secret 0개, PVC는 `WaitForFirstConsumer`의 Pending 상태라 EBS는 아직 생성되지 않았다. 암호화 StorageClass는 `encrypted=true`, `WaitForFirstConsumer`, `Delete`다.
+- 첫 실측에서 gateway의 proxy TCP 8080은 허용됐지만 DNS egress 누락 때문에 서비스 이름 조회가 실패했다. gateway에 kube-system CoreDNS Pod의 UDP/TCP 53만 추가한 뒤 이름 조회와 proxy 연결이 성공했다. 같은 gateway 임시 Pod에서 임의 호스트 CONNECT는 403, 고정 `api.openai.com:443` CONNECT는 200, proxy 우회 공개 TCP 443은 시간 초과로 차단됐다. 고정 CONNECT 뒤 목적지 TLS 1.3 인증서 검증도 성공했다. **API 요청·키는 보내지 않아 모델 API 호출은 0회**다.
+- 키·PVC·Kubernetes API 토큰을 마운트하지 않은 임시 Pod 두 개로 실측하고 삭제했다. 두 Pod에서 토큰/키/장부 파일 부재를 확인했다. 기존 `ai-ci/ci-worker`는 gateway Service 연결이 차단됐고, `ci-worker`·`ci-relay` 및 운영 `ai-ops`는 각각 1/1 Ready다. 이는 기존 알림 전달의 별도 종단 간 시험을 대신하지 않는다.
 
 ## 무엇을 배치하는가
 
@@ -26,9 +25,9 @@ gateway의 `/v1/analyze`는 서비스 인증, 32KiB 제한, `ModelView` 정형 �
 
 ## 네트워크 검증과 활성화 전 중단 조건
 
-정적 시험은 gateway egress가 같은 namespace proxy의 TCP 8080만, proxy ingress가 gateway의 TCP 8080만, proxy egress가 DNS·공개 TCP 443만, gateway ingress가 `ai-ci/ci-worker`의 TCP 8081만 허용하는지 확인한다. proxy 프로그램은 목적지 호스트/포트와 DNS 결과를 다시 검사한다. **NetworkPolicy만으로 FQDN을 묶었다고 주장하지 않는다.** 실측 Pod 허용/거부 시험은 새 코드가 포함된 이미지와 별도 승인 자격을 갖춰 임시로 scale할 때 수행해야 한다. CNI 정책 적용 시점의 짧은 default-allow 가능성도 기존 클러스터 절차의 한계로 기록한다.
+gateway egress는 같은 namespace proxy의 TCP 8080과 kube-system CoreDNS의 UDP/TCP 53만, proxy ingress는 gateway의 TCP 8080만, proxy egress는 DNS·공개 TCP 443만 허용한다. gateway ingress는 `ai-ci/ci-worker`의 TCP 8081만 허용하지만 기존 worker 쪽 egress는 아직 열지 않았다. proxy 프로그램은 목적지 호스트/포트와 DNS 결과를 다시 검사한다. **NetworkPolicy만으로 FQDN을 묶었다고 주장하지 않는다.** proxy Pod 자체가 침해되면 정책상 다른 공개 TCP 443에도 접근할 수 있으므로 고정 목적지 보장은 정상 proxy 코드의 검사 범위다. CNI가 `standard` 모드이므로 Pod 시작 직후 정책 적용 전 구간이 있을 수 있으며, 임시 Pod가 Ready가 된 뒤 실측한 차단을 모든 시작 순간의 차단으로 일반화하지 않는다.
 
-M7 전까지 필요한 작업은 전용 클러스터 Secret 두 개와 `ai-ci` 측 별도 인증 자격 회전, worker→gateway egress의 좁은 추가, gateway의 승인·예산 원자 장부/live 처리 연결, 새 코드 해시 결합, 정제 view와 결과의 사람 검토, Pod 내부 실제 직접 인터넷 거부 시험이다. **현재 replicas를 1로 올리거나 키를 넣어도 모델 호출이 작동하지 않는다.** 캠페인 승인 없이 임의로 활성화하면 안 된다.
+M7 전까지 필요한 작업은 전용 클러스터 Secret 두 개와 `ai-ci` 측 별도 인증 자격 회전, worker→gateway egress의 좁은 추가, gateway의 승인·예산 원자 장부/live 처리 연결, 새 코드 해시 결합, 정제 view와 결과의 사람 검토다. **현재 replicas를 1로 올리거나 키를 넣어도 모델 호출이 작동하지 않는다.** 캠페인 승인 없이 임의로 활성화하면 안 된다.
 
 ## 정리·재설치
 

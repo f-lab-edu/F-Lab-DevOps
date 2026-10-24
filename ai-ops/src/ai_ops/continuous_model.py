@@ -17,6 +17,8 @@ from ai_ops.contracts import canonical_json_bytes, sha256_json
 from ai_ops.incidents import _private_directory
 from ai_ops.model_comparison import rules_projection
 from ai_ops.model_projection import ModelView, POLICY, Projection, TARGET, parse_projection
+from ai_ops.model_gateway_contract import ModelSubmission
+from ai_ops.model_gateway_transport import GatewayOpenAITransport
 from ai_ops.path_policy import permitted_path
 from ai_ops.projected_model_engine import (CallPlan, PROMPT_VERSION, ProjectionModelFailure,
     generate_once, request_templates, validate_projected_report)
@@ -34,7 +36,9 @@ def implementation_hash() -> str:
     """승인 범위에 정제·프롬프트·장부·연결 코드를 함께 고정한다."""
     root = Path(__file__).parent
     names = ("model_projection.py", "model_comparison.py", "projected_model_engine.py",
-             "continuous_model.py", "continuous_ci_bridge.py")
+             "continuous_model.py", "continuous_ci_bridge.py", "model_gateway_contract.py",
+             "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
+             "worker_runtime.py")
     return sha256_json({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                         for name in names})
 
@@ -74,6 +78,9 @@ class ContinuousModelStore:
         with self._transaction() as db:
             db.execute("CREATE TABLE IF NOT EXISTS campaigns (id TEXT PRIMARY KEY, binding TEXT NOT NULL, "
                        "state TEXT NOT NULL, created REAL NOT NULL, expires REAL NOT NULL, actor TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS live_approvals (campaign_id TEXT PRIMARY KEY, "
+                       "binding_hash TEXT NOT NULL, actor TEXT NOT NULL, approved REAL NOT NULL, "
+                       "sharing_off INTEGER NOT NULL, retention_ack INTEGER NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS outbox (id TEXT PRIMARY KEY, campaign_id TEXT NOT NULL, "
                        "binding_hash TEXT NOT NULL, projection_binding TEXT NOT NULL, view TEXT, rules TEXT, "
                        "result TEXT, source_run TEXT NOT NULL, "
@@ -130,6 +137,13 @@ class ContinuousModelStore:
             raise ValueError("continuous_model_mock_only")
         return plan
 
+    @staticmethod
+    def _live_plan(plan: CallPlan):
+        plan = CallPlan.model_validate(plan.model_dump(mode="json"))
+        if plan.execution_mode != "live" or plan.credential_fingerprint is None:
+            raise ValueError("continuous_model_live_plan_required")
+        return plan
+
     def prepare_campaign(self, *, deployment_uid: str, config_hash: str,
                          cluster_fingerprint: str, plan: CallPlan) -> str:
         """실제 활성화가 아닌 모의 승인안만 만든다."""
@@ -152,6 +166,50 @@ class ContinuousModelStore:
                        (identifier, canonical_json_bytes(binding).decode(), now, now + CAMPAIGN_SECONDS))
         return identifier
 
+    def prepare_live_campaign(self, *, deployment_uid: str, config_hash: str,
+                              cluster_fingerprint: str, image_digest: str,
+                              sample_view_hash: str, plan: CallPlan) -> str:
+        """대상·이미지·샘플·키 지문·비용을 결합한 승인안을 만들고 비활성으로 둔다."""
+        plan = self._live_plan(plan)
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", deployment_uid):
+            raise ValueError("campaign_uid_rejected")
+        if not all(re.fullmatch(r"[0-9a-f]{64}", value) for value in
+                   (config_hash, cluster_fingerprint, sample_view_hash)):
+            raise ValueError("campaign_hash_rejected")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_digest):
+            raise ValueError("campaign_image_rejected")
+        binding = {"target": TARGET, "deployment_uid": deployment_uid,
+                   "config_hash": config_hash, "cluster_fingerprint": cluster_fingerprint,
+                   "image_digest": image_digest, "sample_view_hash": sample_view_hash,
+                   "policy": POLICY, "prompt": PROMPT_VERSION,
+                   "implementation_hash": implementation_hash(),
+                   "plan": plan.model_dump(mode="json"),
+                   "limit": {"seconds": CAMPAIGN_SECONDS, "cases": MAX_CASES,
+                             "case_cents": RESERVE_CENTS, "utc_day_cents": DAILY_CENTS}}
+        now = self._now()
+        identifier = "campaign-" + uuid.uuid4().hex
+        with self._transaction() as db:
+            db.execute("INSERT INTO campaigns VALUES (?,?,'prepared',?,?,NULL)",
+                       (identifier, canonical_json_bytes(binding).decode(), now, now + CAMPAIGN_SECONDS))
+        return identifier
+
+    def approve_live(self, identifier: str, *, binding_hash: str, actor: str,
+                     optional_sharing_off: bool, provider_retention_acknowledged: bool):
+        """명시된 개인정보·보관 인지와 승인 범위 해시가 모두 맞을 때만 활성화한다."""
+        if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", actor) or
+                optional_sharing_off is not True or provider_retention_acknowledged is not True):
+            raise ValueError("campaign_live_approval_rejected")
+        with self._transaction() as db:
+            row = db.execute("SELECT * FROM campaigns WHERE id=?", (identifier,)).fetchone()
+            now = self._now()
+            if (row is None or row["state"] != "prepared" or now >= row["expires"] or
+                    sha256_json(json.loads(row["binding"])) != binding_hash or
+                    self._live_plan(CallPlan.model_validate(json.loads(row["binding"])["plan"])).execution_mode != "live"):
+                raise ValueError("campaign_live_approval_rejected")
+            db.execute("INSERT INTO live_approvals VALUES (?,?,?,?,1,1)",
+                       (identifier, binding_hash, actor, now))
+            db.execute("UPDATE campaigns SET state='approved',actor=? WHERE id=?", (actor, identifier))
+
     def approve_mock(self, identifier: str, *, binding_hash: str, actor: str):
         """모의 승인도 정확한 범위 해시와 승인자를 요구한다."""
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", actor):
@@ -159,7 +217,8 @@ class ContinuousModelStore:
         with self._transaction() as db:
             row = db.execute("SELECT * FROM campaigns WHERE id=?", (identifier,)).fetchone()
             if (row is None or row["state"] != "prepared" or self._now() >= row["expires"] or
-                    sha256_json(json.loads(row["binding"])) != binding_hash):
+                    sha256_json(json.loads(row["binding"])) != binding_hash or
+                    self._plan(CallPlan.model_validate(json.loads(row["binding"])["plan"])).execution_mode != "mock"):
                 raise ValueError("campaign_approval_rejected")
             db.execute("UPDATE campaigns SET state='approved',actor=? WHERE id=?", (actor, identifier))
 
@@ -232,6 +291,64 @@ class ContinuousModelStore:
                         "prepared", None, now, now))
         return identifier
 
+    def enqueue_submission(self, submission: ModelSubmission) -> str:
+        """gateway는 서명 검증을 마친 정제 입력만 받아 별도 장부에 기록한다."""
+        submission = ModelSubmission.model_validate_json(
+            canonical_json_bytes(submission.model_dump(mode="json")))
+        with self._transaction() as db:
+            campaign = db.execute("SELECT * FROM campaigns WHERE id=?",
+                                  (submission.campaign_id,)).fetchone()
+            now = self._now()
+            if (campaign is None or campaign["state"] != "approved" or
+                    not campaign["created"] <= now < campaign["expires"]):
+                raise ValueError("outbox_live_campaign_unavailable")
+            binding = json.loads(campaign["binding"])
+            plan = self._live_plan(CallPlan.model_validate(binding["plan"]))
+            approval = db.execute("SELECT * FROM live_approvals WHERE campaign_id=?",
+                                  (submission.campaign_id,)).fetchone()
+            if (approval is None or approval["binding_hash"] != sha256_json(binding) or
+                    approval["sharing_off"] != 1 or approval["retention_ack"] != 1 or
+                    binding["implementation_hash"] != implementation_hash() or
+                    binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
+                raise ValueError("outbox_live_approval_or_code_changed")
+            if (submission.deployment_uid != binding["deployment_uid"] or
+                    submission.config_hash != binding["config_hash"] or
+                    submission.cluster_fingerprint != binding["cluster_fingerprint"] or
+                    submission.view.policy_version != binding["policy"]):
+                raise ValueError("outbox_target_rejected")
+            request_templates(submission.view, plan)
+            projection_binding = {"source_bundle_hash": submission.source_bundle_hash,
+                                  "source_audit_hash": submission.source_audit_hash,
+                                  "mapping_hash": submission.mapping_hash,
+                                  "exporter_sha256": submission.exporter_sha256,
+                                  "view_hash": submission.view_hash}
+            view = submission.view.model_dump(mode="json")
+            rules = rules_projection(submission.view).model_dump(mode="json")
+            key = sha256_json({"source_run": submission.source_run,
+                               "snapshot_hash": submission.source_bundle_hash,
+                               "view_hash": submission.view_hash, "policy": POLICY,
+                               "campaign_id": submission.campaign_id})
+            identifier = "outbox-" + key
+            bound = sha256_json({"view": view, "projection_binding": projection_binding,
+                                 "source_run": submission.source_run,
+                                 "rules_ref": submission.rules_ref,
+                                 "campaign": submission.campaign_id, "binding": binding})
+            existing = db.execute("SELECT binding_hash FROM outbox WHERE id=?",
+                                  (identifier,)).fetchone()
+            if existing:
+                if existing["binding_hash"] != bound:
+                    raise ValueError("outbox_identity_conflict")
+                return identifier
+            if db.execute("SELECT 1 FROM outbox WHERE campaign_id=? AND source_run=?",
+                          (submission.campaign_id, submission.source_run)).fetchone():
+                raise ValueError("outbox_source_conflict")
+            db.execute("INSERT INTO outbox VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)",
+                       (identifier, submission.campaign_id, bound,
+                        canonical_json_bytes(projection_binding).decode(),
+                        canonical_json_bytes(view).decode(), canonical_json_bytes(rules).decode(),
+                        None, submission.source_run, submission.rules_ref, "prepared", None, now, now))
+        return identifier
+
     def item(self, identifier: str) -> dict:
         with self._transaction() as db:
             row = db.execute("SELECT * FROM outbox WHERE id=?", (identifier,)).fetchone()
@@ -264,6 +381,19 @@ class ContinuousModelStore:
         """예약 commit 뒤 모의 응답을 처리한다. 중단 후 sending은 자동 재전송하지 않는다."""
         if type(transport) is not MockTransport:
             raise ValueError("continuous_model_mock_only")
+        return self._process(identifier, transport, live=False)
+
+    def process_live(self, identifier: str, transport: GatewayOpenAITransport, *,
+                     image_digest: str) -> dict:
+        """승인된 live 캠페인만 토큰 계산 전 예약하고 실제 전송 객체를 한 번 호출한다."""
+        if type(transport) is not GatewayOpenAITransport:
+            raise ValueError("continuous_model_live_transport_required")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_digest):
+            raise ValueError("campaign_image_rejected")
+        return self._process(identifier, transport, live=True, image_digest=image_digest)
+
+    def _process(self, identifier: str, transport, *, live: bool,
+                 image_digest: str | None = None) -> dict:
         with self._transaction() as db:
             row = db.execute("SELECT * FROM outbox WHERE id=?", (identifier,)).fetchone()
             if row is None or row["state"] != "prepared":
@@ -276,6 +406,14 @@ class ContinuousModelStore:
             if (binding["implementation_hash"] != implementation_hash() or
                     binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
                 raise ValueError("campaign_code_changed")
+            if live:
+                if binding.get("image_digest") != image_digest:
+                    raise ValueError("campaign_image_changed")
+                approval = db.execute("SELECT * FROM live_approvals WHERE campaign_id=?",
+                                      (row["campaign_id"],)).fetchone()
+                if (approval is None or approval["binding_hash"] != sha256_json(binding) or
+                        approval["sharing_off"] != 1 or approval["retention_ack"] != 1):
+                    raise ValueError("campaign_live_approval_missing")
             view = json.loads(row["view"])
             projection_binding = json.loads(row["projection_binding"])
             bound = sha256_json({"view": view, "projection_binding": projection_binding,
@@ -284,7 +422,10 @@ class ContinuousModelStore:
             if (bound != row["binding_hash"] or sha256_json(view) != projection_binding["view_hash"] or
                     json.loads(row["rules"]) != rules_projection(ModelView.model_validate(view)).model_dump(mode="json")):
                 raise ValueError("outbox_integrity_rejected")
-            plan = self._plan(CallPlan.model_validate(binding["plan"]))
+            plan = (self._live_plan if live else self._plan)(
+                CallPlan.model_validate(binding["plan"]))
+            if live and transport.expected_credential != plan.credential_fingerprint:
+                raise ValueError("campaign_credential_changed")
             if (datetime.fromisoformat(plan.price.checked_on).date() -
                     datetime.fromtimestamp(now, timezone.utc).date()).days not in range(-7, 1):
                 raise ValueError("campaign_price_expired")
@@ -342,4 +483,5 @@ class ContinuousModelStore:
             db.execute("DELETE FROM budget WHERE day<?", (_utc(now-LEDGER_DAYS*86400)[:10],))
             db.execute("DELETE FROM campaigns WHERE created<? AND id NOT IN "
                        "(SELECT campaign_id FROM outbox)", (now-LEDGER_DAYS*86400,))
+            db.execute("DELETE FROM live_approvals WHERE campaign_id NOT IN (SELECT id FROM campaigns)")
         return bodies, records

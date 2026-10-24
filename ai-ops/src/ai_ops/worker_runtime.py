@@ -146,7 +146,18 @@ def main(argv=None) -> int:
         telemetry = WorkerTelemetry(queue)
         if args.retention:
             telemetry.retention = RetentionSchedule(queue, stopped=stopped.is_set, progress=telemetry.progress)
-        worker = Worker(queue, settings, stopped=stopped)
+        model_bridge = None
+        bridge_enabled = os.environ.get("AI_MODEL_BRIDGE_ENABLED", "false")
+        if bridge_enabled not in {"false", "true"}:
+            raise ValueError("모델 연결 설정이 유효하지 않습니다")
+        if bridge_enabled == "true":
+            from ai_ops.continuous_ci_bridge import ContinuousCIBridge
+            from ai_ops.model_gateway_client import ModelGatewayClient
+            model_bridge = ContinuousCIBridge(
+                ModelGatewayClient(), os.environ["AI_MODEL_CAMPAIGN_ID"],
+                cluster_fingerprint=os.environ["AI_MODEL_CLUSTER_FINGERPRINT"],
+                exporter_sha256=os.environ["AI_MODEL_EXPORTER_SHA256"])
+        worker = Worker(queue, settings, stopped=stopped, model_bridge=model_bridge)
         log_event("process_started")
         with metrics_server(telemetry) if args.metrics else nullcontext():
             worker.serve(progress=telemetry.progress,

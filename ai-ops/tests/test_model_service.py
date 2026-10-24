@@ -42,6 +42,10 @@ class ModelServiceTests(unittest.TestCase):
         self.assertEqual(gateway["egress"][0]["ports"][0]["port"], 8080)
         self.assertEqual(gateway["egress"][0]["to"][0]["podSelector"]["matchLabels"]["app"],
                          "model-egress-proxy")
+        self.assertEqual({port["port"] for port in gateway["egress"][1]["ports"]}, {53})
+        self.assertEqual(gateway["egress"][1]["to"][0]["podSelector"]["matchLabels"]["k8s-app"],
+                         "kube-dns")
+        self.assertNotIn("0.0.0.0/0", json.dumps(gateway))
         self.assertEqual(gateway["ingress"][0]["from"][0]["namespaceSelector"]
                          ["matchLabels"]["kubernetes.io/metadata.name"], "ai-ci")
         proxy = self.named("NetworkPolicy", "model-egress-proxy")["spec"]

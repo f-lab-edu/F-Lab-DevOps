@@ -84,9 +84,15 @@ def build_service(image: str) -> dict:
             "kubernetes.io/metadata.name": "ai-ci"}},
             "podSelector": {"matchLabels": {"app": "ci-worker"}}}],
             "ports": [{"protocol": "TCP", "port": 8081}]}],
-        "egress": [{"to": [{"podSelector": {"matchLabels": {
-            "app": "model-egress-proxy"}}}],
-            "ports": [{"protocol": "TCP", "port": 8080}]}]}, api=network)
+        "egress": [
+            {"to": [{"podSelector": {"matchLabels": {
+                "app": "model-egress-proxy"}}}],
+             "ports": [{"protocol": "TCP", "port": 8080}]},
+            {"to": [{"namespaceSelector": {"matchLabels": {
+                "kubernetes.io/metadata.name": "kube-system"}},
+                "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}}}],
+             "ports": [{"protocol": protocol, "port": 53} for protocol in ("UDP", "TCP")]},
+        ]}, api=network)
     add("NetworkPolicy", "model-egress-proxy", {
         "podSelector": {"matchLabels": {"app": "model-egress-proxy"}},
         "policyTypes": ["Ingress", "Egress"],

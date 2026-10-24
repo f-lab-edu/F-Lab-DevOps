@@ -1,6 +1,6 @@
 # B-06-M4 실습 상시 모델 연결 설계
 
-상태: **2026-10-24 KST 설계와 [M5 로컬 모의 구현](B6-continuous-model-mock-implementation.md) 완료, [M6 비활성 배포 정의](B6-model-service-deployment.md) 준비·서버 API 형식 검증, 실제 배포·상시 전송 승인 전**. 현재 배포된 운영 worker와 실습 CI worker는 규칙 보고서만 만든다. [M3](B6-model-projection-live-comparison.md)의 한 입력에 대한 승인과 API 호출은 이 설계의 상시 전송을 승인하지 않는다. 다음 구현 순서는 M6 배포 검증→M7이며, [B 운영 평가](B6-operational-evaluation.md)은 계속 보류한다.
+상태: **2026-10-24 KST 설계·[M5 로컬 모의 구현](B6-continuous-model-mock-implementation.md)·[M6 기본 비활성 배포와 네트워크 실측](B6-model-service-deployment.md) 완료, M7 실습 캠페인 승인·활성화 전**. 모델 gateway/proxy는 클러스터에 정의됐지만 복제수 0이고 Secret이 없다. 현재 배포된 운영 worker와 실습 CI worker는 규칙 보고서만 만든다. [M3](B6-model-projection-live-comparison.md)의 한 입력에 대한 승인과 API 호출은 상시 전송을 승인하지 않는다. 다음 구현 순서는 M7이며, [B 운영 평가](B6-operational-evaluation.md)은 계속 보류한다.
 
 ## 목적과 첫 적용 범위
 
@@ -63,7 +63,7 @@ gateway가 인터넷에 직접 연결되지 않도록 고정 `api.openai.com:443
 | 순서 | 작업 | 완료 증거 |
 |---|---|---|
 | **B-06-M5 · 로컬 완료** | CI worker의 완료 run→정제 view/outbox, 기간 모의 승인·예산/중복 장부, 별도 보조 결과 저장을 **모의 transport**로 구현했다. 현재 main의 CI 소스와 로컬 M3 변경을 결합했고 기존 S9/S11 코드도 보존했다. | production·다른 UID·원문/민감 필드 거부, 규칙 결과 불변, 재시작/중복/불명 전송·UTC 예산·보관/중지 집중 시험과 전체 Python 439개 통과. 새 실호출 0회. [기록](B6-continuous-model-mock-implementation.md) |
-| **B-06-M6 · 진행 중** | 비활성 gateway/proxy·Secret 경로·암호화 PVC·NetworkPolicy를 이미지/배포 코드에 추가하고 설치/정리 순서를 연결했다. 새 코드 포함 승인 이미지와 실제 적용·Pod 네트워크 실측은 남았다. | 기존 namespace 대입 사본의 서버 dry-run, 코드 경계 시험은 통과했다. 새 이미지·실제 적용 후 Pod 자격 분리, 내부 요청만 허용·직접 외부/임의 호스트 거부, worker/기존 알림 정상 검증이 필요하다. 승인 전 gateway 복제수 0·API 호출 0회. |
+| **B-06-M6 · 완료** | 승인된 이미지 digest로 비활성 gateway/proxy·Secret 참조 경로·암호화 PVC·NetworkPolicy를 적용하고 설치/정리 순서를 연결했다. DNS 조회 누락도 수정해 `main`에 반영했다. | EKS strict server dry-run과 실제 적용, 키 없는 임시 Pod의 DNS·고정 CONNECT/TLS 성공, 임의 호스트 403·직접 외부 연결 차단·기존 worker→gateway 차단을 확인했다. 임시 Pod는 삭제했고 두 Deployment는 0/0, Secret 0개, 모델 API 호출 0회다. [검증 기록](B6-model-service-deployment.md) |
 | **B-06-M7** | 실제 표시될 캠페인 승인안을 제시하고 승인된 실습 범위에서만 활성화한다. 정상 관측의 자료 부족 1건과 제한된 장애 관측 1건을 필요한 만큼 실행한다. | 동일 view의 규칙/모델 근거·오진·제외 자료·partial/unknown·미실행 제안 검토, 중복·중단·한도·정리·중지 확인. 의도적 유료 429/timeout 반복은 모의 시험으로 대체. 종료 때 B/C 판정을 다시 기록. |
 
-M7에서 정상/장애 두 사례만으로 일반 진단 정확도, MTTR 개선, 운영 production 모델 분석을 주장하지 않는다. 현재 M3의 원인 후보 0개와 `unknown`은 자료 부족 사례의 올바른 제한이며, 새 경로에서 근거가 충분해지는지 여부는 별도 관측과 사람 검토로 판단한다. 다음 작업은 **B-06-M6 새 이미지·기본 비활성 적용 및 네트워크 실측**, 권장 추론 깊이는 **GPT-6 SOL high**다.
+M7에서 정상/장애 두 사례만으로 일반 진단 정확도, MTTR 개선, 운영 production 모델 분석을 주장하지 않는다. 현재 M3의 원인 후보 0개와 `unknown`은 자료 부족 사례의 올바른 제한이며, 새 경로에서 근거가 충분해지는지 여부는 별도 관측과 사람 검토로 판단한다. 다음 작업은 **B-06-M7 실습 캠페인 승인안·활성화 준비**, 권장 추론 깊이는 **GPT-6 SOL high**다.

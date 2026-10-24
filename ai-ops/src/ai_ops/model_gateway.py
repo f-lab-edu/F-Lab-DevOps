@@ -7,6 +7,10 @@ import hmac
 import json
 import os
 import re
+from pathlib import Path
+import signal
+import threading
+import time
 
 from ai_ops.contracts import canonical_json_bytes, sha256_json
 from ai_ops.model_gateway_contract import MAX_SUBMISSION, verify_submission, sign_submission
@@ -147,10 +151,50 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if os.environ.get("AI_MODEL_ENABLED") != "false":
-        raise ValueError("gateway_not_activated")
+    enabled = os.environ.get("AI_MODEL_ENABLED", "false")
+    if enabled not in {"false", "true"}:
+        raise ValueError("gateway_activation_value_rejected")
+    if enabled == "false":
+        with ThreadingHTTPServer(("0.0.0.0", 8081), _Handler) as server:
+            server.serve_forever(poll_interval=1)
+        return
+    from ai_ops.continuous_model import ContinuousModelStore
+    from ai_ops.model_live_probe import ModelLiveProbe
+    from ai_ops.model_runtime import ModelGatewayRuntime
+    from ai_ops.path_policy import permitted_path
+    campaign_id = os.environ["AI_MODEL_CAMPAIGN_ID"]
+    image_digest = os.environ["AI_MODEL_IMAGE_DIGEST"]
+    cluster_fingerprint = os.environ["AI_MODEL_CLUSTER_FINGERPRINT"]
+    ca_sha256 = os.environ["AI_MODEL_CA_SHA256"]
+    if not all(re.fullmatch(r"[0-9a-f]{64}", value) for value in
+               (cluster_fingerprint, ca_sha256)):
+        raise ValueError("gateway_cluster_binding_rejected")
+    store = ContinuousModelStore(permitted_path(Path("/data/incidents/model-ledger"), "store"))
+    probe = ModelLiveProbe(expected_cluster_fingerprint=cluster_fingerprint,
+                           expected_ca_sha256=ca_sha256)
+    runtime = ModelGatewayRuntime(store, campaign_id, image_digest, probe)
+    runtime.verify()
+    stopped = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: stopped.set())
+    signal.signal(signal.SIGINT, lambda *_: stopped.set())
     with ThreadingHTTPServer(("0.0.0.0", 8081), _Handler) as server:
-        server.serve_forever(poll_interval=1)
+        server.model_store = store
+        server.model_campaign_id = campaign_id
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 1}, daemon=True)
+        thread.start()
+        last_prune = 0.0
+        try:
+            while not stopped.wait(2):
+                campaign = store.campaign(campaign_id)
+                if campaign["state"] != "approved" or store._now() >= campaign["expires"]:
+                    break
+                runtime.run_once()
+                if time.monotonic() - last_prune >= 3600:
+                    store.prune()
+                    last_prune = time.monotonic()
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
 
 
 if __name__ == "__main__":

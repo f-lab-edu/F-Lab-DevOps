@@ -56,7 +56,7 @@ gh workflow view ci-cd.yml --repo f-lab-edu/F-Lab-DevOps
 
 ### 0-2. AI Helm·PVC/EBS 선행 정리 — 필수
 
-[AI 클러스터 정리 절차](ai-ops-cluster-lifecycle.md)를 **Karpenter·앱·Prometheus·Argo·CSI 제거 전에** 먼저 수행한다. 현재 AI Helm release, metrics Service/ServiceMonitor·NetworkPolicy·전용 RBAC, namespace·StorageClass와 5Gi PVC/EBS에 더해 별도 `ai-ci` 및 존재하는 경우 `ai-model`의 Deployment·Secret·PVC/PV/EBS도 대상이다. 전체 삭제 요청에서 AI 자료도 삭제하며, 로컬 소스·개인 API 키는 AWS 정리와 별개로 유지한다.
+[AI 클러스터 정리 절차](ai-ops-cluster-lifecycle.md)를 **Karpenter·앱·Prometheus·Argo·CSI 제거 전에** 먼저 수행한다. 현재 AI Helm release, metrics Service/ServiceMonitor·NetworkPolicy·전용 RBAC, namespace·StorageClass와 5Gi PVC/EBS에 더해 별도 `ai-ci` 및 존재하는 경우 `ai-model`의 Deployment·Secret·PVC/PV/EBS도 대상이다. M7-2 준비 리소스가 있으면 `ai-ops-lab`·`ai-ci`·`ai-model`의 `model-gateway-current-read` Role/RoleBinding과 `ai-ci/ci-worker-model-gateway` NetworkPolicy도 함께 제거한다. 전체 삭제 요청에서 AI 자료도 삭제하며, 로컬 소스·개인 API 키는 AWS 정리와 별개로 유지한다.
 
 실제 AI PV/Volume ID를 기록 → Helm uninstall → 남은 `data-ai-ops-0` PVC 명시 삭제 → PV와 EBS 실제 부재 확인 → 전용 Role/RoleBinding 잔존 확인 → AI StorageClass/namespace 제거 순서다. StatefulSet의 PVC 보존 Retain 때문에 EKS destroy나 namespace 삭제만으로 완료 처리하지 않는다. 같은 태그의 잔여 AI EBS도 대조하고 EBS가 남으면 CSI/EKS 제거 전에 중지한다. 이미 클러스터가 사라진 재개 상황의 소유권·unattached 볼륨 정리도 연결 절차를 따른다.
 

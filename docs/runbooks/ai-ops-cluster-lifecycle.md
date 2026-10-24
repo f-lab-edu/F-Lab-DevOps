@@ -196,6 +196,6 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 
 ## B-06-M6 모델 서비스 추가 구성
 
-실습 모델용 `ai-model` namespace·gateway/proxy·전용 1Gi 암호화 PVC·NetworkPolicy의 비활성 설치와 검증은 [M6 절차](../../ai-ops/docs/B6-model-service-deployment.md)를 따른다. 기본 두 Deployment는 replicas=0이고 기존 `ai-ci` worker egress·운영 AI 경로는 변경하지 않는다. manifest의 Secret 이름 참조는 키 생성이나 상시 모델 승인으로 간주하지 않는다. 새 코드가 포함된 승인 이미지와 서버 dry-run, 실제 네트워크 허용/거부 검증 전에는 활성화하지 않는다.
+실습 모델용 `ai-model` namespace·gateway/proxy·전용 1Gi 암호화 PVC·NetworkPolicy의 기본 비활성 설치와 검증은 [M6 절차](../../ai-ops/docs/B6-model-service-deployment.md)를 따른다. [M7-2 준비 정의](../../ai-ops/docs/B6-model-campaign-deployment-preparation.md)를 적용한 클러스터에는 `ai-ops-lab`·`ai-ci`·`ai-model` 각각의 `model-gateway-current-read` Role/RoleBinding과 `ai-ci/ci-worker-model-gateway` NetworkPolicy도 있다. 준비 정의 역시 두 Deployment 0/0, gateway 스위치 false, worker 모델 연결 꺼짐을 유지한다. Secret 이름 참조는 키 생성이나 상시 모델 승인으로 간주하지 않는다. 새 코드가 포함된 승인 이미지와 서버 dry-run, 실제 네트워크 허용/거부 검증 전에는 활성화하지 않는다.
 
-전체 삭제에서는 `ai-model`을 `ai-ci`·`ai-ops-lab`·EBS CSI보다 먼저 중지한다. `model-ledger` PVC/PV의 현재 Volume ID를 기록하고 EBS 실물 부재를 확인한 뒤 Secret·Service·NetworkPolicy·ServiceAccount·namespace 잔여를 확인한다. 다른 AI PVC가 남아 있는 동안 공용 암호화 StorageClass를 먼저 제거하지 않는다. 재설치에서는 이전 Secret·승인·digest·PVC/PV 식별자를 그대로 재사용하지 않는다.
+전체 삭제에서는 `ai-model`을 `ai-ci`·`ai-ops-lab`·EBS CSI보다 먼저 중지한다. `model-ledger` PVC/PV의 현재 Volume ID를 기록하고 EBS 실물 부재를 확인한 뒤 `ai-ops-lab`·`ai-ci`·`ai-model`의 `model-gateway-current-read` RoleBinding/Role과 `ai-ci/ci-worker-model-gateway` NetworkPolicy를 제거한다. 이어 Secret·Service·NetworkPolicy·ServiceAccount·namespace 잔여를 확인한다. 다른 AI PVC가 남아 있는 동안 공용 암호화 StorageClass를 먼저 제거하지 않는다. 재설치에서는 이전 Secret·승인·digest·PVC/PV 식별자와 API `/32`를 그대로 재사용하지 않는다.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import ipaddress
 
 
 NAMESPACE = "ai-model"
@@ -111,3 +112,59 @@ def build_service(image: str) -> dict:
              "ports": [{"protocol": "TCP", "port": 443}]}
         ]}, api=network)
     return {"apiVersion": "v1", "kind": "List", "items": items}
+
+
+def build_prepared_service(image: str, api_cidrs: list[str]) -> dict:
+    """M7-2 읽기 권한과 내부 연결만 추가한다. 복제수·모델 스위치는 그대로 0/false다."""
+    if not api_cidrs or len(set(api_cidrs)) != len(api_cidrs) or len(api_cidrs) > 8:
+        raise ValueError("model_api_addresses_required")
+    for cidr in api_cidrs:
+        network = ipaddress.ip_network(cidr, strict=True)
+        if (network.version != 4 or network.prefixlen != 32 or not network.is_private or
+                network.is_loopback or network.is_link_local or network.is_multicast or
+                network.is_unspecified or network.is_reserved):
+            raise ValueError("model_api_private_host_required")
+    result = build_service(image)
+    items = result["items"]
+    def named(kind, name, namespace=NAMESPACE):
+        return next(x for x in items if x["kind"] == kind and
+                    x["metadata"]["name"] == name and
+                    x["metadata"].get("namespace") == namespace)
+    gateway = named("Deployment", "model-gateway")["spec"]["template"]["spec"]
+    gateway["terminationGracePeriodSeconds"] = 90
+    gateway["volumes"].append({"name": "identity", "projected": {"sources": [
+        {"serviceAccountToken": {"path": "token", "expirationSeconds": 600}},
+        {"configMap": {"name": "kube-root-ca.crt", "items": [
+            {"key": "ca.crt", "path": "ca.crt"}]}}]}})
+    gateway["containers"][0]["volumeMounts"].append({"name": "identity",
+        "mountPath": "/var/run/ai-model/kubernetes", "readOnly": True})
+    named("NetworkPolicy", "model-gateway")["spec"]["egress"].append({
+        "to": [{"ipBlock": {"cidr": cidr}} for cidr in api_cidrs],
+        "ports": [{"protocol": "TCP", "port": 443}]})
+
+    permissions = (
+        ("ai-ops-lab", "deployments", "apps", "lab-api"),
+        ("ai-ci", "configmaps", "", "ci-config"),
+        ("ai-model", "deployments", "apps", "model-gateway"),
+    )
+    for namespace, resource, api_group, name in permissions:
+        role_name = "model-gateway-current-read"
+        metadata = {"name": role_name, "namespace": namespace,
+                    "labels": {"app.kubernetes.io/part-of": "ai-model"}}
+        items.append({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role",
+            "metadata": metadata, "rules": [{"apiGroups": [api_group], "resources": [resource],
+                                        "resourceNames": [name], "verbs": ["get"]}]})
+        items.append({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding",
+            "metadata": metadata, "roleRef": {"apiGroup": "rbac.authorization.k8s.io",
+                "kind": "Role", "name": role_name},
+            "subjects": [{"kind": "ServiceAccount", "name": "model-gateway",
+                          "namespace": NAMESPACE}]})
+    items.append({"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+        "metadata": {"name": "ci-worker-model-gateway", "namespace": "ai-ci",
+                     "labels": {"app.kubernetes.io/part-of": "ai-model"}},
+        "spec": {"podSelector": {"matchLabels": {"app": "ci-worker"}},
+            "policyTypes": ["Egress"], "egress": [{"to": [{
+                "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": NAMESPACE}},
+                "podSelector": {"matchLabels": {"app": "model-gateway"}}}],
+                "ports": [{"protocol": "TCP", "port": 8081}]}]}})
+    return result

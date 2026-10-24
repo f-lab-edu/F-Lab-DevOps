@@ -38,7 +38,8 @@ def implementation_hash() -> str:
     names = ("model_projection.py", "model_comparison.py", "projected_model_engine.py",
              "continuous_model.py", "continuous_ci_bridge.py", "model_gateway_contract.py",
              "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
-             "worker_runtime.py")
+             "model_live_probe.py", "model_runtime.py", "model_activation.py", "model_service.py",
+             "ci_service.py", "worker_runtime.py")
     return sha256_json({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                         for name in names})
 
@@ -355,6 +356,13 @@ class ContinuousModelStore:
             if row is None:
                 raise ValueError("outbox_missing")
             return dict(row)
+
+    def next_prepared(self, campaign_id: str) -> str | None:
+        """아직 전송하지 않은 가장 오래된 한 건만 선택한다."""
+        with self._transaction() as db:
+            row = db.execute("SELECT id FROM outbox WHERE campaign_id=? AND state='prepared' "
+                             "ORDER BY created,id LIMIT 1", (campaign_id,)).fetchone()
+            return row["id"] if row else None
 
     def has_source(self, campaign_id: str, source_run: str) -> bool:
         with self._transaction() as db:

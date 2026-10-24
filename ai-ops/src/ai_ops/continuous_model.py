@@ -1,0 +1,345 @@
+"""실습 CI 정제 입력의 비활성 기본 대기열과 모의 모델 처리 장부다."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sqlite3
+import stat
+import time
+import uuid
+
+from ai_ops.contracts import canonical_json_bytes, sha256_json
+from ai_ops.incidents import _private_directory
+from ai_ops.model_comparison import rules_projection
+from ai_ops.model_projection import ModelView, POLICY, Projection, TARGET, parse_projection
+from ai_ops.path_policy import permitted_path
+from ai_ops.projected_model_engine import (CallPlan, PROMPT_VERSION, ProjectionModelFailure,
+    generate_once, request_templates, validate_projected_report)
+
+
+BODY_DAYS = 7
+LEDGER_DAYS = 90
+MAX_CASES = 10
+RESERVE_CENTS = 10
+DAILY_CENTS = 100
+CAMPAIGN_SECONDS = 24 * 60 * 60
+
+
+def implementation_hash() -> str:
+    """승인 범위에 정제·프롬프트·장부·연결 코드를 함께 고정한다."""
+    root = Path(__file__).parent
+    names = ("model_projection.py", "model_comparison.py", "projected_model_engine.py",
+             "continuous_model.py", "continuous_ci_bridge.py")
+    return sha256_json({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+                        for name in names})
+
+
+def _utc(value: float) -> str:
+    return datetime.fromtimestamp(value, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class MockTransport:
+    """테스트가 지정한 두 응답만 반환하며 네트워크 호출 수단을 갖지 않는다."""
+
+    def __init__(self, token_response: dict, generation_response: dict):
+        self.responses = {"/v1/responses/input_tokens": token_response,
+                          "/v1/responses": generation_response}
+        self.calls: list[str] = []
+
+    def __call__(self, path: str, body: dict, *, timeout: float):
+        if path not in self.responses or timeout <= 0 or len(self.calls) >= 2:
+            raise ValueError("mock_transport_rejected")
+        self.calls.append(path)
+        response = self.responses[path]
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+class ContinuousModelStore:
+    """독립 SQLite 장부에 예약을 먼저 확정하고 불명 전송은 재시도하지 않는다."""
+
+    def __init__(self, root: Path, *, clock=time.time):
+        self.root = permitted_path(root, "store")
+        _private_directory(self.root)
+        self.path = self.root / "continuous-model.sqlite3"
+        self.clock = clock
+        fd = os.open(self.path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        os.close(fd)
+        with self._transaction() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS campaigns (id TEXT PRIMARY KEY, binding TEXT NOT NULL, "
+                       "state TEXT NOT NULL, created REAL NOT NULL, expires REAL NOT NULL, actor TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS outbox (id TEXT PRIMARY KEY, campaign_id TEXT NOT NULL, "
+                       "binding_hash TEXT NOT NULL, projection_binding TEXT NOT NULL, view TEXT, rules TEXT, "
+                       "result TEXT, source_run TEXT NOT NULL, "
+                       "rules_ref TEXT NOT NULL, state TEXT NOT NULL, reason TEXT, created REAL NOT NULL, "
+                       "updated REAL NOT NULL, reserved_day TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS budget (day TEXT PRIMARY KEY, reserved_cents INTEGER NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS budget_clock (id INTEGER PRIMARY KEY CHECK(id=1), "
+                       "last_at REAL NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS rejections (job_id TEXT NOT NULL, campaign_id TEXT NOT NULL, "
+                       "source_run TEXT NOT NULL, reason TEXT NOT NULL, created REAL NOT NULL, "
+                       "PRIMARY KEY(job_id,campaign_id))")
+            db.execute("CREATE INDEX IF NOT EXISTS outbox_age ON outbox(created)")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS outbox_source ON outbox(campaign_id,source_run)")
+        self.reconcile_sending()
+
+    def _now(self) -> float:
+        value = self.clock()
+        if type(value) not in (int, float) or not 0 <= value < 10**11:
+            raise ValueError("model_clock_rejected")
+        return float(value)
+
+    def _transaction(self):
+        from contextlib import contextmanager
+        @contextmanager
+        def open_db():
+            for suffix in ("", "-wal", "-shm", "-journal"):
+                path = Path(str(self.path) + suffix)
+                if path.is_symlink() or path.exists():
+                    info = path.lstat()
+                    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or
+                            info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077):
+                        raise ValueError("model_store_permissions")
+            db = sqlite3.connect(self.path.as_uri() + "?mode=rw", uri=True, isolation_level=None, timeout=5)
+            db.row_factory = sqlite3.Row
+            try:
+                db.execute("PRAGMA busy_timeout=5000")
+                db.execute("PRAGMA synchronous=FULL")
+                db.execute("PRAGMA secure_delete=ON")
+                db.execute("BEGIN IMMEDIATE")
+                yield db
+                db.execute("COMMIT")
+            except BaseException:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                raise
+            finally:
+                db.close()
+        return open_db()
+
+    @staticmethod
+    def _plan(plan: CallPlan):
+        plan = CallPlan.model_validate(plan.model_dump(mode="json"))
+        if plan.execution_mode != "mock" or plan.credential_fingerprint is not None:
+            raise ValueError("continuous_model_mock_only")
+        return plan
+
+    def prepare_campaign(self, *, deployment_uid: str, config_hash: str,
+                         cluster_fingerprint: str, plan: CallPlan) -> str:
+        """실제 활성화가 아닌 모의 승인안만 만든다."""
+        plan = self._plan(plan)
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", deployment_uid):
+            raise ValueError("campaign_uid_rejected")
+        if not all(re.fullmatch(r"[0-9a-f]{64}", x) for x in (config_hash, cluster_fingerprint)):
+            raise ValueError("campaign_hash_rejected")
+        binding = {"target": TARGET, "deployment_uid": deployment_uid,
+                   "config_hash": config_hash, "cluster_fingerprint": cluster_fingerprint,
+                   "policy": POLICY, "prompt": PROMPT_VERSION,
+                   "implementation_hash": implementation_hash(),
+                   "plan": plan.model_dump(mode="json"),
+                   "limit": {"seconds": CAMPAIGN_SECONDS, "cases": MAX_CASES,
+                             "case_cents": RESERVE_CENTS, "utc_day_cents": DAILY_CENTS}}
+        now = self._now()
+        identifier = "campaign-" + uuid.uuid4().hex
+        with self._transaction() as db:
+            db.execute("INSERT INTO campaigns VALUES (?,?,'prepared',?,?,NULL)",
+                       (identifier, canonical_json_bytes(binding).decode(), now, now + CAMPAIGN_SECONDS))
+        return identifier
+
+    def approve_mock(self, identifier: str, *, binding_hash: str, actor: str):
+        """모의 승인도 정확한 범위 해시와 승인자를 요구한다."""
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", actor):
+            raise ValueError("campaign_actor_rejected")
+        with self._transaction() as db:
+            row = db.execute("SELECT * FROM campaigns WHERE id=?", (identifier,)).fetchone()
+            if (row is None or row["state"] != "prepared" or self._now() >= row["expires"] or
+                    sha256_json(json.loads(row["binding"])) != binding_hash):
+                raise ValueError("campaign_approval_rejected")
+            db.execute("UPDATE campaigns SET state='approved',actor=? WHERE id=?", (actor, identifier))
+
+    def campaign(self, identifier: str) -> dict:
+        with self._transaction() as db:
+            row = db.execute("SELECT * FROM campaigns WHERE id=?", (identifier,)).fetchone()
+            if row is None:
+                raise ValueError("campaign_missing")
+            value = dict(row)
+        value["binding"] = json.loads(value["binding"])
+        value["binding_hash"] = sha256_json(value["binding"])
+        return value
+
+    def enqueue(self, campaign_id: str, projection: Projection, *, source_run: str,
+                rules_ref: str) -> str:
+        """검증된 실습 Projection의 view만 저장한다. 원본 대응표는 기록하지 않는다."""
+        projection = parse_projection(canonical_json_bytes(projection.model_dump(mode="json")))
+        if source_run != projection.identity.run_id or not re.fullmatch(r"run-[0-9a-f]{32}", source_run):
+            raise ValueError("outbox_source_run_rejected")
+        if not re.fullmatch(r"inc-[0-9a-f]{32}/run-[0-9a-f]{32}/report\.md", rules_ref):
+            raise ValueError("outbox_rules_ref_rejected")
+        if rules_ref != f"{projection.identity.incident_id}/{source_run}/report.md":
+            raise ValueError("outbox_rules_binding_rejected")
+        with self._transaction() as db:
+            campaign = db.execute("SELECT * FROM campaigns WHERE id=?", (campaign_id,)).fetchone()
+            if campaign is None or campaign["state"] == "stopped":
+                raise ValueError("outbox_campaign_unavailable")
+            binding = json.loads(campaign["binding"])
+            if (binding["implementation_hash"] != implementation_hash() or
+                    binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
+                raise ValueError("campaign_code_changed")
+            identity = projection.identity
+            if (identity.deployment_uid != binding["deployment_uid"] or
+                    identity.config_hash != binding["config_hash"] or
+                    identity.cluster_fingerprint != binding["cluster_fingerprint"] or
+                    projection.view.policy_version != binding["policy"] or
+                    projection.view.target_alias != "service-1"):
+                raise ValueError("outbox_target_rejected")
+            plan = self._plan(CallPlan.model_validate(binding["plan"]))
+            request_templates(projection.view, plan)
+            key = sha256_json({"source_run": source_run,
+                               "snapshot_hash": projection.source_bundle_hash,
+                               "view_hash": projection.view_hash, "policy": POLICY,
+                               "campaign_id": campaign_id})
+            identifier = "outbox-" + key
+            view = projection.view.model_dump(mode="json")
+            rules = rules_projection(projection.view).model_dump(mode="json")
+            projection_binding = {"source_bundle_hash": projection.source_bundle_hash,
+                                  "source_audit_hash": projection.source_audit_hash,
+                                  "mapping_hash": projection.mapping_hash,
+                                  "exporter_sha256": identity.exporter_sha256,
+                                  "view_hash": projection.view_hash}
+            bound = sha256_json({"view": view, "projection_binding": projection_binding,
+                                 "source_run": source_run,
+                                 "rules_ref": rules_ref, "campaign": campaign_id,
+                                 "binding": binding})
+            existing = db.execute("SELECT binding_hash FROM outbox WHERE id=?", (identifier,)).fetchone()
+            if existing:
+                if existing["binding_hash"] != bound:
+                    raise ValueError("outbox_identity_conflict")
+                return identifier
+            if db.execute("SELECT 1 FROM outbox WHERE campaign_id=? AND source_run=?",
+                          (campaign_id, source_run)).fetchone():
+                raise ValueError("outbox_source_conflict")
+            now = self._now()
+            db.execute("INSERT INTO outbox VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)",
+                       (identifier, campaign_id, bound, canonical_json_bytes(projection_binding).decode(),
+                        canonical_json_bytes(view).decode(),
+                        canonical_json_bytes(rules).decode(), None, source_run, rules_ref,
+                        "prepared", None, now, now))
+        return identifier
+
+    def item(self, identifier: str) -> dict:
+        with self._transaction() as db:
+            row = db.execute("SELECT * FROM outbox WHERE id=?", (identifier,)).fetchone()
+            if row is None:
+                raise ValueError("outbox_missing")
+            return dict(row)
+
+    def has_source(self, campaign_id: str, source_run: str) -> bool:
+        with self._transaction() as db:
+            return db.execute("SELECT 1 FROM outbox WHERE campaign_id=? AND source_run=?",
+                              (campaign_id, source_run)).fetchone() is not None
+
+    def has_rejection(self, campaign_id: str, job_id: str) -> bool:
+        with self._transaction() as db:
+            return db.execute("SELECT 1 FROM rejections WHERE campaign_id=? AND job_id=?",
+                              (campaign_id, job_id)).fetchone() is not None
+
+    def reject_projection(self, campaign_id: str, job_id: str, source_run: str,
+                          reason: str = "projection_rejected"):
+        """원문 오류 대신 정제 불가 사유만 저장하고 규칙 결과를 유지한다."""
+        if not re.fullmatch(r"job-[0-9a-f]{32}", job_id):
+            raise ValueError("rejection_job_rejected")
+        if reason not in {"projection_rejected", "integrity_rejected"}:
+            raise ValueError("rejection_reason_rejected")
+        with self._transaction() as db:
+            db.execute("INSERT OR IGNORE INTO rejections VALUES (?,?,?,?,?)",
+                       (job_id, campaign_id, source_run, reason, self._now()))
+
+    def process_mock(self, identifier: str, transport: MockTransport) -> dict:
+        """예약 commit 뒤 모의 응답을 처리한다. 중단 후 sending은 자동 재전송하지 않는다."""
+        if type(transport) is not MockTransport:
+            raise ValueError("continuous_model_mock_only")
+        with self._transaction() as db:
+            row = db.execute("SELECT * FROM outbox WHERE id=?", (identifier,)).fetchone()
+            if row is None or row["state"] != "prepared":
+                raise ValueError("outbox_not_prepared")
+            campaign = db.execute("SELECT * FROM campaigns WHERE id=?", (row["campaign_id"],)).fetchone()
+            now = self._now()
+            if campaign is None or campaign["state"] != "approved" or not campaign["created"] <= now < campaign["expires"]:
+                raise ValueError("campaign_not_active")
+            binding = json.loads(campaign["binding"])
+            if (binding["implementation_hash"] != implementation_hash() or
+                    binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
+                raise ValueError("campaign_code_changed")
+            view = json.loads(row["view"])
+            projection_binding = json.loads(row["projection_binding"])
+            bound = sha256_json({"view": view, "projection_binding": projection_binding,
+                                 "source_run": row["source_run"], "rules_ref": row["rules_ref"],
+                                 "campaign": row["campaign_id"], "binding": binding})
+            if (bound != row["binding_hash"] or sha256_json(view) != projection_binding["view_hash"] or
+                    json.loads(row["rules"]) != rules_projection(ModelView.model_validate(view)).model_dump(mode="json")):
+                raise ValueError("outbox_integrity_rejected")
+            plan = self._plan(CallPlan.model_validate(binding["plan"]))
+            if (datetime.fromisoformat(plan.price.checked_on).date() -
+                    datetime.fromtimestamp(now, timezone.utc).date()).days not in range(-7, 1):
+                raise ValueError("campaign_price_expired")
+            count = db.execute("SELECT count(*) FROM outbox WHERE campaign_id=? AND reserved_day IS NOT NULL",
+                               (row["campaign_id"],)).fetchone()[0]
+            last = db.execute("SELECT last_at FROM budget_clock WHERE id=1").fetchone()
+            if last is not None and now < last["last_at"]:
+                raise ValueError("campaign_clock_moved_backwards")
+            day = datetime.fromtimestamp(now, timezone.utc).date().isoformat()
+            reserved = db.execute("SELECT reserved_cents FROM budget WHERE day=?", (day,)).fetchone()
+            if count >= MAX_CASES or (reserved[0] if reserved else 0) + RESERVE_CENTS > DAILY_CENTS:
+                raise ValueError("campaign_budget_limit")
+            db.execute("INSERT INTO budget(day,reserved_cents) VALUES (?,?) ON CONFLICT(day) DO UPDATE "
+                       "SET reserved_cents=reserved_cents+excluded.reserved_cents", (day, RESERVE_CENTS))
+            db.execute("INSERT INTO budget_clock(id,last_at) VALUES (1,?) ON CONFLICT(id) DO UPDATE "
+                       "SET last_at=excluded.last_at", (now,))
+            db.execute("UPDATE outbox SET state='sending',reserved_day=?,updated=? WHERE id=?",
+                       (day, now, identifier))
+        try:
+            parsed = ModelView.model_validate(view)
+            templates = request_templates(parsed, plan)
+            draft, usage, model = generate_once(templates, plan, transport, clock=time.monotonic)
+            report = validate_projected_report(draft, parsed)
+            result = {"report": report.model_dump(mode="json"), "usage": usage, "model": model,
+                      "semantic_review_required": True, "execution_status": "not_executed"}
+            state, reason = "needs_review", "semantic_review_required"
+        except (ProjectionModelFailure, ValueError) as error:
+            result = None
+            state, reason = "needs_review", (error.reason if isinstance(error, ProjectionModelFailure)
+                                               else "projection_report_invalid")
+        with self._transaction() as db:
+            db.execute("UPDATE outbox SET state=?,reason=?,result=?,updated=? WHERE id=? AND state='sending'",
+                       (state, reason, canonical_json_bytes(result).decode() if result else None,
+                        self._now(), identifier))
+        return self.item(identifier)
+
+    def stop(self, campaign_id: str):
+        with self._transaction() as db:
+            db.execute("UPDATE campaigns SET state='stopped' WHERE id=?", (campaign_id,))
+
+    def reconcile_sending(self) -> int:
+        """재시작 후 요청이 나갔을 수 있는 기록을 보류하고 다시 보내지 않는다."""
+        with self._transaction() as db:
+            return db.execute("UPDATE outbox SET state='needs_review',reason='unknown_send',updated=? "
+                              "WHERE state='sending'", (self._now(),)).rowcount
+
+    def prune(self) -> tuple[int, int]:
+        """본문 7일·본문 없는 예약/중복 기록 90일을 유지한다."""
+        now = self._now()
+        with self._transaction() as db:
+            bodies = db.execute("UPDATE outbox SET view=NULL,rules=NULL,result=NULL,updated=? "
+                                "WHERE created<? AND view IS NOT NULL", (now, now-BODY_DAYS*86400)).rowcount
+            records = db.execute("DELETE FROM outbox WHERE created<?", (now-LEDGER_DAYS*86400,)).rowcount
+            db.execute("DELETE FROM rejections WHERE created<?", (now-LEDGER_DAYS*86400,))
+            db.execute("DELETE FROM budget WHERE day<?", (_utc(now-LEDGER_DAYS*86400)[:10],))
+            db.execute("DELETE FROM campaigns WHERE created<? AND id NOT IN "
+                       "(SELECT campaign_id FROM outbox)", (now-LEDGER_DAYS*86400,))
+        return bodies, records

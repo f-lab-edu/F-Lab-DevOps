@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import os
 import stat
+import sys
 from pathlib import Path
 import sqlite3
 import threading
@@ -29,11 +30,29 @@ class Worker:
     """외부 모델 없이 신뢰 설정에 고정한 수동·CI 요청만 처리한다."""
 
     def __init__(self, queue: JobQueue, settings: BSettings, *, collector=collect_snapshot,
-                 stopped: threading.Event | None = None):
+                 stopped: threading.Event | None = None, model_bridge=None):
+        if model_bridge is not None:
+            from ai_ops.model_projection import TARGET
+            if (len(settings.bindings.bindings) != 1 or
+                    settings.bindings.bindings[0].target.model_dump(mode="json") != TARGET):
+                raise ValueError("실습 CI 모델 연결은 격리된 한 대상에서만 허용합니다")
         self.queue = queue
         self.settings = settings
         self.collector = collector
         self.stopped = stopped or threading.Event()
+        self.model_bridge = model_bridge
+
+    def _sync_model(self, job=None, record=None):
+        if self.model_bridge is None:
+            return
+        try:
+            if job is None:
+                self.model_bridge.reconcile(self)
+            else:
+                self.model_bridge.capture(self, job, record)
+        except Exception:
+            # 보조 모델 경로의 실패가 확정된 규칙 보고서를 실패로 바꾸지 않는다.
+            print("model_outbox_sync_failed", file=sys.stderr)
 
     def _payload(self, job: dict) -> dict:
         raw = job["payload"].encode("utf-8")
@@ -134,6 +153,7 @@ class Worker:
     def _run_once(self) -> dict | None:
         # 호출자는 저장소 전체 worker 잠금을 소유해야 한다.
         self.recover()
+        self._sync_model()
         if self.stopped.is_set():
             return None
         job = self.queue.claim()
@@ -185,6 +205,7 @@ class Worker:
                     self._check_record(job, record)
                     self.queue.assert_owner(db, job)
                     self.queue.finish(db, job, record)
+                self._sync_model(job, record)
         except LeaseLost:
             # 소유권을 잃은 시도는 큐 상태·완료 참조를 덮어쓰지 않는다.
             pass

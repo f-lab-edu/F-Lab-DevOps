@@ -93,3 +93,14 @@ class GatewayBoundaryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 transport("/evil", {}, timeout=5)
         self.assertEqual(fake.calls, 1)
+
+    def test_stopped_campaign_blocks_before_key_read_or_network(self):
+        def stopped():
+            raise ValueError("campaign_stopped")
+        transport = GatewayOpenAITransport("0" * 64, before_request=stopped)
+        with patch("ai_ops.model_gateway_transport.read_cluster_credential") as credential, patch(
+                "ai_ops.model_gateway_transport._TunnelConnection") as connection:
+            with self.assertRaisesRegex(ValueError, "campaign_stopped"):
+                transport("/v1/responses", {}, timeout=5)
+            credential.assert_not_called()
+            connection.assert_not_called()

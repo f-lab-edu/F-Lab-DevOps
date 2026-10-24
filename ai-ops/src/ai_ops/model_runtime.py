@@ -7,7 +7,7 @@ import re
 from ai_ops.continuous_model import ContinuousModelStore, implementation_hash
 from ai_ops.model_gateway_transport import GatewayOpenAITransport, read_cluster_credential
 from ai_ops.model_live_probe import ModelLiveProbe
-from ai_ops.projected_model_engine import CallPlan
+from ai_ops.projected_model_engine import CallPlan, ProjectionModelFailure
 
 
 class ModelGatewayRuntime:
@@ -45,6 +45,14 @@ class ModelGatewayRuntime:
         if identifier is None:
             return None
         plan = self.verify()
-        transport = self.transport_factory(plan.credential_fingerprint)
+        transport = self.transport_factory(
+            plan.credential_fingerprint, before_request=self._before_request)
         self.store.process_live(identifier, transport, image_digest=self.image_digest)
         return identifier
+
+    def _before_request(self):
+        """중지·만료 후 토큰 계산이나 생성의 다음 HTTP 호출을 시작하지 않는다."""
+        campaign = self.store.campaign(self.campaign_id)
+        if (campaign["state"] != "approved" or
+                not campaign["created"] <= self.store._now() < campaign["expires"]):
+            raise ProjectionModelFailure("campaign_stopped")

@@ -101,6 +101,23 @@ class ModelRuntimeTest(unittest.TestCase):
         self.assertEqual(self.probe.calls, 1)
         self.assertEqual(self.store.item(item)["reason"], "semantic_review_required")
 
+    def test_stop_after_token_count_prevents_generation(self):
+        self.approve()
+        item = self.enqueue()
+        calls = []
+        def respond(transport, path, _body, *, timeout):
+            transport.before_request()
+            calls.append(path)
+            if path.endswith("input_tokens"):
+                self.store.stop(self.campaign)
+                return {"object": "response.input_tokens", "input_tokens": 100}
+            self.fail("중지한 캠페인은 생성 요청을 보내면 안 된다")
+        with patch("ai_ops.model_runtime.read_cluster_credential", return_value=self.key), patch.object(
+                GatewayOpenAITransport, "__call__", respond):
+            self.assertEqual(self.runtime.run_once(), item)
+        self.assertEqual(calls, ["/v1/responses/input_tokens"])
+        self.assertEqual(self.store.item(item)["reason"], "campaign_stopped")
+
 
 if __name__ == "__main__":
     unittest.main()

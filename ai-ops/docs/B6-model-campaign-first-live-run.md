@@ -1,6 +1,6 @@
 # B-06-M7 첫 클러스터 모델 캠페인 실측
 
-상태: **2026-10-25 KST 첫 격리 실습 CI의 자동 접수·실제 모델 보고서 생성·자체 내용 검토 완료. M7과 B단계 전체는 진행 중.** 이 기록은 실습 환경 한 건의 결과이며 운영 장애 진단 정확도나 자동 복구를 입증하지 않는다. 원문 입력·API 키·내부 토큰·전체 보고서는 Git에 넣지 않는다.
+상태: **2026-10-25 KST 첫 격리 실습 CI의 실제 모델 보고서 생성·자체 내용 검토 후 v1 캠페인 조기 중지 완료. M7과 B단계 전체는 진행 중.** 이 기록은 실습 환경 한 건의 결과이며 운영 장애 진단 정확도나 자동 복구를 입증하지 않는다. 원문 입력·API 키·내부 토큰·전체 보고서는 Git에 넣지 않는다.
 
 ## 범위와 처리 흐름
 
@@ -40,7 +40,15 @@ GitHub 실습 CI → 최초 이미지 실패·기존 CI의 자동 원복 → art
 2. `ai-ci/ci-worker`의 모델 bridge를 끄고 rollout을 확인한다. 공유 PVC를 쓰는 `ci-relay`와 worker의 교체가 겹치지 않도록 전달기를 잠시 0으로 내렸다가 worker 준비 후 1로 복구한다. 규칙 조사와 전달기는 계속 동작하는지 확인한다.
 3. 장부의 **이 캠페인 ID만** `stopped`로 기록한 뒤 `ai-model/model-gateway`와 `model-egress-proxy`를 복제수 0으로 내린다. 첫 실패 장부와 이번 결과·규칙 보고서·기존 AI 자료는 보존한다.
 4. `ai-ci/model-client-auth`, `ai-model/model-client-auth`, `model-openai-key` Secret은 Deployment의 참조·마운트를 먼저 제거하거나 기본 비활성 정의를 재적용한 뒤 삭제한다. Secret만 먼저 삭제해 worker 재시작을 막지 않는다. API 키의 개인 원본은 AWS 리소스 정리와 별개다.
-5. worker·전달기 Ready, 모델 Pod 0, Secret 부재, 추가 outbox/예약 없음과 실습 앱 `Synced/Healthy`를 재조회한다. **2026-10-26 15:38 KST 이후의 실제 확인 결과는 아직 없다.**
+5. worker·전달기 Ready, 모델 Pod 0, Secret 부재, 추가 outbox/예약 없음과 실습 앱 `Synced/Healthy`를 재조회한다. 만료 자체의 자동 동작은 별도 검증 대상으로 둔다.
+
+### 2026-10-25 KST 조기 중지 실측
+
+새 v2 입력 준비에 앞서 승인 종료 시각을 기다리지 않고 v1 캠페인을 중지했다. 현재 EKS의 주소를 AWS에서 재확인해 임시 kubeconfig로 접속했으며 사용자의 기본 kubeconfig는 변경하지 않았다. 중지 직전 장부에는 캠페인 `approved`, `needs_review` outbox 1건, UTC 2026-10-25 예약 20센트가 있었고 `prepared`·`sending`은 0건이었다.
+
+공유 PVC 충돌을 막기 위해 `ci-relay`를 0으로 내리고 `ci-worker`의 모델 bridge를 끈 뒤 정상 교체를 확인했다. 해당 캠페인 ID만 `stopped`로 기록하고 gateway·proxy를 0으로 내렸다. worker의 캠페인 환경값과 client Secret 마운트를 제거해 다시 교체한 후 relay를 1로 복구했다. 참조가 사라진 `ai-ci/model-client-auth`, `ai-model/model-client-auth`, `ai-model/model-openai-key` Secret을 삭제했다. 개인 API 키 원본과 장부 PVC·기존 보고서는 보존했다.
+
+최종 조회에서 worker·relay 각각 Ready 1/1, 모델 Deployment 각각 복제수 0 및 Pod 0, 위 Secret 0개, 실습 Argo 앱 `Synced/Healthy`를 확인했다. 이후의 장부 재조회는 gateway Pod를 종료했으므로 수행하지 않았다. 조기 중지로 **실제 만료 시점의 자동 동작을 실측한 것은 아니며**, v2 모델 호출이나 새 실습 장애 실행도 이 정리에 포함되지 않는다.
 
 ## 남은 완료 조건
 

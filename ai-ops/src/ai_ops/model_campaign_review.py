@@ -13,8 +13,9 @@ import time
 from ai_ops.continuous_model import (CAMPAIGN_SECONDS, DAILY_CENTS, MAX_CASES,
                                      RESERVE_CENTS, implementation_hash)
 from ai_ops.contracts import canonical_json_bytes, sha256_json
-from ai_ops.model_projection import ModelView, POLICY, TARGET
-from ai_ops.projected_model_engine import CallPlan, PROMPT_VERSION, request_templates
+from ai_ops.model_projection import ModelView, TARGET
+from ai_ops.model_policy import policy_spec
+from ai_ops.projected_model_engine import CallPlan
 
 
 def private_credential_fingerprint(path: Path, *, kind: str) -> str:
@@ -42,13 +43,13 @@ def build_review_packet(campaign: dict, sample_view: ModelView, *,
                         clock=time.time) -> dict:
     """실제 승인 전 확인할 대상·입력·전송·비용을 고정한 자료를 반환한다."""
     binding = campaign["binding"]
+    selected = policy_spec(binding["policy"])
     now = clock()
     if (campaign["state"] != "prepared" or
             not campaign["created"] <= now < campaign["expires"] or
             campaign["binding_hash"] != sha256_json(binding) or
             binding["implementation_hash"] != implementation_hash() or
-            binding["target"] != TARGET or binding["policy"] != POLICY or
-            binding["prompt"] != PROMPT_VERSION or
+            binding["target"] != TARGET or binding["prompt"] != selected.prompt or
             binding["limit"] != {"seconds": CAMPAIGN_SECONDS, "cases": MAX_CASES,
                                  "case_cents": RESERVE_CENTS, "utc_day_cents": DAILY_CENTS}):
         raise ValueError("campaign_review_scope_changed")
@@ -59,10 +60,10 @@ def build_review_packet(campaign: dict, sample_view: ModelView, *,
     checked = datetime.fromisoformat(plan.price.checked_on).date()
     if (datetime.fromtimestamp(now, timezone.utc).date() - checked).days not in range(0, 8):
         raise ValueError("campaign_review_price_expired")
-    view = ModelView.model_validate(sample_view)
+    view = selected.view_type.model_validate(sample_view)
     if binding["sample_view_hash"] != sha256_json(view.model_dump(mode="json")):
         raise ValueError("campaign_review_sample_changed")
-    templates = request_templates(view, plan)
+    templates = selected.request_templates(view, plan)
     return {"campaign_id": campaign["id"], "binding_hash": campaign["binding_hash"],
             "state": "prepared", "activation_allowed": False,
             "created_utc": datetime.fromtimestamp(campaign["created"], timezone.utc).isoformat(),

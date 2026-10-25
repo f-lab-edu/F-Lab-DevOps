@@ -16,12 +16,12 @@ import uuid
 from ai_ops.contracts import canonical_json_bytes, sha256_json
 from ai_ops.incidents import _private_directory
 from ai_ops.model_comparison import rules_projection
-from ai_ops.model_projection import ModelView, POLICY, Projection, TARGET, parse_projection
+from ai_ops.model_projection import POLICY, Projection, TARGET
+from ai_ops.model_policy import policy_spec
 from ai_ops.model_gateway_contract import ModelSubmission
 from ai_ops.model_gateway_transport import GatewayOpenAITransport
 from ai_ops.path_policy import permitted_path
-from ai_ops.projected_model_engine import (CallPlan, PROMPT_VERSION, ProjectionModelFailure,
-    generate_once, request_templates, validate_projected_report)
+from ai_ops.projected_model_engine import CallPlan, ProjectionModelFailure, generate_once
 
 
 BODY_DAYS = 7
@@ -35,7 +35,7 @@ CAMPAIGN_SECONDS = 24 * 60 * 60
 def implementation_hash() -> str:
     """승인 범위에 정제·프롬프트·장부·연결 코드를 함께 고정한다."""
     root = Path(__file__).parent
-    names = ("model_projection.py", "model_ci_projection.py", "model_comparison.py",
+    names = ("model_projection.py", "model_ci_projection.py", "model_policy.py", "model_comparison.py",
              "projected_model_engine.py", "projected_ci_model_engine.py",
              "continuous_model.py", "continuous_ci_bridge.py", "model_gateway_contract.py",
              "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
@@ -147,16 +147,18 @@ class ContinuousModelStore:
         return plan
 
     def prepare_campaign(self, *, deployment_uid: str, config_hash: str,
-                         cluster_fingerprint: str, plan: CallPlan) -> str:
+                         cluster_fingerprint: str, plan: CallPlan,
+                         policy: str = POLICY) -> str:
         """실제 활성화가 아닌 모의 승인안만 만든다."""
         plan = self._plan(plan)
         if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", deployment_uid):
             raise ValueError("campaign_uid_rejected")
         if not all(re.fullmatch(r"[0-9a-f]{64}", x) for x in (config_hash, cluster_fingerprint)):
             raise ValueError("campaign_hash_rejected")
+        selected = policy_spec(policy)
         binding = {"target": TARGET, "deployment_uid": deployment_uid,
                    "config_hash": config_hash, "cluster_fingerprint": cluster_fingerprint,
-                   "policy": POLICY, "prompt": PROMPT_VERSION,
+                   "policy": selected.policy, "prompt": selected.prompt,
                    "implementation_hash": implementation_hash(),
                    "plan": plan.model_dump(mode="json"),
                    "limit": {"seconds": CAMPAIGN_SECONDS, "cases": MAX_CASES,
@@ -170,7 +172,8 @@ class ContinuousModelStore:
 
     def prepare_live_campaign(self, *, deployment_uid: str, config_hash: str,
                               cluster_fingerprint: str, image_digest: str,
-                              sample_view_hash: str, plan: CallPlan) -> str:
+                              sample_view_hash: str, plan: CallPlan,
+                              policy: str = POLICY) -> str:
         """대상·이미지·샘플·키 지문·비용을 결합한 승인안을 만들고 비활성으로 둔다."""
         plan = self._live_plan(plan)
         if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", deployment_uid):
@@ -180,10 +183,11 @@ class ContinuousModelStore:
             raise ValueError("campaign_hash_rejected")
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_digest):
             raise ValueError("campaign_image_rejected")
+        selected = policy_spec(policy)
         binding = {"target": TARGET, "deployment_uid": deployment_uid,
                    "config_hash": config_hash, "cluster_fingerprint": cluster_fingerprint,
                    "image_digest": image_digest, "sample_view_hash": sample_view_hash,
-                   "policy": POLICY, "prompt": PROMPT_VERSION,
+                   "policy": selected.policy, "prompt": selected.prompt,
                    "implementation_hash": implementation_hash(),
                    "plan": plan.model_dump(mode="json"),
                    "limit": {"seconds": CAMPAIGN_SECONDS, "cases": MAX_CASES,
@@ -237,7 +241,8 @@ class ContinuousModelStore:
     def enqueue(self, campaign_id: str, projection: Projection, *, source_run: str,
                 rules_ref: str) -> str:
         """검증된 실습 Projection의 view만 저장한다. 원본 대응표는 기록하지 않는다."""
-        projection = parse_projection(canonical_json_bytes(projection.model_dump(mode="json")))
+        selected = policy_spec(projection.view.policy_version)
+        projection = selected.parse_projection(canonical_json_bytes(projection.model_dump(mode="json")))
         if source_run != projection.identity.run_id or not re.fullmatch(r"run-[0-9a-f]{32}", source_run):
             raise ValueError("outbox_source_run_rejected")
         if not re.fullmatch(r"inc-[0-9a-f]{32}/run-[0-9a-f]{32}/report\.md", rules_ref):
@@ -250,7 +255,7 @@ class ContinuousModelStore:
                 raise ValueError("outbox_campaign_unavailable")
             binding = json.loads(campaign["binding"])
             if (binding["implementation_hash"] != implementation_hash() or
-                    binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
+                    binding["prompt"] != selected.prompt or binding["policy"] != selected.policy):
                 raise ValueError("campaign_code_changed")
             identity = projection.identity
             if (identity.deployment_uid != binding["deployment_uid"] or
@@ -260,10 +265,10 @@ class ContinuousModelStore:
                     projection.view.target_alias != "service-1"):
                 raise ValueError("outbox_target_rejected")
             plan = self._plan(CallPlan.model_validate(binding["plan"]))
-            request_templates(projection.view, plan)
+            selected.request_templates(projection.view, plan)
             key = sha256_json({"source_run": source_run,
                                "snapshot_hash": projection.source_bundle_hash,
-                               "view_hash": projection.view_hash, "policy": POLICY,
+                               "view_hash": projection.view_hash, "policy": selected.policy,
                                "campaign_id": campaign_id})
             identifier = "outbox-" + key
             view = projection.view.model_dump(mode="json")
@@ -295,8 +300,8 @@ class ContinuousModelStore:
 
     def enqueue_submission(self, submission: ModelSubmission) -> str:
         """gateway는 서명 검증을 마친 정제 입력만 받아 별도 장부에 기록한다."""
-        submission = ModelSubmission.model_validate_json(
-            canonical_json_bytes(submission.model_dump(mode="json")))
+        from ai_ops.model_gateway_contract import parse_model_submission
+        submission = parse_model_submission(canonical_json_bytes(submission.model_dump(mode="json")))
         with self._transaction() as db:
             campaign = db.execute("SELECT * FROM campaigns WHERE id=?",
                                   (submission.campaign_id,)).fetchone()
@@ -305,20 +310,22 @@ class ContinuousModelStore:
                     not campaign["created"] <= now < campaign["expires"]):
                 raise ValueError("outbox_live_campaign_unavailable")
             binding = json.loads(campaign["binding"])
+            selected = policy_spec(binding["policy"])
             plan = self._live_plan(CallPlan.model_validate(binding["plan"]))
             approval = db.execute("SELECT * FROM live_approvals WHERE campaign_id=?",
                                   (submission.campaign_id,)).fetchone()
             if (approval is None or approval["binding_hash"] != sha256_json(binding) or
                     approval["sharing_off"] != 1 or approval["retention_ack"] != 1 or
                     binding["implementation_hash"] != implementation_hash() or
-                    binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
+                    binding["prompt"] != selected.prompt or
+                    submission.view.policy_version != selected.policy):
                 raise ValueError("outbox_live_approval_or_code_changed")
             if (submission.deployment_uid != binding["deployment_uid"] or
                     submission.config_hash != binding["config_hash"] or
                     submission.cluster_fingerprint != binding["cluster_fingerprint"] or
                     submission.view.policy_version != binding["policy"]):
                 raise ValueError("outbox_target_rejected")
-            request_templates(submission.view, plan)
+            selected.request_templates(submission.view, plan)
             projection_binding = {"source_bundle_hash": submission.source_bundle_hash,
                                   "source_audit_hash": submission.source_audit_hash,
                                   "mapping_hash": submission.mapping_hash,
@@ -328,7 +335,7 @@ class ContinuousModelStore:
             rules = rules_projection(submission.view).model_dump(mode="json")
             key = sha256_json({"source_run": submission.source_run,
                                "snapshot_hash": submission.source_bundle_hash,
-                               "view_hash": submission.view_hash, "policy": POLICY,
+                               "view_hash": submission.view_hash, "policy": selected.policy,
                                "campaign_id": submission.campaign_id})
             identifier = "outbox-" + key
             bound = sha256_json({"view": view, "projection_binding": projection_binding,
@@ -412,8 +419,9 @@ class ContinuousModelStore:
             if campaign is None or campaign["state"] != "approved" or not campaign["created"] <= now < campaign["expires"]:
                 raise ValueError("campaign_not_active")
             binding = json.loads(campaign["binding"])
+            selected = policy_spec(binding["policy"])
             if (binding["implementation_hash"] != implementation_hash() or
-                    binding["prompt"] != PROMPT_VERSION or binding["policy"] != POLICY):
+                    binding["prompt"] != selected.prompt):
                 raise ValueError("campaign_code_changed")
             if live:
                 if binding.get("image_digest") != image_digest:
@@ -429,7 +437,8 @@ class ContinuousModelStore:
                                  "source_run": row["source_run"], "rules_ref": row["rules_ref"],
                                  "campaign": row["campaign_id"], "binding": binding})
             if (bound != row["binding_hash"] or sha256_json(view) != projection_binding["view_hash"] or
-                    json.loads(row["rules"]) != rules_projection(ModelView.model_validate(view)).model_dump(mode="json")):
+                    json.loads(row["rules"]) != rules_projection(
+                        selected.view_type.model_validate(view)).model_dump(mode="json")):
                 raise ValueError("outbox_integrity_rejected")
             plan = (self._live_plan if live else self._plan)(
                 CallPlan.model_validate(binding["plan"]))
@@ -454,10 +463,10 @@ class ContinuousModelStore:
             db.execute("UPDATE outbox SET state='sending',reserved_day=?,updated=? WHERE id=?",
                        (day, now, identifier))
         try:
-            parsed = ModelView.model_validate(view)
-            templates = request_templates(parsed, plan)
+            parsed = selected.view_type.model_validate(view)
+            templates = selected.request_templates(parsed, plan)
             draft, usage, model = generate_once(templates, plan, transport, clock=time.monotonic)
-            report = validate_projected_report(draft, parsed)
+            report = selected.validate_report(draft, parsed)
             result = {"report": report.model_dump(mode="json"), "usage": usage, "model": model,
                       "semantic_review_required": True, "execution_status": "not_executed"}
             state, reason = "needs_review", "semantic_review_required"

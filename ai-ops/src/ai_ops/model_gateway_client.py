@@ -8,7 +8,8 @@ from pathlib import Path
 import re
 
 from ai_ops.contracts import canonical_json_bytes
-from ai_ops.model_gateway_contract import ModelSubmission, sign_submission
+from ai_ops.model_gateway_contract import CIModelSubmission, ModelSubmission, sign_submission
+from ai_ops.model_ci_projection import CIProjection
 from ai_ops.model_projection import Projection
 
 
@@ -93,7 +94,8 @@ class ModelGatewayClient:
 
     def enqueue(self, campaign_id: str, projection: Projection, *, source_run: str,
                 rules_ref: str) -> str:
-        submission = ModelSubmission.from_projection(campaign_id, projection, rules_ref=rules_ref)
+        contract = CIModelSubmission if type(projection) is CIProjection else ModelSubmission
+        submission = contract.from_projection(campaign_id, projection, rules_ref=rules_ref)
         if submission.source_run != source_run:
             raise ValueError("model_gateway_source_rejected")
         value = self._request("POST", "/v1/submit", submission.model_dump(mode="json"))

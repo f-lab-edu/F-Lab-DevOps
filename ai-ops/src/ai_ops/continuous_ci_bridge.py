@@ -6,14 +6,16 @@ import re
 
 from ai_ops.ci_handoff import SOURCE, check_snapshot
 from ai_ops.ci_rules import ENGINE as CI_RULES_ENGINE
+from ai_ops.model_ci_projection import CI_POLICY, project_ci_snapshot
 from ai_ops.model_projection import SourceIdentity, project_snapshot
+from ai_ops.model_projection import POLICY
 
 
 class ContinuousCIBridge:
     """실습 worker에 명시적으로 주입할 때만 동작하는 모의 연결이다."""
 
     def __init__(self, store, campaign_id: str, *, cluster_fingerprint: str,
-                 exporter_sha256: str):
+                 exporter_sha256: str, policy: str = POLICY):
         if not all(re.fullmatch(r"[0-9a-f]{64}", value)
                    for value in (cluster_fingerprint, exporter_sha256)):
             raise ValueError("model_bridge_identity_rejected")
@@ -21,6 +23,9 @@ class ContinuousCIBridge:
         self.campaign_id = campaign_id
         self.cluster_fingerprint = cluster_fingerprint
         self.exporter_sha256 = exporter_sha256
+        if policy not in {POLICY, CI_POLICY}:
+            raise ValueError("model_bridge_policy_rejected")
+        self.policy = policy
 
     def capture(self, worker, job: dict, record=None):
         """큐 HMAC·고정 snapshot·규칙 보고서 검증 뒤에만 view를 만든다."""
@@ -48,7 +53,9 @@ class ContinuousCIBridge:
             config_hash=worker.settings.config_hash, incident_id=record.incident_id,
             run_id=record.run_id, exporter_sha256=self.exporter_sha256)
         try:
-            projection = project_snapshot(snapshot, worker.settings, identity)
+            projection = (project_ci_snapshot(snapshot, worker.settings, identity, history)
+                          if self.policy == CI_POLICY else
+                          project_snapshot(snapshot, worker.settings, identity))
         except ValueError:
             self.store.reject_projection(self.campaign_id, job["job_id"], record.run_id)
             return None

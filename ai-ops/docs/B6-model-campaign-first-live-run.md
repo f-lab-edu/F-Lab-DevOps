@@ -45,7 +45,7 @@ GitHub 실습 CI → 최초 이미지 실패·기존 CI의 자동 원복 → art
 ## 남은 완료 조건
 
 - 정상 관측과 제한 장애 관측의 비교, 중복·예산·전송 실패·중지/만료 경계, 독립 의미 검토를 필요한 범위로 마친다. 이미 통과한 전체 회귀를 이유 없이 반복하거나 이 한 건을 일반 진단 정확도로 환산하지 않는다.
-- 원인 설명에 필요한 [CI 실패·원복 정제 입력 v2 설계안](B6-model-ci-projection-v2-design.md)과 [오프라인 구현](B6-model-ci-projection-v2-implementation.md)을 작성했다. worker/gateway 연결·배포·v2 외부 전송은 아직 하지 않았다. 정책·구현·이미지·입력 범위가 바뀌면 이 캠페인 승인을 재사용하지 않고 새 검토안과 승인을 받는다.
+- 원인 설명에 필요한 [CI 실패·원복 정제 입력 v2 설계안](B6-model-ci-projection-v2-design.md), [오프라인 투영](B6-model-ci-projection-v2-implementation.md), [worker/gateway 연결 코드](B6-model-ci-projection-v2-connection.md)를 작성했다. 연결 코드는 배포하지 않았고 v2 외부 전송은 아직 하지 않았다. 정책·구현·이미지·입력 범위가 바뀌면 이 캠페인 승인을 재사용하지 않고 새 검토안과 승인을 받는다.
 - [B-06 평가](B6-operational-evaluation.md)와 AI 작업 리스트의 B 종료 기준에 현재 실측과 미검증 범위를 반영한 뒤 C 진입 여부를 별도 판정한다. C단계의 변경 실행 권한은 아직 없다.
 
 다음 작업 권장 추론 깊이는 **GPT-6 SOL high**다.

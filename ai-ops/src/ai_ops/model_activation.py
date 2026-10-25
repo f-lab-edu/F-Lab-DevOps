@@ -8,6 +8,7 @@ import time
 from ai_ops.continuous_model import implementation_hash
 from ai_ops.contracts import sha256_json
 from ai_ops.model_service import IMAGE_PATTERN
+from ai_ops.model_policy import policy_spec
 from ai_ops.projected_model_engine import CallPlan
 
 
@@ -30,7 +31,8 @@ def build_activation_patches(campaign: dict, *, image: str,
             binding["image_digest"] != image.split("@", 1)[1]):
         raise ValueError("model_activation_scope_changed")
     plan = CallPlan.model_validate(binding["plan"])
-    if plan.execution_mode != "live":
+    selected = policy_spec(binding["policy"])
+    if plan.execution_mode != "live" or binding["prompt"] != selected.prompt:
         raise ValueError("model_activation_live_approval_required")
 
     def deployment(namespace, name, container):
@@ -56,6 +58,7 @@ def build_activation_patches(campaign: dict, *, image: str,
         "name": "ci-worker", "image": image,
         "env": [{"name": "AI_MODEL_BRIDGE_ENABLED", "value": "true"},
                 {"name": "AI_MODEL_CAMPAIGN_ID", "value": campaign["id"]},
+                {"name": "AI_MODEL_POLICY", "value": selected.policy},
                 {"name": "AI_MODEL_CLUSTER_FINGERPRINT", "value": binding["cluster_fingerprint"]},
                 {"name": "AI_MODEL_EXPORTER_SHA256", "value": exporter_sha256}],
         "volumeMounts": [{"name": "model-client-auth",

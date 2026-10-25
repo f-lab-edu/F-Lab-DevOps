@@ -156,7 +156,8 @@ def main(argv=None) -> int:
             model_bridge = ContinuousCIBridge(
                 ModelGatewayClient(), os.environ["AI_MODEL_CAMPAIGN_ID"],
                 cluster_fingerprint=os.environ["AI_MODEL_CLUSTER_FINGERPRINT"],
-                exporter_sha256=os.environ["AI_MODEL_EXPORTER_SHA256"])
+                exporter_sha256=os.environ["AI_MODEL_EXPORTER_SHA256"],
+                policy=os.environ.get("AI_MODEL_POLICY", "captured-practice-projection-v1"))
         worker = Worker(queue, settings, stopped=stopped, model_bridge=model_bridge)
         log_event("process_started")
         with metrics_server(telemetry) if args.metrics else nullcontext():

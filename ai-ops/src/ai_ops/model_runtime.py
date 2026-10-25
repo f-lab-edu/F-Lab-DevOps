@@ -7,6 +7,7 @@ import re
 from ai_ops.continuous_model import ContinuousModelStore, implementation_hash
 from ai_ops.model_gateway_transport import GatewayOpenAITransport, read_cluster_credential
 from ai_ops.model_live_probe import ModelLiveProbe
+from ai_ops.model_policy import policy_spec
 from ai_ops.projected_model_engine import CallPlan, ProjectionModelFailure
 
 
@@ -27,10 +28,12 @@ class ModelGatewayRuntime:
     def verify(self) -> CallPlan:
         campaign = self.store.campaign(self.campaign_id)
         binding = campaign["binding"]
+        selected = policy_spec(binding["policy"])
         if (campaign["state"] != "approved" or
                 not campaign["created"] <= self.store._now() < campaign["expires"] or
                 binding["image_digest"] != self.image_digest or
-                binding["implementation_hash"] != implementation_hash()):
+                binding["implementation_hash"] != implementation_hash() or
+                binding["prompt"] != selected.prompt):
             raise ValueError("model_runtime_campaign_unavailable")
         plan = self.store._live_plan(CallPlan.model_validate(binding["plan"]))
         from hashlib import sha256

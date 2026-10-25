@@ -35,7 +35,8 @@ CAMPAIGN_SECONDS = 24 * 60 * 60
 def implementation_hash() -> str:
     """승인 범위에 정제·프롬프트·장부·연결 코드를 함께 고정한다."""
     root = Path(__file__).parent
-    names = ("model_projection.py", "model_comparison.py", "projected_model_engine.py",
+    names = ("model_projection.py", "model_ci_projection.py", "model_comparison.py",
+             "projected_model_engine.py", "projected_ci_model_engine.py",
              "continuous_model.py", "continuous_ci_bridge.py", "model_gateway_contract.py",
              "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
              "model_live_probe.py", "model_runtime.py", "model_activation.py", "model_service.py",

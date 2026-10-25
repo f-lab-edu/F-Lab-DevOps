@@ -1,6 +1,6 @@
 # B-06-M7 CI 실패·원복 정제 입력 v2 설계
 
-상태: **2026-10-25 KST 설계안, 미구현·미승인·미전송.** 현재 운영 중인 `captured-practice-projection-v1` 캠페인과 그 승인 범위를 바꾸지 않는다. 이 문서는 [첫 클러스터 모델 보고서](B6-model-campaign-first-live-run.md)가 원인을 설명하지 못한 이유를 좁혀 다음 구현 범위를 정한다. B단계 완료나 C단계의 변경 실행 승인이 아니다.
+상태: **2026-10-25 KST 설계 완료, v2 계약·오프라인 투영·모의 보고서 검증 구현.** [구현 기록](B6-model-ci-projection-v2-implementation.md)에 실제 반영 범위와 미연결 항목을 구분했다. 현재 운영 중인 `captured-practice-projection-v1` 캠페인과 그 승인 범위를 바꾸지 않는다. 이 문서는 [첫 클러스터 모델 보고서](B6-model-campaign-first-live-run.md)가 원인을 설명하지 못한 이유를 좁혀 다음 구현 범위를 정했다. B단계 완료나 C단계의 변경 실행 승인이 아니다.
 
 ## 문제와 목표
 
@@ -53,7 +53,7 @@ v2의 목표는 **검증된 S10 실습 CI 한 실행**에 한해 최초 배포 �
 
 - 새 `ModelView`의 `schema_version=2`, `policy_version=captured-practice-projection-v2`를 명확히 올리고 `CIStageSummary`를 엄격한 enum·boolean·0/1 범위로 정의한다. 검증된 두 CI 항목만 기존 제외 집계에서 포함 항목으로 옮긴다. `source_count = 포함 항목 수 + 제외 항목 개수 합계`와 view/source mapping·내용 해시 불변식을 유지한다. 다른 배포·로그·이벤트는 제외 집계에 남긴다.
 - 쌍이 불완전하면 실제 source status를 `missing`으로 덮지 않는다. v2 제외 사유에 `ci_pair_unverified`처럼 정책상 미승격 상태를 별도로 둔다. available 단일 관측을 원복 성공 근거로 사용하거나 stale 자료를 현재 사실로 인용하지 않는다.
-- `project_snapshot()`의 범용 v1 경로를 무조건 확대하지 않는다. CI 전용 투영 함수에 검증된 `VerifiedLabHistory`를 명시적으로 전달하고, worker bridge에서만 호출한다. 수동 M3와 이미 저장한 v1 view·outbox·보고서는 원본 그대로 해석할 수 있게 분리한다. 새 함수 파일을 만들면 `implementation_hash()` 대상에도 추가한다.
+- `project_snapshot()`의 범용 v1 경로를 무조건 확대하지 않는다. CI 전용 투영 함수에 검증된 `VerifiedLabHistory`를 명시적으로 전달한다. 현재는 오프라인 함수만 구현했으며, 향후 worker bridge 연결 시에만 호출 경로를 연다. 수동 M3와 이미 저장한 v1 view·outbox·보고서는 원본 그대로 해석할 수 있게 분리한다. 새 함수 파일은 `implementation_hash()` 대상에 추가했다.
 - 프롬프트·질문·정형 출력의 버전을 함께 올려 **과거 CI 관측만** 설명하게 한다. `image_pull_failure_observed=true`는 이미지 취득 실패의 근거이지 사용자 영향·복구 완료의 증거가 아니다. `current_state=unknown`, `analysis_status=partial`, 모든 조치 `not_executed`를 유지한다. 사실·가설은 포함된 `available` view ID만 인용해야 한다.
 - `/v1/responses/input_tokens`와 `/v1/responses` 두 요청을 같은 정제 view로 구성하고 32,000바이트 제한을 각각 검사한다. 요청 본문 전체, UID/설정·정책/프롬프트/구현 해시, 새 이미지 digest, 기간·비용·키 지문을 **새 검토안**에 고정한다.
 
@@ -64,4 +64,4 @@ v2의 목표는 **검증된 S10 실습 CI 한 실행**에 한해 최초 배포 �
 3. 현재 v1 캠페인의 만료·중지와 worker/gateway 정리를 확인한 뒤 새 코드를 이미지로 등록한다. 새 정책·프롬프트·이미지/입력은 기존 `campaign-6f85e38e42294e34b2efed00365e1d85` 승인 범위가 아니다. 실제 v2 정제 샘플과 두 전송 본문·가격/보관/공유 상태를 검토받고 **새 캠페인의 별도 명시 승인** 전에는 외부 전송을 켜지 않는다.
 4. 승인 후에도 제한된 실습 사례에서만 규칙/모델의 동일 근거를 자체 검토하고 필요하면 독립 평가한다. 이미지 취득 실패를 과거 원인 후보로 설명하면서 자동 원복·사용자 경로·현재 상태를 분리하는지 확인한다. 비용·중복·불명 전송 보류와 기존 알림/규칙 흐름은 유지한다. 이 한 사례를 전체 장애 진단 정확도로 환산하지 않는다.
 
-현재 캠페인에 새 입력을 보내거나 코드를 배포하지 않았다. 다음 구현 작업 권장 추론 깊이는 **GPT-6 SOL high**다.
+현재 캠페인에 새 입력을 보내거나 코드를 배포하지 않았다. 다음 worker/gateway 연결 작업 권장 추론 깊이는 **GPT-6 SOL high**다.

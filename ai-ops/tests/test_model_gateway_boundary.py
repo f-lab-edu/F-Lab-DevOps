@@ -38,9 +38,12 @@ class GatewayBoundaryTests(unittest.TestCase):
 
     def test_connect_target_and_public_dns_only(self):
         parse_connect(b"CONNECT api.openai.com:443 HTTP/1.1\r\nHost: api.openai.com:443\r\n\r\n")
+        parse_connect(b"CONNECT api.openai.com:443 HTTP/1.0\r\nHost: api.openai.com:443\r\n\r\n")
         for raw in (b"CONNECT 1.2.3.4:443 HTTP/1.1\r\nHost: 1.2.3.4:443\r\n\r\n",
                     b"CONNECT api.openai.com:80 HTTP/1.1\r\nHost: api.openai.com:80\r\n\r\n",
-                    b"CONNECT api.openai.com:443 HTTP/1.1\r\nHost: api.openai.com:443\r\nX: a\r\n\r\n"):
+                    b"CONNECT api.openai.com:443 HTTP/1.1\r\nHost: api.openai.com:443\r\nX: a\r\n\r\n",
+                    b"CONNECT api.openai.com:443 HTTP/1.0\r\nHost: api.openai.com:443\r\nX: a\r\n\r\n",
+                    b"CONNECT api.openai.com:443 HTTP/1.0\r\n\r\n"):
             with self.assertRaises(ValueError):
                 parse_connect(raw)
         def resolver(_host, _port, *, family, type):

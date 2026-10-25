@@ -20,7 +20,7 @@ def parse_connect(raw: bytes) -> None:
         lines = raw[:-4].decode("ascii").split("\r\n")
     except UnicodeDecodeError:
         raise ValueError("proxy_header_rejected") from None
-    if lines[0] != f"CONNECT {TARGET} HTTP/1.1" or len(lines) > 3:
+    if lines[0] not in {f"CONNECT {TARGET} HTTP/1.0", f"CONNECT {TARGET} HTTP/1.1"} or len(lines) > 3:
         raise ValueError("proxy_target_rejected")
     headers = {}
     for line in lines[1:]:

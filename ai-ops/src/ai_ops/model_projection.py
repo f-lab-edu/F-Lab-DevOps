@@ -126,7 +126,7 @@ class ModelView(StrictModel):
         pods = [i.payload.pod_alias for i in self.items if isinstance(i.payload, Workload)]
         if len(set(pods)) != len(pods) or len(pods) != self.observed_pods:
             raise ValueError("projection pod count rejected")
-        if len({(x.kind, x.source_status) for x in self.excluded}) != len(self.excluded):
+        if len({(x.kind, x.source_status, x.reason) for x in self.excluded}) != len(self.excluded):
             raise ValueError("projection exclusion rejected")
         source_count = len(self.items) + sum(x.count for x in self.excluded)
         available = sum(x.source_status == "available" for x in self.items) + sum(

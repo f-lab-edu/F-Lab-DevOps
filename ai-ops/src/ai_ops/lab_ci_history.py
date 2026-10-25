@@ -74,9 +74,8 @@ class LabRecord(StrictModel):
             if (obs.operation_phase not in ("Running", "Succeeded")
                     or self.verification_result != "failure" or obs.ready_replicas != 0
                     or not obs.image_pull_reasons
-                    # 비동기 동기화 중 Argo 집계 건강값은 이전 Healthy가 남을 수 있다.
+                    # Argo 집계 건강값은 동기화가 끝난 뒤에도 이전 Healthy가 남을 수 있다.
                     # 새 generation·Pod 취득 실패·Ready=0·실패 revision을 함께 요구한다.
-                    or obs.health_status == "Healthy" and obs.operation_phase != "Running"
                     or obs.operation_revision != self.failure_revision
                     or not re.fullmatch(re.escape(REGISTRY) + r":b6-missing-[0-9a-f]{32}", obs.image)):
                 raise ValueError("lab CI failure conflict")

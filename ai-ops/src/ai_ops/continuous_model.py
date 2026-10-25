@@ -39,7 +39,7 @@ def implementation_hash() -> str:
              "continuous_model.py", "continuous_ci_bridge.py", "model_gateway_contract.py",
              "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
              "model_live_probe.py", "model_runtime.py", "model_activation.py", "model_service.py",
-             "ci_service.py", "worker_runtime.py")
+             "ci_service.py", "worker_runtime.py", "model_campaign_review.py")
     return sha256_json({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                         for name in names})
 

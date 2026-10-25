@@ -153,6 +153,8 @@ def generate_once(templates, plan: CallPlan, transport, *, clock):
                          timeout=min(plan.http_timeout_seconds, remaining))
     try:
         counted = invoke("/v1/responses/input_tokens")
+    except ProjectionModelFailure:
+        raise
     except Exception:
         raise ProjectionModelFailure("projection_token_count_unavailable") from None
     tokens = counted.get("input_tokens") if isinstance(counted, dict) else None

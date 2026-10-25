@@ -43,8 +43,9 @@ class GatewayOpenAITransport:
 
     comparison_mode = "live"
 
-    def __init__(self, credential_sha256: str):
+    def __init__(self, credential_sha256: str, *, before_request=None):
         self.expected_credential = credential_sha256
+        self.before_request = before_request
         self.attempts = {path: 0 for path in PATHS}
 
     def __call__(self, path: str, body: dict, *, timeout: float):
@@ -53,6 +54,8 @@ class GatewayOpenAITransport:
         encoded = canonical_json_bytes(body)
         if len(encoded) > 32000:
             raise ValueError("gateway_transport_size_rejected")
+        if self.before_request is not None:
+            self.before_request()
         key = read_cluster_credential()
         if hashlib.sha256(key.encode()).hexdigest() != self.expected_credential:
             raise ValueError("gateway_credential_changed")

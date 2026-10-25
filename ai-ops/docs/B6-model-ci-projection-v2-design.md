@@ -1,6 +1,6 @@
 # B-06-M7 CI 실패·원복 정제 입력 v2 설계
 
-상태: **2026-10-25 KST 설계·v2 오프라인 투영·worker/gateway 연결 코드 완료.** [투영 구현](B6-model-ci-projection-v2-implementation.md)과 [연결 구현](B6-model-ci-projection-v2-connection.md)에 실제 반영 범위와 미배포 항목을 구분했다. 현재 운영 중인 `captured-practice-projection-v1` 캠페인과 그 승인 범위를 바꾸지 않는다. 이 문서는 [첫 클러스터 모델 보고서](B6-model-campaign-first-live-run.md)가 원인을 설명하지 못한 이유를 좁혀 다음 구현 범위를 정했다. B단계 완료나 C단계의 변경 실행 승인이 아니다.
+상태: **2026-10-25 KST 설계·v2 오프라인 투영·worker/gateway 연결과 격리 CI 한 건의 실측 완료.** [투영 구현](B6-model-ci-projection-v2-implementation.md)과 [연결 구현·실측](B6-model-ci-projection-v2-connection.md)에 실제 반영 범위를 기록했다. v1 캠페인의 승인 범위를 전용하지 않고 별도 v2 승인을 받았으며, 실측 뒤 두 캠페인을 중지했다. 이 문서는 [첫 클러스터 모델 보고서](B6-model-campaign-first-live-run.md)가 원인을 설명하지 못한 이유를 좁혀 다음 구현 범위를 정했다. B단계 완료나 C단계의 변경 실행 승인이 아니다.
 
 ## 문제와 목표
 

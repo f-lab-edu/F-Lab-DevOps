@@ -73,6 +73,14 @@ class LabCIHistoryTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.verify(reader)
 
+    def test_stale_argo_health_after_successful_sync_preserves_pod_failure(self):
+        reader = Reader()
+        observation = reader.records["deployment"]["observed"]
+        observation.update(operation_phase="Succeeded", health_status="Healthy", sync_status="Synced")
+        history = self.verify(reader)
+        self.assertEqual(history.parsed()[0].observed.ready_replicas, 0)
+        self.assertEqual(history.parsed()[0].observed.image_pull_reasons, ["ErrImagePull"])
+
     def test_async_failure_still_requires_failure_revision_and_pull_evidence(self):
         for key, value in (("image_pull_reasons", []), ("operation_revision", "a" * 40),
                            ("ready_replicas", 1), ("operation_phase", "Failed")):
@@ -126,7 +134,6 @@ class LabCIHistoryTest(unittest.TestCase):
                                    ("rollback", "image_pull_reasons", ["ErrImagePull"]),
                                    ("rollback", "operation_revision", "a" * 40),
                                    ("deployment", "generation_observed", False),
-                                   ("deployment", "health_status", "Healthy"),
                                    ("deployment", "image_pull_reasons", [])):
             reader = Reader()
             reader.records[stage]["observed"][field] = value

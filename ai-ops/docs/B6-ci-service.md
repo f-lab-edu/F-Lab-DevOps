@@ -14,7 +14,7 @@
 
 worker는 내부 API /32·Prometheus·DNS만 접근한다. relay는 DNS와 사설/링크 로컬을 제외한 외부 TCP 443을 허용한다. 기본 NetworkPolicy는 GitHub FQDN만 제한하는 기능이 없으므로 이 정책을 GitHub 전용 도메인 필터라고 주장하지 않는다. 네트워크 정책은 Pod 단위이고 별도 Pod로 분리했다. 같은 UID가 공유하는 큐는 상호 신뢰 경계이며 OS 관리자/동일 자격 실행을 방어하는 별도 보안 경계가 아니다.
 
-전용 토큰은 `ci-relay-github` Secret의 `token` 키로 운영자가 준비한다. 원본은 Git 밖 0600 파일이며 manifest·이미지·artifact·보고서에 포함하지 않는다. K8s Secret 마운트에서만 relay가 읽고 worker는 마운트하지 않는다. Kubernetes Secret은 암호 저장소와 같다고 가정하지 않고 기존 EKS 저장 암호화와 RBAC 범위를 확인한다.
+전용 토큰은 `ci-relay-github` Secret의 `token` 키로 운영자가 준비한다. 재설치용 로컬 원본은 `/Users/jounghyeon/.local/share/url-shortener-install/credentials/github-actions-read-token`이며 [자격 원본 보존 절차](../../docs/runbooks/local-credential-preservation.md)에 따라 Git 밖 0600 파일로 유지한다. 현재 저장소의 Actions 읽기 권한과 만료를 확인한 뒤 Secret 복사본을 만든다. 원본은 manifest·이미지·artifact·보고서에 포함하지 않는다. K8s Secret 마운트에서만 relay가 읽고 worker는 마운트하지 않는다. Kubernetes Secret은 암호 저장소와 같다고 가정하지 않고 기존 EKS 저장 암호화와 RBAC 범위를 확인한다.
 
 ## 설치·검증 순서
 

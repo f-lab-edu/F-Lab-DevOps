@@ -12,7 +12,7 @@
 | 수동 조사 worker StatefulSet·PVC·전용 읽기 RBAC·NetworkPolicy·metrics Service/ServiceMonitor | 고정 digest와 새 클러스터 값으로 수동 Helm | Helm uninstall 후 남은 PVC 명시 삭제·EBS 부재 확인 |
 | AI state·bucket의 버전/삭제 마커 | 별도 backend key 유지 | 두 root와 AWS 실물 제거 확인 후 마지막 정리 |
 
-`ai-ops` namespace만 지우거나 EKS만 destroy해서 EBS까지 없어졌다고 판단하지 않는다. StatefulSet의 PVC 보존 정책은 Retain, AI PV의 reclaim은 Delete다. 보고서·정제 입력·관측 집계는 PVC 삭제 시 사라진다. 전체 삭제 요청이 없는 평상시 중지는 [0→1 복구 가이드](../../ai-ops/docs/B3-observability-and-recovery.md)를 따른다. 로컬 소스·개인 API 키 파일·로컬 설명 사이트는 AWS 정리 대상이 아니다.
+`ai-ops` namespace만 지우거나 EKS만 destroy해서 EBS까지 없어졌다고 판단하지 않는다. StatefulSet의 PVC 보존 정책은 Retain, AI PV의 reclaim은 Delete다. 보고서·정제 입력·관측 집계는 PVC 삭제 시 사라진다. 전체 삭제 요청이 없는 평상시 중지는 [0→1 복구 가이드](../../ai-ops/docs/B3-observability-and-recovery.md)를 따른다. 로컬 소스·개인 API 키 파일·로컬 설명 사이트와 [재설치용 로컬 자격 원본](local-credential-preservation.md)은 AWS 정리 대상이 아니다. Slack·Watchdog URL과 GitHub Actions 읽기 토큰 원본은 클러스터 Secret 복사본과 구분해 보존한다.
 
 Route53은 전체 정리에서도 조회만 하며 삭제·변경하지 않는다. 기존 RDS 최종 스냅샷 보존 정책도 바꾸지 않는다. B-04 worker의 실제 배포·Pod 복구 검증 후 재설치 대상은 **수동 조사 큐 worker·읽기 수집·규칙 보고서와 자체 관측**이다. B-05의 내부 경보 수신기를 함께 복원한다. 외부 모델·운영 변경은 활성화하지 않는다. 모니터링 Application 설치 전 [TLS·인증 Secret](../../ai-ops/docs/B5-webhook-identity.md)을 먼저 준비해야 한다. 예약 보관 정리는 검증한 새 이미지와 worker overlay로 명시적으로 복원한다. chart 기본값의 비활성·진단 모드는 유지하며 아래 worker overlay를 명시해야 실행된다.
 
@@ -190,12 +190,14 @@ Helm 소유의 `ai-ops-read-target`·`ai-ops-read-argo` Role/RoleBinding이 각 
 
 `ai-ci` 별도 namespace·전용 1Gi 암호화 PVC·GitHub Secret·두 Deployment를 추가하는 경우 [상시 CI 서비스 절차](../../ai-ops/docs/B6-ci-service.md)를 따른다. 기본 replicas=0 정의 생성은 상시 설치 완료가 아니다. 현재 main 이미지에 기능이 포함되고 승인 이미지 검사·worker probe·relay 조회·실제 CI 자동 접수까지 검증한 범위만 완료로 기록한다.
 
-전체 삭제에서 `ai-ops-lab` 및 EBS CSI보다 **먼저** `ai-ci`의 relay/worker를 0개로 중지하고 실제 PV/Volume ID를 기록한다. `ci-queue` PVC를 삭제하고 EBS 실물 부재를 확인한 뒤 namespace를 제거한다. `ai-ops-lab`·`argocd`의 `ci-worker-read` RoleBinding도 제거한다. 새 namespace가 없더라도 기록한 PVC/EBS와 태그 소유권을 대조하며 이전 볼륨 ID를 재사용하지 않는다. 로컬 전용 토큰 파일·소스·GitHub 설정은 AWS 전체 삭제와 별도로 보존한다. 재설치에서는 운영 설치·실습 복원·GitOps 인계와 새 자격 검증 후 worker→relay 순으로 활성화한다.
+전체 삭제에서 `ai-ops-lab` 및 EBS CSI보다 **먼저** `ai-ci`의 relay/worker를 0개로 중지하고 실제 PV/Volume ID를 기록한다. `ci-queue` PVC를 삭제하고 EBS 실물 부재를 확인한 뒤 namespace를 제거한다. `ai-ops-lab`·`argocd`의 `ci-worker-read` RoleBinding도 제거한다. 새 namespace가 없더라도 기록한 PVC/EBS와 태그 소유권을 대조하며 이전 볼륨 ID를 재사용하지 않는다. `ai-ci/ci-relay-github` Secret은 제거하되 로컬 `github-actions-read-token` 원본·소스·GitHub 설정은 AWS 전체 삭제와 별도로 보존한다. 재설치에서는 운영 설치·실습 복원·GitOps 인계와 새 자격 검증 후 worker→relay 순으로 활성화한다.
 
 2026-10-23에는 ai-ci worker·relay를 실제 활성화하고 최신 실습 CI 자동 접수와 보고서 저장을 확인했다. 전체 정리에서 이 namespace의 **전용 1Gi PVC/EBS**를 누락하지 않는다. 실제 Volume ID는 항상 새 조회로 기록하며 [실측](../../ai-ops/docs/B6-ci-service-deployment.md)을 참고한다. 재설치 시 기존 Secret 값·Pod UID·API 주소를 그대로 재사용하지 않는다.
 
 ## B-06-M6 모델 서비스 추가 구성
 
 실습 모델용 `ai-model` namespace·gateway/proxy·전용 1Gi 암호화 PVC·NetworkPolicy의 기본 비활성 설치와 검증은 [M6 절차](../../ai-ops/docs/B6-model-service-deployment.md)를 따른다. [M7-2 준비 정의](../../ai-ops/docs/B6-model-campaign-deployment-preparation.md)를 적용한 클러스터에는 `ai-ops-lab`·`ai-ci`·`ai-model` 각각의 `model-gateway-current-read` Role/RoleBinding과 `ai-ci/ci-worker-model-gateway` NetworkPolicy도 있다. 준비 정의 역시 두 Deployment 0/0, gateway 스위치 false, worker 모델 연결 꺼짐을 유지한다. Secret 이름 참조는 키 생성이나 상시 모델 승인으로 간주하지 않는다. 새 코드가 포함된 승인 이미지와 서버 dry-run, 실제 네트워크 허용/거부 검증 전에는 활성화하지 않는다.
+
+진행 중인 M7 v2 작업의 재개를 목적으로 재설치할 때는 [전체 설치 가이드 11-2절](infrastructure-installation-and-validation.md#11-2-진행-중인-m7-v2-캠페인-작업의-재개-준비)까지 완료 여부를 별도로 기록한다. 비활성 모델 서비스만 배포한 상태와 현재 클러스터에 묶인 새 `prepared` 캠페인 검토안이 있는 상태를 구분한다. 이전 캠페인의 승인은 어떤 재설치에도 승계하지 않는다.
 
 전체 삭제에서는 `ai-model`을 `ai-ci`·`ai-ops-lab`·EBS CSI보다 먼저 중지한다. `model-ledger` PVC/PV의 현재 Volume ID를 기록하고 EBS 실물 부재를 확인한 뒤 `ai-ops-lab`·`ai-ci`·`ai-model`의 `model-gateway-current-read` RoleBinding/Role과 `ai-ci/ci-worker-model-gateway` NetworkPolicy를 제거한다. 이어 Secret·Service·NetworkPolicy·ServiceAccount·namespace 잔여를 확인한다. 다른 AI PVC가 남아 있는 동안 공용 암호화 StorageClass를 먼저 제거하지 않는다. 재설치에서는 이전 Secret·승인·digest·PVC/PV 식별자와 API `/32`를 그대로 재사용하지 않는다.

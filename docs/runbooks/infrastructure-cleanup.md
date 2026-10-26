@@ -8,6 +8,8 @@
 >
 > 명령은 절별로 실행한다. 조회·계획 결과를 검토해야 하는 지점에서 멈추고, 예상과 다르거나 오류가 나면 다음 삭제 명령을 실행하지 않는다.
 
+> **로컬 자격 원본은 전체 AWS·Kubernetes 정리 대상이 아니다.** 시작 전과 종료 후 [로컬 자격 원본 보존·확인 절차](local-credential-preservation.md)를 실행한다. 특히 Slack URL, Watchdog URL, AI CI용 GitHub Actions 읽기 토큰, DB·Redis·Grafana 자격, 로컬 OpenAI API 키 파일을 삭제하거나 임시 폴더 정리에 포함하지 않는다. 클러스터 Secret 복사본은 제거할 수 있지만 로컬 원본의 삭제를 뜻하지 않는다. 이전 클러스터용 Argo CD 토큰은 재설치 때 새로 발급한다.
+
 > 로그 보존을 약속한 정리에서는 `terraform plan -destroy`에 `module.eks.aws_cloudwatch_log_group.this`가 포함되는지 확인한다. 포함되면 그대로 적용할 경우 EKS CloudWatch 로그 데이터가 삭제된다. 필요한 로그를 먼저 별도 보관하거나 Terraform 관리 분리와 재계획을 완료해야 한다. state와 버킷을 보존해도 삭제된 로그 데이터는 복구되지 않는다.
 
 ---
@@ -33,7 +35,7 @@ aws ec2 describe-nat-gateways --region "$AWS_REGION" \
   --query 'NatGateways[].NatGatewayAddresses[].AllocationId' --output text
 ```
 
-현재 컨텍스트가 `urlshortener`, AWS 계정이 `716174522908`인지 확인한 뒤 진행한다. Terraform은 `1.14.7`과 운영용 S3 backend key(`urlshortener/production/terraform.tfstate`)를 사용해야 한다. **AI 전용 root의 key는 `urlshortener/ai-ops/practice/terraform.tfstate`로 별도**다. 두 state와 각 AWS 실물을 먼저 대조한다. 어느 state가 사라졌는데 관리 대상 AWS 리소스가 남아 있다면 삭제를 멈추고 복구/import를 판단한다. `vpc_id` output이 없거나 state의 리소스가 예상과 달라도 중단한다. NAT Gateway에 연결된 Elastic IP 할당 ID도 삭제 전 기록해 최종 검증에 사용한다. 진행 중인 main 배포·AI 이미지 등록 Actions가 끝났는지 확인하고 정리 중에는 새 배포를 시작하지 않는다. 현재 배포 이미지, 이전 안정 이미지, AI ECR 이미지, RDS 백업·최종 스냅샷 보존 결정을 먼저 기록한다. 상세 정책은 `docs/runbooks/30-rds-ecr-retention.md`를 따른다.
+현재 컨텍스트가 `urlshortener`, AWS 계정이 `716174522908`인지 확인한 뒤 진행한다. Terraform은 `1.14.7`과 운영용 S3 backend key(`urlshortener/production/terraform.tfstate`)를 사용해야 한다. **AI 전용 root의 key는 `urlshortener/ai-ops/practice/terraform.tfstate`로 별도**다. 두 state와 각 AWS 실물을 먼저 대조한다. 어느 state가 사라졌는데 관리 대상 AWS 리소스가 남아 있다면 삭제를 멈추고 복구/import를 판단한다. `vpc_id` output이 없거나 state의 리소스가 예상과 달라도 중단한다. NAT Gateway에 연결된 Elastic IP 할당 ID도 삭제 전 기록해 최종 검증에 사용한다. 진행 중인 main 배포·AI 이미지 등록 Actions가 끝났는지 확인하고 정리 중에는 새 배포를 시작하지 않는다. 현재 배포 이미지, 이전 안정 이미지, AI ECR 이미지, RDS 백업·최종 스냅샷 보존 결정을 먼저 기록한다. 로컬 자격 원본은 위 절차로 별도로 확인하고 삭제 명령의 경로에 포함되지 않도록 한다. 상세 정책은 `docs/runbooks/30-rds-ecr-retention.md`를 따른다.
 
 ### 0-1. CI 배포 중지 확인
 
@@ -58,7 +60,7 @@ gh workflow view ci-cd.yml --repo f-lab-edu/F-Lab-DevOps
 
 ### 0-2. AI Helm·PVC/EBS 선행 정리 — 필수
 
-[AI 클러스터 정리 절차](ai-ops-cluster-lifecycle.md)를 **Karpenter·앱·Prometheus·Argo·CSI 제거 전에** 먼저 수행한다. 현재 AI Helm release, metrics Service/ServiceMonitor·NetworkPolicy·전용 RBAC, namespace·StorageClass와 5Gi PVC/EBS에 더해 별도 `ai-ci` 및 존재하는 경우 `ai-model`의 Deployment·Secret·PVC/PV/EBS도 대상이다. M7-2 준비 리소스가 있으면 `ai-ops-lab`·`ai-ci`·`ai-model`의 `model-gateway-current-read` Role/RoleBinding과 `ai-ci/ci-worker-model-gateway` NetworkPolicy도 함께 제거한다. 전체 삭제 요청에서 AI 자료도 삭제하며, 로컬 소스·개인 API 키는 AWS 정리와 별개로 유지한다.
+[AI 클러스터 정리 절차](ai-ops-cluster-lifecycle.md)를 **Karpenter·앱·Prometheus·Argo·CSI 제거 전에** 먼저 수행한다. 현재 AI Helm release, metrics Service/ServiceMonitor·NetworkPolicy·전용 RBAC, namespace·StorageClass와 5Gi PVC/EBS에 더해 별도 `ai-ci` 및 존재하는 경우 `ai-model`의 Deployment·Secret·PVC/PV/EBS도 대상이다. M7-2 준비 리소스가 있으면 `ai-ops-lab`·`ai-ci`·`ai-model`의 `model-gateway-current-read` Role/RoleBinding과 `ai-ci/ci-worker-model-gateway` NetworkPolicy도 함께 제거한다. 전체 삭제 요청에서 AI 클러스터 자료는 삭제하지만, 로컬 소스·개인 API 키·Slack/Watchdog URL·GitHub Actions 읽기 토큰 원본은 AWS 정리와 별개로 유지한다.
 
 실제 AI PV/Volume ID를 기록 → Helm uninstall → 남은 `data-ai-ops-0` PVC 명시 삭제 → PV와 EBS 실제 부재 확인 → 전용 Role/RoleBinding 잔존 확인 → AI StorageClass/namespace 제거 순서다. StatefulSet의 PVC 보존 Retain 때문에 EKS destroy나 namespace 삭제만으로 완료 처리하지 않는다. 같은 태그의 잔여 AI EBS도 대조하고 EBS가 남으면 CSI/EKS 제거 전에 중지한다. 이미 클러스터가 사라진 재개 상황의 소유권·unattached 볼륨 정리도 연결 절차를 따른다.
 
@@ -765,6 +767,8 @@ aws ec2 describe-volumes --region "$AWS_REGION" --volume-ids "$VOLUME_ID"
 - RDS Snapshot
 - Route53 Hosted Zone
 
+끝으로 [로컬 자격 원본 보존·확인 절차](local-credential-preservation.md)의 파일명·권한 검사를 다시 실행한다. 정리 전에 확인된 Slack·Watchdog URL, GitHub Actions 읽기 토큰, DB·Redis·Grafana 자격, 개인 API 키가 그대로 보존됐는지 확인한다. 값은 출력하지 않는다. 원본이 사라졌다면 인프라 정리 완료와 **재설치 준비 완료를 구분**해 기록하고 원인을 조사한다.
+
 ---
 
 ## 16. GitHub Actions 인증 설정 정리
@@ -794,7 +798,7 @@ gh secret list --repo f-lab-edu/F-Lab-DevOps
 gh variable list --repo f-lab-edu/F-Lab-DevOps
 ```
 
-로컬의 보호된 비밀 파일은 별도 개인 보관 대상이다. 재사용·폐기 여부를 소유자가 결정하며, 이 인프라 정리 명령은 자동으로 삭제하지 않는다.
+로컬의 보호된 비밀 파일은 [보존 절차](local-credential-preservation.md)의 별도 개인 보관 대상이다. 위 GitHub Secret 삭제 명령은 그 원본 파일을 삭제하거나 토큰 자체를 GitHub에서 폐기하지 않는다. 토큰 만료·권한·발급처 폐기 여부는 다음 설치 전에 다시 확인한다. 로컬 원본 폐기는 이 인프라 정리와 별도의 명시적 요청으로만 수행한다.
 
 ---
 

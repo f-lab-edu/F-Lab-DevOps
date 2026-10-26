@@ -8,9 +8,11 @@ AWS 리전: ap-northeast-2
 
 ### 재설치용 로컬 자격 파일 위치
 
-재설치 전에 `/Users/jounghyeon/.local/share/url-shortener-install/credentials/`를 먼저 확인한다. 이 프로젝트 전용 디렉터리와 파일은 각각 소유자 권한 `0700`, `0600`으로 관리하며 Git에 넣지 않는다. 파일의 **존재·권한·형식만 확인하고 값은 출력하지 않는다.** 2026-10-26 설치에서 새로 만든 `db-password`, `redis-password`, `grafana-admin-password`, `grafana-admin-user`는 이 위치에 보관했다. DB 비밀번호 회전 버전은 이번 신규 설치 기준 `1`이다.
+재설치 전에 [로컬 자격 원본 보존·확인 절차](local-credential-preservation.md)를 실행하고 `/Users/jounghyeon/.local/share/url-shortener-install/credentials/`를 먼저 확인한다. 이 프로젝트 전용 디렉터리와 파일은 각각 소유자 권한 `0700`, `0600`으로 관리하며 Git에 넣지 않는다. 파일의 **존재·권한·형식만 확인하고 값은 출력하지 않는다.** 2026-10-26 설치에서 새로 만든 `db-password`, `redis-password`, `grafana-admin-password`, `grafana-admin-user`는 이 위치에 보관했다. DB 비밀번호 회전 버전은 이번 신규 설치 기준 `1`이다.
 
 Slack·Watchdog URL은 각각 `slack-webhook-url`, `watchdog-heartbeat-url`로 같은 디렉터리에 보관한다. 재설치 때 이 두 파일이 있으면 그대로 읽어 모니터링 Secret을 복원하고 다시 묻지 않는다. 파일이 없다면 이전 임시 설치 디렉터리나 삭제된 Kubernetes Secret에서 값이 복구된다고 가정하지 않는다. 정확한 보관 파일이나 새 URL을 **한 번만** 확보해 이 위치에 `0600`으로 저장한 뒤 이후 설치에서 재사용한다. URL 원문은 채팅·문서·Git·명령 출력에 넣지 않는다.
+
+AI CI 전달기의 GitHub Actions 읽기 토큰 원본은 같은 디렉터리의 `github-actions-read-token`이다. 새 클러스터의 `ai-ci/ci-relay-github` Secret은 이 파일의 만료·저장소 읽기 권한을 확인한 뒤 복원한다. 이전 클러스터용 Argo CD 토큰은 재사용하지 않고 새로 발급한다. AI API 키의 로컬 보존은 모델 자동 전송 승인이 아니며, 모델 서비스는 캠페인별 검토·승인 전까지 꺼 둔다. 설치 작업의 `/private/tmp` 폴더를 원본 자격 저장소로 사용하지 않는다.
 
 ## 0. 배포 전 확인과 단계 통과 원칙
 
@@ -439,6 +441,17 @@ NodeClaim이 생겼다면 해당 노드가 `Ready`가 될 때까지 기다리고
 앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 `b4-values.worker.yaml` overlay를 이용해 수동 큐 worker StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다. 실습 모델 연결을 선택할 때는 [M6 비활성 gateway/proxy 절차](../../ai-ops/docs/B6-model-service-deployment.md) 후 [M7-2 준비 절차](../../ai-ops/docs/B6-model-campaign-deployment-preparation.md)를 수행한다. 현재 클러스터 API의 사설 `/32`를 다시 조회해 `prepare_model_service.py --prepared --api-cidr <현재 주소>`로 0/0 정의를 생성·검증한다. 기본·준비 배포만으로 실제 모델 활성화나 B 단계 완료를 표시하지 않는다.
 
 이미지 등록은 자동화 담당자가 `ai-ops-image.yml`을 publish=true로 시작한다. GitHub 필수 사용자 승인이 waiting이면 해당 실행 승인에서 중지하고 승인 후 재개한다. 이 승인 설정을 제거하거나 과거 삭제된 digest를 재사용하지 않는다. `prepare_reinstall.py`가 조회만으로 새 환경값을 생성하며, Helm deployed·Ready·Bound·EBS 암호화·Prometheus up/heartbeat까지 확인해야 완료다. B-04 worker와 B-05 내부 경보 수신기를 `b5-values.receiver.yaml` overlay로 함께 복원한다. 이미지에 `alert_receiver.py`가 있고 앞서 준비한 두 Secret의 신뢰·인증값이 일치해야 한다. 외부 모델·운영 변경은 활성화하지 않는다. 수신기는 내부 TLS 9443만 열고 기존 Slack·Watchdog 분기는 보존한다. 예약 보관 정리는 새 이미지·worker overlay로 복원하고 enabled=1·예약 성공 시각·overdue를 함께 확인한다. worker probe·고정 큐 상태·실제 루프 진행 시각을 확인하고 과거 진단 heartbeat로 대신하지 않는다.
+
+### 11-2. 진행 중인 M7 v2 캠페인 작업의 재개 준비
+
+사용자가 진행 중인 **M7 v2 캠페인 작업을 이어가기 위해** `설치해`라고 요청한 경우, 11-1절의 기본 설치에 더해 이 절을 설치 완료 판정에 포함한다. 설치와 재개 준비는 모델 호출 승인이 아니다. [M7-2 비활성 배포](../../ai-ops/docs/B6-model-campaign-deployment-preparation.md), [M7-3 캠페인 검토·승인 경계](../../ai-ops/docs/B6-model-campaign-activation-preparation.md), [v2 연결 기록](../../ai-ops/docs/B6-model-ci-projection-v2-connection.md)을 함께 확인한다.
+
+1. 새 클러스터의 `ai-model` gateway·프록시를 **복제수 0**, worker 모델 연결 꺼짐, 모델 API 키·client 토큰 Secret 없음으로 설치·검증한다. 이전 캠페인의 승인·Secret·PVC 장부·대상 UID·API `/32`·이미지 digest를 재사용하지 않는다.
+2. 격리 실습 앱·Argo 연결·`ai-ci` worker/relay를 설치하고 현재 클러스터에서 CI 실패와 원복 자료가 자동 접수돼 규칙 보고서로 이어지는지 확인한다. 기존 실습 실행을 재사용하려면 출처·서명·대상 UID·정책 버전과 현재 클러스터 연결을 다시 확인한다. 새 실습 CI에 GitHub 환경 승인이 필요하면 그 실행의 사용자 승인에서 기다린다.
+3. 현재 클러스터의 검증된 실패·원복 자료로 v2 정책의 **정제 샘플**을 만들고, 대상 UID·cluster fingerprint·현재 이미지 digest·구현/설정 해시·샘플 hash·API 키 지문·가격 확인일·기간/건수/비용 한도를 결합한 새 `prepared` 캠페인 검토안을 개인 저장소에 만든다. 두 API 요청 본문과 미래 CI 입력의 자동 전송 범위를 사람이 검토할 수 있게 제시한다. 원문 API 키·client 토큰·원시 로그는 문서·Git·출력에 넣지 않는다.
+4. 검토안이 `activation_allowed=false`이며 승인·모델 호출·예산 예약이 0건인지 확인한다. 어제의 로컬 모델 보고서는 의미 검토 자료로 보존하지만 이전 캠페인 승인을 새 클러스터에 이전하지 않는다. 새 검토안의 만료와 Argo 실습 토큰 만료를 기록한다.
+
+1~4가 끝나면 **`M7 재개 준비 완료`**로 기록한다. 기본 앱·AI 설치만 끝났거나 유효한 v2 입력·검토안을 만들지 못했다면 `기본 설치 완료, M7 재개 준비 미완료`로 구분해 남은 일을 알린다. 모델 활성화·유료 호출·향후 24시간 자동 전송은 새 캠페인의 구체적 범위에 대한 별도 명시 승인과 선택적 데이터 공유 설정 확인 후에만 진행한다. 승인이 없더라도 어제 보고서의 오프라인 의미 검토는 계속할 수 있다.
 
 ## 12. 미뤄 둔 개선 항목 검증
 

@@ -2,7 +2,7 @@
 
 이 절차는 `terraform/ai-ops-registry/`의 **별도** S3 state를 다룬다. 기존 `terraform/`의 production state를 이 폴더로 이전하거나 GitHub OIDC를 import하지 않는다. AWS 계정 `716174522908`, 리전 `ap-northeast-2`, AI state key `urlshortener/ai-ops/practice/terraform.tfstate`, ECR `urlshortener-practice-ai-ops`, IAM Role `urlshortener-practice-ai-ops-image-role`이 대상이다. `practice`는 AI 리소스 이름·태그이지 새 EKS 클러스터가 아니다. Route53은 설치 시 기존 가이드의 검증된 Alias UPSERT 외에는 건드리지 않으며 **정리 시 절대 변경하지 않는다.**
 
-등록 기반만 다루는 문서다. 전체 AI 재설치·정리는 [AI 클러스터 수명주기](ai-ops-cluster-lifecycle.md)를 필수로 함께 수행한다. 설치는 OIDC → AI root → 이미지 승인/검증 → 앱/Prometheus 준비 → AI Helm 순서이며, 정리는 AI Helm/PVC/EBS → 나머지 Kubernetes → AI root → production root → backend 순서다.
+등록 기반만 다루는 문서다. 전체 AI 재설치·정리는 [AI 클러스터 수명주기](ai-ops-cluster-lifecycle.md)를 필수로 함께 수행한다. 설치는 OIDC → AI root → 이미지 승인/검증 → 앱/Prometheus 준비 → AI Helm 순서이며, 정리는 AI Helm/PVC/EBS → 나머지 Kubernetes → AI root → production root → backend 순서다. Slack·Watchdog URL, GitHub Actions 읽기 토큰, 개인 API 키 등 [로컬 자격 원본](local-credential-preservation.md)은 이 root와 backend의 삭제 대상이 아니다.
 
 ## 공통 선행 확인
 

@@ -6,6 +6,12 @@
 AWS 리전: ap-northeast-2  
 운영 EKS 클러스터와 Helm release: urlshortener, url-shortener
 
+### 재설치용 로컬 자격 파일 위치
+
+재설치 전에 `/Users/jounghyeon/.local/share/url-shortener-install/credentials/`를 먼저 확인한다. 이 프로젝트 전용 디렉터리와 파일은 각각 소유자 권한 `0700`, `0600`으로 관리하며 Git에 넣지 않는다. 파일의 **존재·권한·형식만 확인하고 값은 출력하지 않는다.** 2026-10-26 설치에서 새로 만든 `db-password`, `redis-password`, `grafana-admin-password`, `grafana-admin-user`는 이 위치에 보관했다. DB 비밀번호 회전 버전은 이번 신규 설치 기준 `1`이다.
+
+Slack·Watchdog URL은 각각 `slack-webhook-url`, `watchdog-heartbeat-url`로 같은 디렉터리에 보관한다. 재설치 때 이 두 파일이 있으면 그대로 읽어 모니터링 Secret을 복원하고 다시 묻지 않는다. 파일이 없다면 이전 임시 설치 디렉터리나 삭제된 Kubernetes Secret에서 값이 복구된다고 가정하지 않는다. 정확한 보관 파일이나 새 URL을 **한 번만** 확보해 이 위치에 `0600`으로 저장한 뒤 이후 설치에서 재사용한다. URL 원문은 채팅·문서·Git·명령 출력에 넣지 않는다.
+
 ## 0. 배포 전 확인과 단계 통과 원칙
 
 - 운영 CI/CD는 `main`에 `url-shortener/app/**`, `url-shortener/Dockerfile`, `url-shortener/requirements.txt`, `url-shortener/requirements.lock` 변경이 push될 때 자동 실행된다. 일반 배포용 새 앱 코드 PR은 **8절의 Argo CD HTTPS·CI 토큰과 9절의 현재 이미지·앱 상태가 준비되기 전에는 병합하지 않는다.** 첫 이미지가 없는 경우에는 9절의 수동 image-only 절차로 먼저 이미지를 확보한다. 이미 병합한 경우에는 과거 실행을 무작정 재시도하지 말고 현재 ECR 태그와 GitOps 상태부터 조사한다.
@@ -167,6 +173,8 @@ Redis PVC는 `Bound`, 앱 Secret의 키는 `DATABASE_URL`, `DATABASE_READ_URL`, 
 B-05의 [내부 TLS·인증 Secret 준비](../../ai-ops/docs/B5-webhook-identity.md)를 **이 절의 모니터링 Application 적용 전에** 먼저 수행한다. `ai-ops` namespace의 수신기 Secret과 monitoring의 `ai-ops-alertmanager-auth`가 필요하다. main의 Alertmanager가 인증 Secret을 참조하므로 11-1절까지 준비를 미루면 기존 Watchdog도 시작하지 못할 수 있다. 기존 Secret은 소유권·키·CA/인증값 일치·만료를 검증하고 임의로 덮어쓰지 않는다.
 
 보호된 파일로 grafana-admin-secret, alertmanager-slack-secret, alertmanager-heartbeat-secret을 만든다. Grafana Secret에는 admin-user와 admin-password, 두 Alertmanager Secret에는 webhook-url 키가 있어야 한다. 각 파일은 의도하지 않은 끝 줄바꿈 없이 준비한다. Secret 값이나 생성 명령의 리터럴을 가이드에 넣지 않는다.
+
+위의 프로젝트 전용 로컬 자격 디렉터리에서 `GRAFANA_ADMIN_USER_FILE`, `GRAFANA_ADMIN_PASSWORD_FILE`, `SLACK_WEBHOOK_FILE`, `HEARTBEAT_WEBHOOK_FILE`의 경로를 지정한다. Slack·Watchdog 파일이 없으면 URL을 추측하거나 임시 가짜 URL로 Secret을 만들지 않는다. 나머지 준비 작업을 계속하되 이 절의 모니터링 완료 판정은 보류한다.
 
 ~~~bash
 kubectl create secret generic grafana-admin-secret -n monitoring --from-file=admin-user="$GRAFANA_ADMIN_USER_FILE" --from-file=admin-password="$GRAFANA_ADMIN_PASSWORD_FILE" --dry-run=client -o yaml | kubectl apply -f -

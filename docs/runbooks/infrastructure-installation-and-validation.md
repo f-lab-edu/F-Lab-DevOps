@@ -17,7 +17,7 @@ Slack·Watchdog URL은 각각 `slack-webhook-url`, `watchdog-heartbeat-url`로 �
 - 운영 CI/CD는 `main`에 `url-shortener/app/**`, `url-shortener/Dockerfile`, `url-shortener/requirements.txt`, `url-shortener/requirements.lock` 변경이 push될 때 자동 실행된다. 일반 배포용 새 앱 코드 PR은 **8절의 Argo CD HTTPS·CI 토큰과 9절의 현재 이미지·앱 상태가 준비되기 전에는 병합하지 않는다.** 첫 이미지가 없는 경우에는 9절의 수동 image-only 절차로 먼저 이미지를 확보한다. 이미 병합한 경우에는 과거 실행을 무작정 재시도하지 말고 현재 ECR 태그와 GitOps 상태부터 조사한다.
 - Argo CD의 애플리케이션, Traefik 라우팅, Prometheus values는 `main`을 추적한다. 로컬 또는 PR 브랜치의 values 변경은 `main`에 반영되기 전까지 클러스터에 적용되지 않는다. 설치에 필요한 구성 수정은 앱 코드 변경과 분리해 `main`에 먼저 반영한다. 부트스트랩은 현재 `main`의 선언을 기준으로 하고, 새 코드의 배포 판정은 병합 후에 한다.
 - CI의 `values.prod.yaml` 커밋·push에는 워크플로의 `contents: write` 권한이 필요하다. 병합 전 실제 브랜치 보호 규칙과 push 권한도 다시 확인한다.
-- Argo CD 서버는 4절에서 내부 `ClusterIP`로 설치하고, 8절에서 Traefik HTTPS와 `ARGOCD_SERVER`·`ARGOCD_AUTH_TOKEN`을 준비한다. 기존 `argocd-ingress.yaml`은 공개 HTTP ALB이므로 적용하지 않는다. CI 토큰은 이 애플리케이션의 상태 조회 권한만 부여한다.
+- Argo CD 서버는 4절에서 TLS가 켜진 내부 `ClusterIP`로 설치하고, 8절에서 공개 인증서와 Traefik의 검증형 HTTPS 백엔드, `ARGOCD_SERVER`·`ARGOCD_AUTH_TOKEN`을 준비한다. 기존 `argocd-ingress.yaml`은 공개 HTTP ALB이므로 적용하지 않는다. CI 토큰은 이 애플리케이션의 상태 조회 권한만 부여한다.
 - 배포 검증은 클러스터 내부 PostSync Job이 `/readyz`와 `/items`를 호출한다. GitHub 러너가 IP 제한된 `api.bidservice.store`에 접근할 필요가 없고 `SMOKE_TEST_BASE_URL`도 사용하지 않는다.
 - **각 적용 직후 명시된 검증이 통과해야만 다음 적용으로 넘어간다.** `Synced`만으로는 부족하며 필요한 `Healthy`, Pod `Ready`, PVC `Bound`, 실제 HTTP/DB 응답을 확인한다. 실패·시간 초과·예상 밖 Terraform 변경이면 중단하고 원인을 조사한다.
 - 첫 이미지가 ECR에 없으면 앱 Application 등록은 보류하고, 9절의 수동 `image-only` 실행으로 이미지를 확보한다. 이 실행은 GitOps 설정을 수정하지 않으며 배포·롤백도 하지 않는다. 결과의 태그를 별도 GitOps 변경으로 main에 반영하고 ECR digest를 확인한 뒤 앱을 등록한다. 로컬 Docker Desktop 실행·수동 빌드·ECR 직접 푸시는 하지 않는다.
@@ -104,12 +104,12 @@ kubectl get serviceaccount aws-load-balancer-controller -n kube-system -o yaml
 
 ## 4. Argo CD
 
-Argo CD를 설치한다. Traefik에서 TLS를 종료하므로 Argo CD 서버는 클러스터 내부 HTTP로 실행한다. 기존 argocd-ingress.yaml과 grafana-ingress.yaml은 공개 HTTP ALB이므로 적용하지 않는다. 초기 접속은 port-forward 또는 보호된 사설 경로를 사용한다.
+Argo CD를 기본 TLS 설정의 내부 `ClusterIP`로 설치한다. 외부 인증서가 발급되기 전에는 자체 서명 인증서가 사용되고, 8절에서 공개 인증서를 `argocd-server-tls` Secret으로 발급해 서버와 Traefik이 함께 사용한다. 기존 argocd-ingress.yaml과 grafana-ingress.yaml은 공개 HTTP ALB이므로 적용하지 않는다. 초기 접속은 port-forward 또는 보호된 사설 경로를 사용한다.
 
 ~~~bash
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
-helm upgrade --install argocd argo/argo-cd -n argocd --create-namespace --set "server.extraArgs[0]=--insecure"
+helm upgrade --install argocd argo/argo-cd --version 10.11.1 -n argocd --create-namespace --values /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/cluster-addons/argocd/values.yaml
 kubectl rollout status deployment/argocd-server -n argocd --timeout=300s
 kubectl get pods -n argocd
 ~~~
@@ -262,13 +262,17 @@ Route53의 NS 목록과 등록기관(가비아)의 NS 설정 및 공개 DNS 응�
 
 ### 8-4. Argo CD HTTPS와 GitHub Actions 인증
 
-Argo CD 서버는 4절에서 내부 HTTP `ClusterIP`로 설치했다. Traefik에서 외부 TLS를 종료한다. 앱 라우팅 Application을 적용하기 전이므로 동일 디렉터리의 `ClusterIssuer`를 먼저 단독 적용·검증한다. 9절에서 라우팅 Application이 이 선언을 이어서 관리한다. 아래 부트스트랩 Ingress는 클러스터 재생성 때 재적용하며, 기존 공개 HTTP ALB Ingress는 적용하지 않는다.
+Argo CD 서버는 4절에서 내부 HTTPS `ClusterIP`로 설치했다. Traefik은 외부 TLS를 종료한 뒤 **서버 인증서를 검증하는 HTTPS**로 Argo에 연결한다. 앱 라우팅 Application을 적용하기 전 `ClusterIssuer`를 먼저 단독 적용·검증한다. 9절에서 라우팅 Application이 이 선언을 이어서 관리한다. 인증서는 `argocd-server-tls` Secret으로 발급되며 Argo 서버와 Traefik이 함께 사용한다. 인증서 최초 생성 후 Argo 서버를 한 번 재시작해 새 Secret을 읽도록 한다. 갱신된 인증서는 Argo가 자동으로 다시 읽는다. 기존 공개 HTTP ALB Ingress는 적용하지 않는다.
 
 ~~~bash
 kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/traefik/clusterissuer-traefik.yaml
 kubectl wait clusterissuer/letsencrypt-traefik --for=condition=Ready --timeout=300s
+kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/argocd/argocd-server-certificate.yaml
+kubectl wait -n argocd certificate/argocd-server-tls --for=condition=Ready --timeout=10m
+kubectl rollout restart -n argocd deployment/argocd-server
+kubectl rollout status -n argocd deployment/argocd-server --timeout=300s
+kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/argocd/argocd-backend-transport.yaml
 kubectl apply -f /Users/jounghyeon/dev/Url-Shortener-EKS-Platform/url-shortener/k8s/argocd/argocd-traefik-https-ingress.yaml
-kubectl wait -n argocd certificate/argocd-traefik-tls --for=condition=Ready --timeout=10m
 curl -fsS -o /dev/null -w 'HTTP %{http_code}, TLS %{ssl_verify_result}\n' https://argocd.bidservice.store/
 kubectl get ingress -A
 ~~~

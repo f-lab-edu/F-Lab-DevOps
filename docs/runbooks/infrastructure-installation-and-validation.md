@@ -124,7 +124,7 @@ kubectl rollout status -n kube-system deployment/metrics-server --timeout=300s
 kubectl top nodes
 ~~~
 
-초기 Pod 다운로드·Metrics API 등록에는 시간이 걸릴 수 있다. `kubectl top nodes`가 실패하면 잠시 후 **같은 단계에서 재검증**하고, 성공하기 전에는 Namespace·Redis 단계로 넘어가지 않는다. 현재 Metrics Server 설정에는 kubelet TLS 검증 우회가 남아 있다. `kubectl top` 성공만으로 39번 개선이 완료된 것은 아니다.
+초기 Pod 다운로드·Metrics API 등록에는 시간이 걸릴 수 있다. `kubectl top nodes`가 실패하면 잠시 후 **같은 단계에서 재검증**하고, 성공하기 전에는 Namespace·Redis 단계로 넘어가지 않는다. 2026-10-26 EKS 재설치에서는 kubelet TLS 검증 우회 없이 `kubectl top nodes`가 통과했다. 이후 재설치에서도 해당 옵션을 추가하지 말고 실제 지표 수집을 확인한다.
 
 ~~~bash
 kubectl create namespace url-shortener --dry-run=client -o yaml | kubectl apply -f -

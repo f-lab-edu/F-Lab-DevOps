@@ -4,7 +4,6 @@ metadata:
   name: argocd-traefik-https
   namespace: argocd
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-traefik
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
@@ -12,7 +11,7 @@ spec:
   tls:
     - hosts:
         - argocd.bidservice.store
-      secretName: argocd-traefik-tls
+      secretName: argocd-server-tls
   rules:
     - host: argocd.bidservice.store
       http:
@@ -23,4 +22,4 @@ spec:
               service:
                 name: argocd-server
                 port:
-                  number: 80
+                  number: 443

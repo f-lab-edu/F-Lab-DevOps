@@ -1,0 +1,4 @@
+server:
+  service:
+    annotations:
+      traefik.ingress.kubernetes.io/service.serverstransport: argocd-argocd-backend@kubernetescrd

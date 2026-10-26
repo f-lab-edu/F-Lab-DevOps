@@ -13,6 +13,8 @@ from pydantic import Field, StrictStr, model_validator
 from ai_ops.contracts import Sha256, StrictModel, canonical_json_bytes, sha256_json
 from ai_ops.model_ci_projection import CIModelView, CIProjection, parse_ci_projection
 from ai_ops.model_projection import ModelView, Projection, parse_projection
+from ai_ops.model_sequence_projection import (SequenceModelView, SequenceProjection,
+                                              parse_sequence_projection)
 
 
 MAX_SUBMISSION = 32768
@@ -86,7 +88,30 @@ class CIModelSubmission(ModelSubmission):
                    view=projection.view)
 
 
-def parse_model_submission(raw: bytes) -> ModelSubmission | CIModelSubmission:
+class SequenceModelSubmission(ModelSubmission):
+    """검증된 조회 순서 v3만 명시적 버전으로 받아 원본 probe를 제외한다."""
+
+    schema_version: Literal[3] = 3
+    view: SequenceModelView
+
+    @classmethod
+    def from_projection(cls, campaign_id: str, projection: SequenceProjection, *, rules_ref: str):
+        projection = parse_sequence_projection(canonical_json_bytes(projection.model_dump(mode="json")))
+        base = projection.base
+        identity = base.identity
+        if rules_ref != f"{identity.incident_id}/{identity.run_id}/report.md":
+            raise ValueError("gateway_submission_rules_binding_rejected")
+        return cls(campaign_id=campaign_id, source_run=identity.run_id, rules_ref=rules_ref,
+                   deployment_uid=identity.deployment_uid, config_hash=identity.config_hash,
+                   cluster_fingerprint=identity.cluster_fingerprint,
+                   exporter_sha256=identity.exporter_sha256,
+                   source_bundle_hash=base.source_bundle_hash,
+                   source_audit_hash=base.source_audit_hash,
+                   mapping_hash=projection.mapping_hash, view_hash=projection.view_hash,
+                   view=projection.view)
+
+
+def parse_model_submission(raw: bytes) -> ModelSubmission | CIModelSubmission | SequenceModelSubmission:
     """유효한 서명 뒤에도 버전이 없거나 알 수 없으면 v1로 낮추지 않는다."""
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_SUBMISSION:
         raise ValueError("gateway_submission_size_rejected")
@@ -96,7 +121,7 @@ def parse_model_submission(raw: bytes) -> ModelSubmission | CIModelSubmission:
         raise ValueError("gateway_submission_json_rejected") from None
     if not isinstance(value, dict) or type(value.get("schema_version")) is not int:
         raise ValueError("gateway_submission_version_rejected")
-    contract = {1: ModelSubmission, 2: CIModelSubmission}.get(value["schema_version"])
+    contract = {1: ModelSubmission, 2: CIModelSubmission, 3: SequenceModelSubmission}.get(value["schema_version"])
     if contract is None:
         raise ValueError("gateway_submission_version_rejected")
     submission = contract.model_validate(value)
@@ -120,7 +145,7 @@ def sign_submission(raw: bytes, credential: bytes) -> str:
 
 
 def verify_submission(raw: bytes, authorization: str, signature: str,
-                      credential: bytes) -> ModelSubmission | CIModelSubmission:
+                      credential: bytes) -> ModelSubmission | CIModelSubmission | SequenceModelSubmission:
     """인증·서명·엄격 계약을 확인하고 모호한 JSON 표기를 거부한다."""
     _credential(credential)
     if (not isinstance(raw, bytes) or not isinstance(authorization, str) or

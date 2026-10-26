@@ -1,0 +1,69 @@
+name: 정상 캐시 순서 격리 실습 관측
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ai-ops-b6-lab
+  cancel-in-progress: false
+jobs:
+  observe:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ai-ops-normal-ci
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      PYTHONPATH: ai-ops/src
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
+        with:
+          role-to-assume: ${{ vars.NORMAL_CI_ROLE_ARN }}
+          aws-region: ap-northeast-2
+          role-duration-seconds: 900
+      - name: 고정 실행 도구와 현재 대상 연결 준비
+        env:
+          NORMAL_CI_BINDING: ${{ vars.NORMAL_CI_BINDING }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export AI_OPS_FILES_ROOT="$RUNNER_TEMP/normal-ci"
+          mkdir -p "$AI_OPS_FILES_ROOT"
+          echo "AI_OPS_FILES_ROOT=$AI_OPS_FILES_ROOT" >> "$GITHUB_ENV"
+          python3 -m venv "$RUNNER_TEMP/normal-venv"
+          "$RUNNER_TEMP/normal-venv/bin/pip" install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
+          "$RUNNER_TEMP/normal-venv/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+          from ai_ops.normal_ci_contract import NormalCIBinding
+          try:
+              binding = NormalCIBinding.model_validate_json(os.environ['NORMAL_CI_BINDING'])
+          except Exception:
+              raise SystemExit('정상 관측 대상 설정 검증 실패') from None
+          path = Path(os.environ['AI_OPS_FILES_ROOT']) / 'binding.json'
+          path.write_text(binding.model_dump_json())
+          path.chmod(0o600)
+          PY
+          curl -fsSL -o "$RUNNER_TEMP/kubectl" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl
+          curl -fsSL -o "$RUNNER_TEMP/kubectl.sha256" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl.sha256
+          echo "$(cat "$RUNNER_TEMP/kubectl.sha256")  $RUNNER_TEMP/kubectl" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/kubectl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          aws eks update-kubeconfig --region ap-northeast-2 --name urlshortener
+      - name: 자기 아이템 조회 네 번·원본 내부 검증·정제·원복
+        run: |
+          "$RUNNER_TEMP/normal-venv/bin/python" -m ai_ops.normal_ci_runner \
+            --binding "$AI_OPS_FILES_ROOT/binding.json" \
+            --output "$AI_OPS_FILES_ROOT/result.json"
+      - name: 정제 영수증 또는 본문 없는 실패 결과만 보관
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        with:
+          name: b6-normal-observation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/normal-ci/result.json
+          if-no-files-found: warn
+          retention-days: 7

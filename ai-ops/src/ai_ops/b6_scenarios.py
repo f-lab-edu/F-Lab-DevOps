@@ -20,6 +20,7 @@ def utc_now():
 # HTTP·캐시·DB 접근은 실습 앱 Pod 안에서만 실행한다. 원문·암호를 출력하지 않는다.
 APP_PROGRAM = r'''
 import json,os,re,sys,time
+from datetime import datetime,timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
@@ -37,6 +38,8 @@ name='b6-scenario-'+run_id
 base='http://127.0.0.1:8000'
 cache=redis.from_url(os.environ['REDIS_URL'],decode_responses=True,socket_timeout=3,socket_connect_timeout=3)
 calls=0
+def utc_stamp():
+    return datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
 def request(method,url,data=None,headers=None):
     global calls
     calls+=1
@@ -62,7 +65,8 @@ def metric_snapshot():
     for family in text_string_to_metric_families(raw):
         for sample in family.samples:
             if sample.name=='cache_operation_total' and sample.labels.get('endpoint')=='get_item':
-                values[sample.labels['result']]=sample.value
+                assert sample.value>=0 and sample.value.is_integer()
+                values[sample.labels['result']]=int(sample.value)
             if sample.labels.get('operation')=='select_one' and sample.name in ('db_query_latency_seconds_count','db_query_latency_seconds_sum'):
                 db['count' if sample.name.endswith('_count') else 'seconds']=sample.value
     return {'cache':values,'db':db}
@@ -90,10 +94,17 @@ elif action in ('cold','hit','fault-read'):
         generation=cache.get('item:'+str(item)+':version') or '0'
         cache.delete('item:'+str(item)+':v'+generation)
         result['marker_absent']=True
+    started_at=utc_stamp()
     before=counters()
+    request_started_at=utc_stamp()
     status,body=request('GET','/items/'+str(item))
+    request_finished_at=utc_stamp()
     assert status==200 and body['id']==item and body['name']==name
-    result.update(http_status=status,counters_before=before,counters_after=counters())
+    after=counters()
+    result.update(http_status=status,response_item_id=body['id'],
+        started_at=started_at,finished_at=utc_stamp(),
+        request_started_at=request_started_at,request_finished_at=request_finished_at,
+        counters_before=before,counters_after=after)
 elif action=='ping':
     result={'redis_ping':bool(cache.ping())}
 elif action=='health':

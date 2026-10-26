@@ -86,8 +86,10 @@ class CIModelConnectionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.enqueue(campaign, example_projection(),
                                source_run=self.identity.run_id, rules_ref=self.rules_ref)
+        self.assertEqual(policy_spec("captured-practice-projection-v3").policy,
+                         "captured-practice-projection-v3")
         with self.assertRaises(ValueError):
-            policy_spec("captured-practice-projection-v3")
+            policy_spec("captured-practice-projection-v4")
 
     def test_live_review_submission_and_activation_bind_v2_without_api_call(self):
         campaign = self.prepare()

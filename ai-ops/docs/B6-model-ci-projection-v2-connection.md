@@ -1,6 +1,6 @@
 # B-06-M7 CI 실패·원복 v2 캠페인 연결 구현
 
-상태: **2026-10-25 KST v2 캠페인 승인·격리 CI 한 건의 실제 모델 보고서 생성·조기 중지 완료. B-06 전체는 진행 중이며, 독립 의미 평가는 사용자 선택으로 생략.** [v2 오프라인 투영](B6-model-ci-projection-v2-implementation.md)의 정제 결과를 기존 worker/gateway 장부에 버전별로 연결한다. v1 보고서·장부와 실습 앱은 보존했다.
+상태: **2026-10-26 KST 재설치한 클러스터에서 별도 승인한 v2 캠페인으로 새 격리 CI 한 건의 실제 모델 보고서 생성·조기 중지 완료. B-06 전체는 진행 중이며, 독립 의미 평가는 사용자 선택으로 생략.** [v2 오프라인 투영](B6-model-ci-projection-v2-implementation.md)의 정제 결과를 기존 worker/gateway 장부에 버전별로 연결한다. v1 보고서·장부와 실습 앱은 보존했다.
 
 ## 동작 흐름과 버전 경계
 
@@ -43,5 +43,17 @@ v1 캠페인은 승인 기간 만료 전에 조기 중지했고 worker bridge �
 사용자는 2026-10-26 KST에 Claude 토큰 부족을 이유로 이번 독립 검토를 **생략**하기로 했다. 준비한 자료는 전송하지 않았고, 독립 평가 결과도 없다. 이 선택은 기존 모델 보고서의 `needs_review`를 통과 처리하거나 B-06 완료·운영 조치 권한을 부여하지 않는다. 앞의 자체 대조와 원본 CI 근거를 구분해 보존하고 다음 구현 작업을 진행한다.
 
 같은 날 보고서 **표시 계층**에 `projected_ci_report_display.py`와 `render_ci_model_report.py`를 추가했다. 저장된 `live-result.json`을 덮어쓰지 않고, 계약·인용을 다시 검증한 뒤 개인 폴더에 권한 0600의 `live-result-display.html`을 새로 만든다. 화면 상단과 한계 절에 “제공되지 않음”은 **모델에 전달된 정제 입력 기준**임을 명시한다. 모델 문장의 시각은 인용한 CI 관측의 UTC 시각과 초까지 일치할 때만 KST로 표시하며 원문 UTC 시각도 병기한다. 일치하지 않으면 임의 변환하지 않고 시간대 확인 필요로 표시한다. 저장 원문·캠페인 결합·outbox 상태는 바꾸지 않는다. 보존한 실제 v2 보고서에서 08:53:38/08:53:50 UTC가 17:53:38/17:53:50 KST로 표시됨을 확인했고, 근거 없는 시각·HTML 삽입·알 수 없는 인용의 로컬 검사 3건이 통과했다. 모델 API 호출은 없었다.
+
+## 2026-10-26 KST 재설치 클러스터의 새 v2 캠페인 검증
+
+이전 캠페인의 승인을 재사용하지 않았다. 사용자가 새 `campaign-9b673cd44bc54f02a742763a8443d67f`와 결합 SHA-256 `f2ff29f26b33fadb3d65b77415526d01dfc382bc05e759a213da63cb15b84239`, 선택적 데이터 공유 해제를 확인했다. 승인 범위는 `ai-ops-lab/lab-api`, `gpt-6-sol`/low, 최대 10건·건당 $0.10 예약·UTC 하루 $1 예약, 2026-10-27 14:01:24 KST까지의 자동 정제 입력이었다. 승인 직전 현재 EKS 지문·대상 UID·CI 설정·이미지 `sha256:563bc2b9834dde3c357ae33ecfa06a76d75758467a0664f0ba61480929d137eb`·구현/자격 지문과 공식 모델 가격을 재대조했다. ECR 검사 상태는 `COMPLETE`였다. 승인 장부를 암호화된 전용 PVC에 권한 0600으로 복사하고 Secret 값은 출력하지 않은 채 지문 일치를 확인했다. 프록시·gateway를 먼저 Ready로 만든 후 worker bridge를 켰고, 공유 PVC를 쓰는 전달기는 worker 교체 중에만 잠시 중지했다.
+
+[격리 실습 CI 40276875265](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40276875265)는 사용자가 GitHub 환경 승인을 한 뒤 후보 이미지의 `ErrImagePull`·Ready 0을 기록하고, 기존 CI가 기준 버전으로 자동 원복해 Ready 1을 확인했다. artifact `result.json`은 `recovered_after_failure`이며 최종 GitHub `failure`는 최초 실패 보존을 위한 의도된 결과다. 실습 앱은 이후 Ready 1/1·Argo `Synced/Healthy`였다. 운영 앱의 장애나 사용자 요청 경로의 복구를 검증한 실행은 아니다.
+
+이 CI 실행은 자동 전달기→규칙 worker→v2 gateway로 접수됐다. outbox는 **한 건만** `needs_review / semantic_review_required`로 끝났고 추가 준비·전송 중 건은 없었다. 새 보고서의 `ev-view-008`은 05:59:32 UTC 후보 배포 실패·Ready 0·이미지 취득 실패, `ev-view-009`는 05:59:48 UTC 기준 버전 원복 성공·Ready 1을 각각 인용했다. `partial / suspected_cause / unknown`으로 최초 실패의 원인 후보를 이미지 취득 실패로 설명했고, 현재 전체 서비스 정상이나 사용자 경로 복구를 주장하지 않았다. 제안 두 건은 `not_executed`다. “원본 이미지·Git SHA·CI 최종 결론이 제공되지 않았다”는 표현은 모델에 전달한 정제 입력의 범위이며, 원본 CI artifact 전체의 부재가 아니다. 개인 HTML 보기에는 두 시각을 14:59:32/14:59:48 KST로 변환해 UTC 원문과 함께 표시한다.
+
+토큰 사용량은 입력 1,688·출력 411·캐시 쓰기 1,685, 사용량 기반 **추정 $0.0083285**다. UTC 2026-10-26 장부 예약액 $0.10과 실제 청구 확정액은 구분한다. 정제 view·보고서·CI artifact 3개는 소유자 전용 `~/.local/share/url-shortener-ai-ops/model-campaigns/preparation-81db1f28a7f5263a/`에 0600으로 보존했다. 보고서 계약·인용 검사와 구현자의 근거 대조는 수행했으나 독립 의미 평가는 사용자 선택대로 생략했으므로 `needs_review`를 유지한다.
+
+한 건 처리 후 해당 캠페인을 `stopped`로 기록하고 worker의 모델 환경값·토큰 마운트를 제거했다. gateway·프록시 복제수 0, `ai-model` Pod 0, 모델 Secret 0개를 확인했고 임시 장부 읽기 Pod도 삭제했다. CI worker·전달기는 각각 Ready 1/1로 복구했다. 개인 API 키 원본과 PVC 장부는 보존했다. 실제 캠페인 만료 시각의 자동 종료, 정상 관측 사례와 다른 장애 유형, 예산 초과·전송 실패의 라이브 경로는 이번 한 건으로 입증되지 않는다. B-06 완료와 C단계 변경 권한은 계속 보류한다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

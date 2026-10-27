@@ -31,6 +31,8 @@ class B6LabTest(TestCase):
                          and item["metadata"]["name"] == "lab-collector")
         self.assertEqual(collector["spec"]["template"]["spec"]["volumes"][-1],
                          {"name": "data", "persistentVolumeClaim": {"claimName": "lab-collector-source"}})
+        self.assertEqual(collector["spec"]["template"]["spec"]["securityContext"]["fsGroupChangePolicy"],
+                         "OnRootMismatch")
         for item in bundle["items"]:
             self.assertEqual(item["metadata"].get("namespace", item["metadata"]["name"]), NAMESPACE)
             self.assertNotIn(item["kind"], {"Ingress", "ClusterRole", "Application"})

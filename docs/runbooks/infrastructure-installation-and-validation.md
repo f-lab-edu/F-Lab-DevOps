@@ -64,6 +64,8 @@ aws rds wait db-instance-available --db-instance-identifier urlshortener-postgre
 
 기존 production root가 **GitHub OIDC provider를 생성·검증한 뒤**, Kubernetes 단계 전에 [AI 전용 root 설치·정리 절차](ai-ops-registry-lifecycle.md)의 설치 단계를 수행한다. `terraform/ai-ops-registry/`는 같은 state bucket의 `urlshortener/ai-ops/practice/terraform.tfstate`를 사용하지만 별도 root·잠금이다. 이 root의 `enable_ai_ops_registry` 기본값은 `false`이므로 설치 계획과 적용에서 `true`를 명시한다. ECR·lifecycle policy·IAM Role·inline policy 네 개와 별도 state를 확인한 뒤 2절로 넘어간다. 기존 OIDC는 AI root에서 **조회만** 하며 재생성·state 이전을 하지 않는다.
 
+S10 실습 CI와 B-06 정상 관측 CI는 별도 선택 연결이다. 활성화할 때는 같은 AI root에서 `enable_b6_lab_ci=true`, `enable_b6_normal_ci=true` 중 필요한 값을 **후속 적용 때마다 모두** 명시한다. 정상 관측 CI는 이미지·실습 수집기 설치 후 현재 Pod를 다시 고정하고 전용 권한과 GitHub 승인 환경을 연결한다. 세부 순서는 [AI root 수명주기](ai-ops-registry-lifecycle.md)와 [정상 관측 CI 실행자](../../ai-ops/docs/B6-normal-ci-executor.md)를 따른다.
+
 현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
 
 ## 2. kubeconfig와 노드

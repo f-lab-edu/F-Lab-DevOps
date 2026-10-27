@@ -3,7 +3,7 @@
   "status": "in_progress",
   "b_stage_completion": "held",
   "c_stage_ready": false,
-  "scope": "production read-only operational evaluation",
+  "scope": "2026-10-21 production 읽기 전용 운영 데모와 날짜별 격리 실습 평가; 결과를 합산하지 않음",
   "measured_at": "2026-10-21T04:30:18.817932+00:00",
   "live_demo": "B6-operational-demo-v2.json",
   "scenario_matrix": [
@@ -17,7 +17,7 @@
       "id": "S2",
       "name": "정상 캐시 미스 증가",
       "status": "observed_live_subcase",
-      "finding": "실습 아이템 cold miss→hit 두 쌍·오류 증가 없음·허위 원인 후보 0을 확인했다. 보고서는 partial/unknown을 유지했다. 자연 TTL 만료 변형은 미검증이다."
+      "finding": "2026-10-26 새 격리 실습에서 cold miss→hit 두 쌍·HTTP 200·원복과 규칙 후보 0개를 확인했다. 집계 전용 첫 일회 보고서는 순서 근거 부족으로 정상 설명을 유보했다. 순서가 포함된 새 v3 일회 보고서는 같은 아이템의 제한된 정상 캐시 동작을 설명하고 누락을 0으로 보지 않아 자체 의미 판정은 범위 내 적합이다. 자연 TTL·전체 정상·상시 자동 경로는 미검증이다."
     },
     {
       "id": "S3",
@@ -65,7 +65,7 @@
       "id": "S10",
       "name": "자동 복구 이후 배포 사건",
       "status": "partial",
-      "finding": "실습 CI 최초 실패·자동 원복·artifact 검증 및 운영자 가져오기 확인. CI 전용 규칙 저장/재조회는 모의 유효 구간과 실제 stale snapshot으로 검증했다. 최신 실시간 CI 보고서·worker 자동 입력·라이브 모델은 미검증이다."
+      "finding": "2026-10-26 격리 실습 CI 40276875265의 이미지 실패·기존 CI 자동 원복을 전달기·worker가 접수했고 v2 모델 보고서 한 건을 저장했다. 실패 원인 후보와 원복 사실을 구분했으나 needs_review이며 사용자 경로 복구·다른 실패 변형은 미검증이다."
     },
     {
       "id": "S11",
@@ -89,7 +89,18 @@
     "image_rules_v3_saved_comparison": "B6-image-rules-v3-comparison.json",
     "s10_live_ci": "B6-s10-ci-validation.json",
     "s10_history_import": "B6-s10-history-import-validation.json",
-    "s10_report": "B6-s10-report-validation.json"
+    "s10_report": "B6-s10-report-validation.json",
+    "s10_live_model_connection": "../B6-model-ci-projection-v2-connection.md#2026-10-26-kst-재설치-클러스터의-새-v2-캠페인-검증",
+    "b6_completion_gate": "../B6-completion-gate-20261026.md",
+    "model_semantic_criteria": "../B6-model-semantic-criteria-20261026.md",
+    "normal_observation_2026_10_26": "../B6-normal-observation-20261026.md",
+    "normal_model_comparison_2026_10_26": "../B6-normal-model-comparison-20261026.md",
+    "normal_sequence_evidence_design": "../B6-normal-sequence-evidence-design.md",
+    "normal_sequence_local_implementation": "../B6-normal-sequence-local-implementation.md",
+    "normal_sequence_capture": "../B6-normal-sequence-capture.md",
+    "normal_sequence_exporter": "../B6-normal-sequence-exporter.md",
+    "normal_sequence_comparison_preparation": "../B6-normal-sequence-comparison-preparation.md",
+    "normal_sequence_live_failure": "../B6-normal-sequence-live-failure.md"
   },
   "quality": {
     "captured_items": 30,
@@ -104,7 +115,7 @@
     "mttr_improvement": null
   },
   "cost": {
-    "current_profile": "cluster rules-only; distinct from local development model budget",
+    "current_profile": "2026-10-21 규칙 전용 운영 데모의 과거 측정값; 2026-10-26 모델 실습은 m7_live_practice 참조",
     "external_calls": 0,
     "external_cost_usd": 0,
     "budget_threshold_enforcement_live_model_tested": false,
@@ -118,7 +129,7 @@
     "data_minimization": "captured_projection_applied",
     "external_production_data": "blocked",
     "normal_diagnosis_quality": "not_demonstrated",
-    "live_model_quality": "not_tested",
+    "live_model_quality": "one_current_v2_fault_case_and_one_local_normal_case_needs_review_normal_positive_explanation_pending",
     "isolated_fault_scenarios": "partial_S1_S2_S4_passed_S3_report_needs_review",
     "isolated_lab_preparation": "passed_single_db_scope",
     "cache_cold_key_false_cause": "passed_one_live_case",
@@ -129,9 +140,131 @@
     "image_rules_v3_saved_comparison": "passed_candidate_no_deployment"
   },
   "next_actions": [
-    "규칙 v3 변경을 원격 CI와 이미지 등록으로 검증한 후 기존 v1/v2 재조회·새 v3 저장/조회·필요 범위의 S3 실환경 설명을 확인한다. 현재 후보 비교는 배포 성공이 아니다.",
-    "captured 외부 전송 정책과 승인 범위를 별도 설계한 뒤 모델 비교를 검증한다. 현재 차단을 제거하지 않는다."
+    "승인된 새 v3 진단 비교는 계약 통과 후 같은 아이템의 miss→hit 두 쌍을 제한된 정상 캐시 동작으로 설명했다. S2 하위 사례의 자체 판정은 범위 내 적합이나 저장 상태 needs_review와 상시 경로 미검증을 유지한다.",
+    "실습 배포 경로의 전송 전후 중단·중복·예산 거부·만료 및 정리 경계를 모의 시험과 제한 실측으로 대조한다. 실제 429/timeout 유료 주입은 요구하지 않는다.",
+    "B-06 필수 조건을 충족하면 B-01~B-05의 남은 확인 사항을 대조한 뒤 C단계 진입을 별도로 판정한다."
   ],
+  "m7_live_practice": {
+    "measured_at_date_kst": "2026-10-26",
+    "scope": "격리 실습 CI 40276875265; production captured 자료 전송 아님",
+    "ci_result": "recovered_after_failure; 최초 실패 보존을 위해 GitHub 최종 failure",
+    "model_outboxes": 1,
+    "report_review_status": "needs_review",
+    "estimated_usage_cost_usd": 0.0083285,
+    "utc_day_reserved_usd": 0.1,
+    "actual_billed_cost_usd": null,
+    "early_stop_verified": true,
+    "model_pods_after_stop": 0,
+    "model_secrets_after_stop": 0,
+    "independent_semantic_review": "사용자 선택으로 생략; 품질 통과로 계산하지 않음"
+  },
+  "normal_observation_2026_10_26": {
+    "scope": "ai-ops-lab/lab-api S2 단일 실습, Deployment 변경 없음",
+    "cold_hit_pairs": 2,
+    "http_status_all": 200,
+    "rules_report": "partial/insufficient_evidence/unknown, facts 4, hypotheses 0",
+    "projection_view_hash": "69c42cd606ff9dbf91642517bbca0d51a595d624ea2ff1d6816fb57e772e74bc",
+    "model_view_available_metrics": 4,
+    "model_view_missing_metrics": 2,
+    "one_off_preview": {
+      "comparison_id": "cmp-a221f415e489f08dcae0941d7586be9c",
+      "binding_hash": "a221f415e489f08dcae0941d7586be9cd1f6aa18dc2db2c41c5114290ab97ea1",
+      "state_at_preparation": "prepared",
+      "request_body_bytes": [7934, 8017],
+      "execution_scope": "local_one_off_not_deployed_ci_path",
+      "budget_reserved_usd_at_preparation": 0
+    },
+    "external_model_calls_at_collection": 0,
+    "model_semantic_result": "insufficient_evidence_appropriate_withheld_positive_normal_explanation_not_demonstrated",
+    "owned_item_removed": true,
+    "production_and_lab_identity_unchanged": true,
+    "lab_lease_released": true
+  },
+  "normal_model_comparison_2026_10_26": {
+    "scope": "승인된 정상 S2 정제 입력 로컬 일회 비교; 배포된 CI 자동 경로 아님",
+    "comparison_id": "cmp-a221f415e489f08dcae0941d7586be9c",
+    "binding_hash": "a221f415e489f08dcae0941d7586be9cd1f6aa18dc2db2c41c5114290ab97ea1",
+    "response_model": "gpt-6-sol",
+    "input_token_count_requests": 1,
+    "generation_requests": 1,
+    "input_tokens": 1877,
+    "output_tokens": 517,
+    "cache_write_tokens": 1874,
+    "estimated_usage_cost_usd": 0.009861,
+    "local_utc_day_reserved_usd": 0.1,
+    "actual_billed_cost_usd": null,
+    "contract_result": "passed",
+    "stored_state": "needs_review_semantic_review_required",
+    "self_semantic_result": "appropriate_withholding_due_to_missing_sequence_positive_normal_explanation_not_demonstrated",
+    "independent_review": "skipped_by_user",
+    "details": "../B6-normal-model-comparison-20261026.md"
+  },
+  "normal_sequence_v3_live": {
+    "comparison_id": "cmp-820baa66d1295a9be1b82f17594f6e3e",
+    "view_hash": "082b29757099cdf763201b11bf0e27249b5ae79732093c74b60d90641bc0fe32",
+    "state": "failed",
+    "reason": "projection_report_contract_rejected",
+    "token_count_requests": 1,
+    "generation_requests": 1,
+    "input_tokens": 1957,
+    "output_tokens": 470,
+    "estimated_usage_cost_usd": 0.009591,
+    "reserved_usd": 0.1,
+    "shared_local_utc_day_reserved_usd": 0.2,
+    "actual_billed_cost_usd": null,
+    "semantic_evaluation": "not_performed_contract_rejection_draft_not_retained",
+    "retry_performed": false,
+    "details": "../B6-normal-sequence-live-failure.md"
+  },
+  "normal_sequence_v3_failure_diagnostics": {
+    "status": "implemented_local_mock_verified",
+    "applies_to_historical_failure": false,
+    "fixed_reason_and_safe_field_paths": true,
+    "private_draft_limit_bytes": 65536,
+    "local_retention_days": 7,
+    "full_python_tests_passed": 491,
+    "new_external_model_calls": 0,
+    "new_cost_reservation_usd": 0,
+    "details": "../B6-sequence-failure-diagnostics.md"
+  },
+  "normal_sequence_v3_diagnostic_preparation": {
+    "comparison_id": "cmp-319207e7d943ea0ba29b1c2e32d728a2",
+    "binding_hash": "319207e7d943ea0ba29b1c2e32d728a2796edc57d951b84733c48014abb5f203",
+    "view_hash": "082b29757099cdf763201b11bf0e27249b5ae79732093c74b60d90641bc0fe32",
+    "state_at_preparation": "prepared",
+    "new_external_model_calls": 0,
+    "new_cost_reservation_usd": 0,
+    "shared_local_utc_day_reserved_usd": 0.2,
+    "details": "../B6-sequence-failure-diagnostics.md"
+  },
+  "normal_sequence_v3_diagnostic_live": {
+    "comparison_id": "cmp-319207e7d943ea0ba29b1c2e32d728a2",
+    "view_hash": "082b29757099cdf763201b11bf0e27249b5ae79732093c74b60d90641bc0fe32",
+    "state": "needs_review",
+    "reason": "semantic_review_required",
+    "token_count_requests": 1,
+    "generation_requests": 1,
+    "input_tokens": 1957,
+    "output_tokens": 450,
+    "estimated_usage_cost_usd": 0.0048968,
+    "reserved_usd": 0.1,
+    "shared_local_utc_day_reserved_usd": 0.3,
+    "actual_billed_cost_usd": null,
+    "report_contract": "passed",
+    "self_semantic_result": "within_scope_passed_single_item_miss_hit_twice",
+    "independent_review": "skipped_by_user",
+    "retry_performed": false,
+    "details": "../B6-normal-sequence-diagnostic-live-result.md"
+  },
+  "completion_gate_2026_10_26": {
+    "deployed_read_to_model_connection": "verified_limited_practice",
+    "normal_fault_insufficient_semantics": "criteria_fixed_fault_and_insufficient_self_reviewed_local_sequence_normal_within_scope_continuous_path_pending",
+    "normal_existing_input_reuse": "historical_input_not_suitable_new_s2_sequence_captured_and_compared_once",
+    "deployment_failure_boundaries": "partial_mock_and_early_stop_verified",
+    "b_stage_completion": "held",
+    "c_stage_entry": "held",
+    "details": "../B6-completion-gate-20261026.md"
+  },
   "initial_live_demo": "B6-operational-demo.json",
   "initial_quality": {
     "captured_items": 30,
@@ -149,5 +282,5 @@
     "진단 표식 없는 유효 로그를 no_diagnostic_fields로 구분해 실제 수집에서 확인했다.",
     "v2 관측 사실 3개·available 근거 인용·partial/unknown 유지와 기존 v1 3건 보존을 실제 배포에서 확인했다."
   ],
-  "s10_updated_at": "2026-10-22T13:33:28.764899+09:00"
+  "s10_updated_at": "2026-10-26"
 }

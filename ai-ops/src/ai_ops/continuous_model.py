@@ -17,6 +17,7 @@ from ai_ops.contracts import canonical_json_bytes, sha256_json
 from ai_ops.incidents import _private_directory
 from ai_ops.model_comparison import rules_projection
 from ai_ops.model_projection import POLICY, Projection, TARGET
+from ai_ops.model_sequence_projection import SequenceProjection
 from ai_ops.model_policy import policy_spec
 from ai_ops.model_gateway_contract import ModelSubmission
 from ai_ops.model_gateway_transport import GatewayOpenAITransport
@@ -35,11 +36,13 @@ CAMPAIGN_SECONDS = 24 * 60 * 60
 def implementation_hash() -> str:
     """승인 범위에 정제·프롬프트·장부·연결 코드를 함께 고정한다."""
     root = Path(__file__).parent
-    names = ("model_projection.py", "model_ci_projection.py", "model_policy.py", "model_comparison.py",
-             "projected_model_engine.py", "projected_ci_model_engine.py",
+    names = ("model_projection.py", "model_ci_projection.py", "model_sequence_projection.py",
+             "model_policy.py", "model_comparison.py", "projected_model_engine.py",
+             "projected_ci_model_engine.py", "projected_sequence_model_engine.py",
              "continuous_model.py", "continuous_ci_bridge.py", "model_gateway_contract.py",
              "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
              "model_live_probe.py", "model_runtime.py", "model_activation.py", "model_service.py",
+             "normal_ci_contract.py", "normal_ci_rbac.py", "normal_ci_runner.py", "normal_ci_source.py",
              "ci_service.py", "worker_runtime.py", "model_campaign_review.py")
     return sha256_json({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                         for name in names})
@@ -238,16 +241,17 @@ class ContinuousModelStore:
         value["binding_hash"] = sha256_json(value["binding"])
         return value
 
-    def enqueue(self, campaign_id: str, projection: Projection, *, source_run: str,
+    def enqueue(self, campaign_id: str, projection: Projection | SequenceProjection, *, source_run: str,
                 rules_ref: str) -> str:
         """검증된 실습 Projection의 view만 저장한다. 원본 대응표는 기록하지 않는다."""
         selected = policy_spec(projection.view.policy_version)
         projection = selected.parse_projection(canonical_json_bytes(projection.model_dump(mode="json")))
-        if source_run != projection.identity.run_id or not re.fullmatch(r"run-[0-9a-f]{32}", source_run):
+        source = projection.base if isinstance(projection, SequenceProjection) else projection
+        if source_run != source.identity.run_id or not re.fullmatch(r"run-[0-9a-f]{32}", source_run):
             raise ValueError("outbox_source_run_rejected")
         if not re.fullmatch(r"inc-[0-9a-f]{32}/run-[0-9a-f]{32}/report\.md", rules_ref):
             raise ValueError("outbox_rules_ref_rejected")
-        if rules_ref != f"{projection.identity.incident_id}/{source_run}/report.md":
+        if rules_ref != f"{source.identity.incident_id}/{source_run}/report.md":
             raise ValueError("outbox_rules_binding_rejected")
         with self._transaction() as db:
             campaign = db.execute("SELECT * FROM campaigns WHERE id=?", (campaign_id,)).fetchone()
@@ -257,7 +261,7 @@ class ContinuousModelStore:
             if (binding["implementation_hash"] != implementation_hash() or
                     binding["prompt"] != selected.prompt or binding["policy"] != selected.policy):
                 raise ValueError("campaign_code_changed")
-            identity = projection.identity
+            identity = source.identity
             if (identity.deployment_uid != binding["deployment_uid"] or
                     identity.config_hash != binding["config_hash"] or
                     identity.cluster_fingerprint != binding["cluster_fingerprint"] or
@@ -267,14 +271,14 @@ class ContinuousModelStore:
             plan = self._plan(CallPlan.model_validate(binding["plan"]))
             selected.request_templates(projection.view, plan)
             key = sha256_json({"source_run": source_run,
-                               "snapshot_hash": projection.source_bundle_hash,
+                               "snapshot_hash": source.source_bundle_hash,
                                "view_hash": projection.view_hash, "policy": selected.policy,
                                "campaign_id": campaign_id})
             identifier = "outbox-" + key
             view = projection.view.model_dump(mode="json")
             rules = rules_projection(projection.view).model_dump(mode="json")
-            projection_binding = {"source_bundle_hash": projection.source_bundle_hash,
-                                  "source_audit_hash": projection.source_audit_hash,
+            projection_binding = {"source_bundle_hash": source.source_bundle_hash,
+                                  "source_audit_hash": source.source_audit_hash,
                                   "mapping_hash": projection.mapping_hash,
                                   "exporter_sha256": identity.exporter_sha256,
                                   "view_hash": projection.view_hash}

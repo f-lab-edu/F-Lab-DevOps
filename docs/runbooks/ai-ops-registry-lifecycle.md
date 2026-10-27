@@ -142,3 +142,7 @@ test "$(printf '%s' "$S3_DELETE_RESULT" | jq '(.Errors // []) | length')" -eq 0
 ## S10 선택 CI 연결 추가
 
 S10 활성 시 같은 AI state에서 `enable_b6_lab_ci=true`로 전용 OIDC 역할·inline policy·EKS access entry 3개도 관리한다. 관리자 정책은 연결하지 않는다. 현재 계정/클러스터·main 제한/필수 승인의 `ai-ops-lab-ci` 환경과 실습 RBAC가 필요하다. 기존 이미지 등록 역할은 확장하지 않는다. 전체 정리는 여전히 AI root → production root 순서이며 같은 state의 후속 apply는 활성 플래그 누락으로 3개 삭제 계획이 생기지 않게 확인한다. 기본 새 AI 설치는 실습 미활성이고 선택 연결 시 값을 명시한다. GitHub 환경은 AWS 정리와 별개다. [상세](../../ai-ops/docs/B6-ci-experiment.md).
+
+## B-06 정상 관측 CI 선택 연결
+
+정상 관측 CI를 활성화한 경우 같은 AI state에 `enable_b6_normal_ci=true`를 명시해 전용 OIDC 역할·inline policy·EKS access entry 3개를 관리한다. `enable_b6_lab_ci=true`를 사용 중이면 후속 `plan`과 `apply`에도 두 플래그를 함께 지정해 기존 역할의 삭제 계획이 생기지 않게 한다. 새 클러스터에서는 AI 이미지와 격리 실습 수집기를 먼저 복구하고, 현재 Pod로 binding·RBAC를 다시 생성한다. `ai-ops-normal-ci` GitHub 환경은 `main` 제한과 필수 검토자를 유지하며 새 역할 ARN과 binding을 갱신한다. 과거 Pod UID·이미지 digest·binding은 재사용하지 않는다. 정리 시에는 AI root의 `plan -destroy`에 활성 플래그를 모두 지정하고 정상 CI 역할 3개도 삭제 대상인지 확인한다. GitHub 환경과 artifact는 AWS state 밖에 있다. [상세](../../ai-ops/docs/B6-normal-ci-executor.md).

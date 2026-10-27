@@ -524,6 +524,8 @@ Kubernetes 리소스, Load Balancer, Target Group, PVC 정리가 끝난 뒤 실�
 
 [AI 전용 root 설치·정리 절차](ai-ops-registry-lifecycle.md)의 공통 확인과 정리 단계를 실행한다. AI ECR `urlshortener-practice-ai-ops`는 `force_delete=false`다. 이미지가 있다면 보존 결정을 기록하고 **전체 삭제 승인 후** 태그 없는 이미지를 포함해 digest로 비운다. AI root의 `enable_ai_ops_registry=true`를 명시한 `plan -destroy`에서 ECR·lifecycle policy·IAM Role·inline policy 네 개만 삭제 대상인지 확인한 뒤 별도로 destroy한다. AI state가 빈 상태이고 ECR·IAM Role이 AWS에서 없어졌음을 확인하기 전에는 14-1절 또는 production destroy로 넘어가지 않는다. AI state 객체 자체는 이 단계에서 지우지 않는다. production OIDC·bucket·Route53도 변경하지 않는다.
 
+S10 또는 B-06 정상 관측 CI가 활성화돼 있으면 `plan -destroy`와 `destroy`에 각각 `enable_b6_lab_ci=true`, `enable_b6_normal_ci=true`도 지정하고, 두 전용 OIDC 역할·정책·EKS access entry가 삭제 계획에 포함됐는지 확인한다. 위의 기본 네 개만 예상하는 문구는 선택 연결이 없는 경우에만 적용한다. AWS 밖의 GitHub 환경·artifact와 소유자 보관 자격 파일은 이 Terraform 정리에서 삭제하지 않는다.
+
 ### 14-1. RDS 삭제 보호를 별도 변경으로 해제
 
 삭제 승인과 보관할 백업·스냅샷을 확인한다. 커밋된 기본 구성에서 `terraform/rds.tf`의 Primary는 `deletion_protection = var.environment == "production"`이다. 이미 임시로 `false`로 바꾼 재개 상황에서는 같은 변경을 반복하지 말고 AWS·state의 실제 값을 확인한다. Primary가 이미 Terraform state와 AWS에서 제거됐다면 이 보호 해제 단계는 건너뛴다. state와 AWS가 서로 다르면 먼저 원인을 조사한다. Primary가 남아 있고 삭제 보호가 켜져 있을 때만 승인된 정리 작업에서 `deletion_protection = false`로 임시 변경한다.

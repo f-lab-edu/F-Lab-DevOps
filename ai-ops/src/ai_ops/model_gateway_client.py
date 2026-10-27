@@ -8,9 +8,11 @@ from pathlib import Path
 import re
 
 from ai_ops.contracts import canonical_json_bytes
-from ai_ops.model_gateway_contract import CIModelSubmission, ModelSubmission, sign_submission
+from ai_ops.model_gateway_contract import (CIModelSubmission, ModelSubmission,
+                                           SequenceModelSubmission, sign_submission)
 from ai_ops.model_ci_projection import CIProjection
 from ai_ops.model_projection import Projection
+from ai_ops.model_sequence_projection import SequenceProjection
 
 
 HOST = "model-gateway.ai-model.svc.cluster.local"
@@ -92,9 +94,10 @@ class ModelGatewayClient:
         if value != {"recorded": True}:
             raise ValueError("model_gateway_rejection_contract")
 
-    def enqueue(self, campaign_id: str, projection: Projection, *, source_run: str,
+    def enqueue(self, campaign_id: str, projection: Projection | CIProjection | SequenceProjection, *, source_run: str,
                 rules_ref: str) -> str:
-        contract = CIModelSubmission if type(projection) is CIProjection else ModelSubmission
+        contract = (CIModelSubmission if type(projection) is CIProjection else
+                    SequenceModelSubmission if type(projection) is SequenceProjection else ModelSubmission)
         submission = contract.from_projection(campaign_id, projection, rules_ref=rules_ref)
         if submission.source_run != source_run:
             raise ValueError("model_gateway_source_rejected")

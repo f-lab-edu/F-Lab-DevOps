@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 from ai_ops.b6_lab import LabInputs, build_lab
 from ai_ops.ci_service import build_service
+from test_normal_ci import fixture as normal_fixture
 
 
 class CIServiceTests(unittest.TestCase):
@@ -42,3 +43,17 @@ class CIServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError): build_service(self.image,self.config,['8.8.8.8/32'])
         config=dict(self.config);config['bindings.json']=config['bindings.json'].replace('ai-ops-lab','url-shortener')
         with self.assertRaises(ValueError): build_service(self.image,config,['10.0.0.1/32'])
+
+    def test_normal_binding_only_enables_separate_relay_scan_and_worker_inbox(self):
+        binding = normal_fixture()[3]
+        config = dict(self.config)
+        config['normal-ci-binding.json'] = binding.model_dump_json()
+        docs = build_service(self.image, config, ['10.0.0.1/32'])['items']
+        relay = next(x for x in docs if x['kind']=='Deployment' and x['metadata']['name']=='ci-relay')
+        worker = next(x for x in docs if x['kind']=='Deployment' and x['metadata']['name']=='ci-worker')
+        self.assertEqual(relay['spec']['template']['spec']['containers'][0]['args'][-2:],
+                         ['--normal-binding', '/etc/ai-ops/normal-ci-binding.json'])
+        self.assertNotIn('--normal-binding', worker['spec']['template']['spec']['containers'][0]['args'])
+        self.assertEqual(relay['spec']['replicas'], 0)
+        config['normal-ci-binding.json'] = '{"forged":true}'
+        with self.assertRaises(ValueError): build_service(self.image, config, ['10.0.0.1/32'])

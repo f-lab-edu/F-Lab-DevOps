@@ -13,13 +13,19 @@ def main():
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--image', required=True)
     parser.add_argument('--output', type=Path, required=True)
-    args = cli_paths(parser, parser.parse_args(), {'manifest': 'input', 'output': 'output'})
+    parser.add_argument('--normal-binding', type=Path, help='현재 Pod에 고정된 정상 관측 CI binding')
+    args = cli_paths(parser, parser.parse_args(), {'manifest': 'input', 'output': 'output',
+                                                   'normal_binding': 'input'})
     bundle = json.loads(args.manifest.read_text()); validate_lab(bundle)
     config = next(x['data'] for x in bundle['items'] if x['kind']=='ConfigMap')
     config = dict(config)
     bindings = json.loads(config['bindings.json'])
     bindings['bindings'][0]['argo']['namespace'] = 'argocd'
     config['bindings.json'] = json.dumps(bindings)
+    if args.normal_binding is not None:
+        from ai_ops.normal_ci_contract import NormalCIBinding
+        config['normal-ci-binding.json'] = NormalCIBinding.model_validate_json(
+            args.normal_binding.read_bytes()).model_dump_json()
     policy = next(x for x in bundle['items'] if x['kind']=='NetworkPolicy' and x['metadata']['name']=='lab-collector')
     cidrs = [x['ipBlock']['cidr'] for x in policy['spec']['egress'][0]['to']]
     write_private_json(args.output, build_service(args.image, config, cidrs))

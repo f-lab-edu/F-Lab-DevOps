@@ -11,11 +11,14 @@ import signal
 import threading
 
 from ai_ops.b_contracts import load_b_settings
-from ai_ops.ci_history import GitHubReader, LAB_RUNS_PATH, _positive
+from ai_ops.ci_history import GitHubReader, LAB_RUNS_PATH, NORMAL_RUNS_PATH, _positive
 from ai_ops.contracts import _utc_datetime
 from ai_ops.evidence import _json_object
 from ai_ops.job_queue import JobQueue
 from ai_ops.lab_ci_history import verify_lab_ci_history
+from ai_ops.normal_ci_contract import NormalCIBinding
+from ai_ops.normal_ci_history import verify_normal_ci_history
+from ai_ops.normal_ci_inbox import NormalCIInbox
 from ai_ops.path_policy import cli_paths
 
 
@@ -26,16 +29,29 @@ RECENT_SECONDS = 900
 class CIRelay:
     """GitHub 인증은 이 프로세스에서만 사용하고 큐에는 검증 기록만 전달한다."""
 
-    def __init__(self, queue, settings, *, reader=None, clock=None):
+    def __init__(self, queue, settings, *, reader=None, clock=None, normal_binding=None):
         self.queue = queue
         self.settings = settings
         self.reader = reader or GitHubReader()
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.normal_binding = (NormalCIBinding.model_validate(normal_binding)
+                               if normal_binding is not None else None)
+        self.normal_inbox = NormalCIInbox(queue, self.normal_binding) if self.normal_binding else None
 
     def submit_run(self, run_id: int, expected_head: str) -> dict:
         history = verify_lab_ci_history(run_id, expected_head, reader=self.reader)
         job_id, duplicate = self.queue.submit_ci(self.settings, history)
         return {"job_id": job_id, "duplicate": duplicate, "state": self.queue.show(job_id)["state"]}
+
+    def submit_normal_run(self, run_id: int, expected_head: str) -> dict:
+        """정상 성공 실행을 실패·원복 큐와 구분해 정제 영수증 inbox에 접수한다."""
+        if self.normal_inbox is None:
+            raise ValueError("normal_ci_relay_disabled")
+        history = verify_normal_ci_history(run_id, expected_head, self.normal_binding,
+                                           reader=self.reader)
+        episode_key, duplicate = self.normal_inbox.submit(history)
+        return {"episode_key": episode_key, "duplicate": duplicate,
+                "state": self.normal_inbox.status(history.run_id, history.run_attempt)["state"]}
 
     def scan_once(self) -> dict:
         """최근 완료 목록 20개만 확인한다. 과거·목록 제한은 명시하고 최신으로 바꾸지 않는다."""
@@ -60,6 +76,32 @@ class CIRelay:
                 result["rejected"] += 1
         return result
 
+    def scan_normal_once(self) -> dict:
+        """승인된 정상 workflow의 최근 성공 실행만 별도 계약으로 접수한다."""
+        if self.normal_inbox is None:
+            raise ValueError("normal_ci_relay_disabled")
+        listing = _json_object(self.reader.get(NORMAL_RUNS_PATH))
+        runs, count = listing.get("workflow_runs"), listing.get("total_count")
+        if (type(count) is not int or count < 0 or not isinstance(runs, list)
+                or len(runs) != min(count, 20)
+                or any(not isinstance(run, dict) for run in runs)):
+            raise ValueError("normal_ci_discovery_listing_rejected")
+        now = _utc_datetime(self.clock())
+        result = {"inspected": len(runs), "submitted": 0, "duplicates": 0,
+                  "skipped": 0, "rejected": 0, "listing_limited": count > 20}
+        for run in runs:
+            try:
+                updated = _utc_datetime(run["updated_at"])
+                if (not 0 <= (now - updated).total_seconds() <= RECENT_SECONDS
+                        or run.get("conclusion") != "success"):
+                    result["skipped"] += 1
+                    continue
+                receipt = self.submit_normal_run(_positive(run.get("id")), run.get("head_sha"))
+                result["duplicates" if receipt["duplicate"] else "submitted"] += 1
+            except Exception:
+                result["rejected"] += 1
+        return result
+
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="완료된 실습 CI를 별도 gh 인증으로 검증해 비공개 worker 큐에 전달")
@@ -67,9 +109,15 @@ def main(argv=None) -> int:
     parser.add_argument("--store", type=Path, required=True)
     parser.add_argument("--run-id", type=int, help="과거 기록을 포함해 명시한 실행 한 건만 검증")
     parser.add_argument("--expected-head", help="명시 실행의 검토한 전체 소스 SHA")
+    parser.add_argument("--normal-run-id", type=int, help="정상 관측 CI 실행 한 건을 별도 출처 계약으로 접수")
+    parser.add_argument("--normal-binding", type=Path, help="현재 실습 Pod를 고정한 정상 관측 binding JSON")
     parser.add_argument("--watch", action="store_true", help="프로세스가 실행 중인 동안 60초 간격으로 최근 완료 기록 조회")
-    args = cli_paths(parser, parser.parse_args(argv), {"config": "directory", "store": "store"})
-    if (args.run_id is None) != (args.expected_head is None) or args.watch and args.run_id is not None:
+    args = cli_paths(parser, parser.parse_args(argv), {"config": "directory", "store": "store",
+                                                  "normal_binding": "input"})
+    if ((args.run_id is None and args.normal_run_id is None) != (args.expected_head is None)
+            or args.run_id is not None and args.normal_run_id is not None
+            or args.normal_run_id is not None and args.normal_binding is None
+            or args.watch and (args.run_id is not None or args.normal_run_id is not None)):
         parser.error("명시 실행은 run-id와 expected-head를 함께 지정하고 watch와 분리해야 합니다")
     os.umask(0o077)
     stopped = threading.Event()
@@ -83,15 +131,23 @@ def main(argv=None) -> int:
         if token_file:
             from ai_ops.ci_token_reader import TokenGitHubReader
             reader = TokenGitHubReader(token_file)
-        relay = CIRelay(JobQueue(args.store), settings, reader=reader)
+        normal_binding = (NormalCIBinding.model_validate_json(args.normal_binding.read_bytes())
+                          if args.normal_binding else None)
+        relay = CIRelay(JobQueue(args.store), settings, reader=reader,
+                        normal_binding=normal_binding)
         if args.run_id is not None:
             print(json.dumps(relay.submit_run(args.run_id, args.expected_head)), flush=True)
+            return 0
+        if args.normal_run_id is not None:
+            print(json.dumps(relay.submit_normal_run(args.normal_run_id, args.expected_head)), flush=True)
             return 0
         while not stopped.is_set():
             try:
                 receipt = relay.scan_once()
+                if normal_binding is not None:
+                    receipt["normal"] = relay.scan_normal_once()
                 print(json.dumps(receipt), flush=True)
-                code = 1 if receipt["rejected"] else 0
+                code = 1 if receipt["rejected"] or receipt.get("normal", {}).get("rejected") else 0
             except Exception:
                 print('{"error":"ci_scan_unavailable"}', flush=True)
                 code = 1

@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import secrets
 
-from pydantic import Field, model_validator
+from pydantic import Field, StrictBool, model_validator
 
 from ai_ops.b_contracts import BindingRegistry, BRuntime
 from ai_ops.contracts import StrictModel
@@ -28,6 +28,7 @@ class LabInputs(StrictModel):
     postgres_image: str
     redis_image: str
     api_server_cidrs: list[str] = Field(min_length=1, max_length=8)
+    collector_persistent: StrictBool = True
 
     @model_validator(mode="after")
     def check_images_and_network(self):
@@ -76,8 +77,12 @@ def build_lab(inputs: LabInputs, *, password: str | None = None) -> dict:
                                       "pod-security.kubernetes.io/enforce-version": "v1.35"}}}]
     documents += [_object("ResourceQuota", "lab-budget", {"hard": {
         "requests.cpu": "500m", "requests.memory": "768Mi", "limits.cpu": "2",
-        "limits.memory": "2Gi", "pods": "6", "persistentvolumeclaims": "0",
+        "limits.memory": "2Gi", "pods": "6", "persistentvolumeclaims": "1" if inputs.collector_persistent else "0",
         "services.loadbalancers": "0", "services.nodeports": "0"}})]
+    if inputs.collector_persistent:
+        documents.append(_object("PersistentVolumeClaim", "lab-collector-source", {
+            "accessModes": ["ReadWriteOnce"], "storageClassName": "ai-ops-gp3-encrypted",
+            "resources": {"requests": {"storage": "1Gi"}}}))
     for name in ("lab-workload", "lab-investigator"):
         documents.append(_object("ServiceAccount", name, automountServiceAccountToken=False))
     database_url = f"postgresql://lab:{password}@lab-postgres.{NAMESPACE}.svc:5432/lab"
@@ -171,7 +176,9 @@ def build_lab(inputs: LabInputs, *, password: str | None = None) -> dict:
                                {"name": "identity", "projected": {"defaultMode": 288, "sources": [
                                    {"serviceAccountToken": {"path": "token", "expirationSeconds": 600}},
                                    {"configMap": {"name": "kube-root-ca.crt", "items": [{"key": "ca.crt", "path": "ca.crt"}]}}]}},
-                               {"name": "data", "emptyDir": {"sizeLimit": "512Mi"}}]
+                               {"name": "data", **({"persistentVolumeClaim": {"claimName": "lab-collector-source"}}
+                                                    if inputs.collector_persistent else
+                                                    {"emptyDir": {"sizeLimit": "512Mi"}})}]
         documents.append(_object("Deployment", "lab-" + component, {"replicas": 1, "strategy": {"type": "Recreate"},
             "selector": _selector(component), "template": {"metadata": {"labels": {**PURPOSE, "app": "lab-" + component}}, "spec": pod}}, api="apps/v1"))
     for component, port in (("api", 8000), ("postgres", 5432), ("redis", 6379)):
@@ -215,7 +222,8 @@ def validate_lab(bundle: dict) -> dict:
                   for name in ("api", "collector", "postgres", "redis")}
         cidrs = [item["ipBlock"]["cidr"] for item in indexed[("NetworkPolicy", "lab-collector")]["spec"]["egress"][0]["to"]]
         inputs = LabInputs(app_image=images["api"], collector_image=images["collector"],
-                           postgres_image=images["postgres"], redis_image=images["redis"], api_server_cidrs=cidrs)
+                           postgres_image=images["postgres"], redis_image=images["redis"], api_server_cidrs=cidrs,
+                           collector_persistent=("PersistentVolumeClaim", "lab-collector-source") in indexed)
         password = indexed[("Secret", "lab-database")]["stringData"]["POSTGRES_PASSWORD"]
         expected = build_lab(inputs, password=password)
         if sorted(bundle["items"], key=lambda d: (d["kind"], d["metadata"]["name"])) != sorted(expected["items"], key=lambda d: (d["kind"], d["metadata"]["name"])):
@@ -223,5 +231,6 @@ def validate_lab(bundle: dict) -> dict:
     except (KeyError, TypeError) as exc:
         raise ValueError("실습 필수 리소스가 누락됐습니다") from exc
     return {"namespace": NAMESPACE, "resources": dict(Counter(item["kind"] for item in bundle["items"])),
-            "requests": {"cpu": "350m", "memory": "576Mi"}, "persistent_storage": False,
+            "requests": {"cpu": "350m", "memory": "576Mi"},
+            "persistent_storage": inputs.collector_persistent,
             "external_model_enabled": False, "database_topology": "single_primary_no_replica"}

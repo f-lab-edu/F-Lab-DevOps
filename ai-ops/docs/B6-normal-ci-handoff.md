@@ -30,4 +30,6 @@
 - 앞서 성공한 [정상 관측 CI #40469788128](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40469788128)을 명시적으로 접수하자 worker가 `normal_ci_rules_summary`를 `ready`로 확정했다. `external_model_calls=0`이었고, 같은 실행을 다시 접수하면 `duplicate=true`였다.
 - 새 [정상 관측 CI #40472973002](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40472973002)가 성공한 뒤에는 명시적 재제출 없이 전달기의 주기 조회로 같은 `ready` 요약이 생성됐다. 이 기록도 `external_model_calls=0`이었다. 이는 정상 CI 결과의 자동 접수·규칙 요약까지 검증한 것이며, 원본 장기 보관이나 모델 gateway 자동 제출을 검증한 것은 아니다.
 
+후속 원본 보관과 v3 제출 연결은 [정상 CI 원본 보관과 모델 보고서 연결](B6-normal-source-persistence.md)에서 관리한다. 기존 영수증의 Pod binding은 새 PVC/이미지 전환 뒤 재사용하지 않는다.
+
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

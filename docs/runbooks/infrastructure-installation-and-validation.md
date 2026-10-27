@@ -66,6 +66,8 @@ aws rds wait db-instance-available --db-instance-identifier urlshortener-postgre
 
 S10 실습 CI와 B-06 정상 관측 CI는 별도 선택 연결이다. 활성화할 때는 같은 AI root에서 `enable_b6_lab_ci=true`, `enable_b6_normal_ci=true` 중 필요한 값을 **후속 적용 때마다 모두** 명시한다. 정상 관측 CI는 이미지·실습 수집기 설치 후 현재 Pod를 다시 고정하고 전용 권한과 GitHub 승인 환경을 연결한다. 세부 순서는 [AI root 수명주기](ai-ops-registry-lifecycle.md)와 [정상 관측 CI 실행자](../../ai-ops/docs/B6-normal-ci-executor.md)를 따른다.
 
+정상 관측 원본을 보관하는 구성에서는 `ai-ops-lab/lab-collector-source` 1Gi 암호화 PVC를 만들고 `Bound`와 EBS 암호화를 확인한 뒤 수집기를 배포한다. 새 Pod UID·설정 해시로 `NORMAL_CI_BINDING`, 전용 RBAC, `ai-ci/ci-config`를 다시 생성한다. 기존 실습 Pod의 `emptyDir` 원본이 남아 있는 재설치·전환은 [이관 절차](../../ai-ops/docs/B6-normal-source-persistence.md)를 먼저 따른다. 이전 캠페인 승인이나 영수증을 새 Pod의 현재 증거로 사용하지 않는다.
+
 현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
 
 ## 2. kubeconfig와 노드

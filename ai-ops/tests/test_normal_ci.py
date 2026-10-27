@@ -57,7 +57,8 @@ def fixture():
     projection = project_probe(base, probe, snapshot, settings, raw_logs=logs,
                                log_pod_uid="pod-1", logs_truncated=False)
     binding = NormalCIBinding.model_validate({"cluster_arn": CONTEXT,
-        "cluster_fingerprint": identity.cluster_fingerprint, "executor_sha256": executor_hash(),
+        "cluster_fingerprint": identity.cluster_fingerprint, "config_hash": settings.config_hash,
+        "executor_sha256": executor_hash(),
         "app": {"name": "lab-api-abc-123", "uid": "pod-1", "deployment_uid": "deployment-1", "image": image},
         "collector": {"name": "lab-collector-abc-456", "uid": "collector-1", "deployment_uid": "collector-deployment",
                       "image": ECR+"urlshortener-practice-ai-ops@sha256:"+"2"*64}})

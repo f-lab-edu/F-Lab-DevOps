@@ -110,6 +110,26 @@ class SequenceModelSubmission(ModelSubmission):
                    mapping_hash=projection.mapping_hash, view_hash=projection.view_hash,
                    view=projection.view)
 
+    @classmethod
+    def from_normal_receipt(cls, campaign_id: str, receipt, binding):
+        """GitHub 출처 검증과 worker HMAC 검사를 통과한 영수증의 정제 view만 운반한다."""
+        from ai_ops.normal_ci_contract import NormalCIBinding, NormalCIReceipt
+        binding = NormalCIBinding.model_validate(binding)
+        receipt = NormalCIReceipt.model_validate(receipt)
+        if (receipt.binding_hash != sha256_json(binding.model_dump(mode="json"))
+                or receipt.config_hash != binding.config_hash
+                or receipt.executor_sha256 != binding.executor_sha256):
+            raise ValueError("normal_ci_submission_binding_rejected")
+        return cls(campaign_id=campaign_id, source_run=receipt.source_run,
+                   rules_ref=receipt.rules_ref, deployment_uid=binding.app.deployment_uid,
+                   config_hash=receipt.config_hash,
+                   cluster_fingerprint=binding.cluster_fingerprint,
+                   exporter_sha256=receipt.executor_sha256,
+                   source_bundle_hash=receipt.source_bundle_hash,
+                   source_audit_hash=receipt.source_audit_hash,
+                   mapping_hash=receipt.mapping_hash, view_hash=receipt.view_hash,
+                   view=receipt.view)
+
 
 def parse_model_submission(raw: bytes) -> ModelSubmission | CIModelSubmission | SequenceModelSubmission:
     """유효한 서명 뒤에도 버전이 없거나 알 수 없으면 v1로 낮추지 않는다."""

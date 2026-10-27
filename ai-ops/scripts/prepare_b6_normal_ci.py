@@ -4,7 +4,9 @@ import argparse
 from pathlib import Path
 
 from ai_ops.b6_lab import CONTEXT, NAMESPACE
+from ai_ops.b_contracts import BindingRegistry, BRuntime, MetricCatalog
 from ai_ops.b6_sequence_capture import SequenceLabClient
+from ai_ops.contracts import sha256_json
 from ai_ops.normal_ci_contract import NormalCIBinding, executor_hash
 from ai_ops.normal_ci_rbac import build_normal_rbac
 from ai_ops.normal_ci_runner import NormalCIClient
@@ -18,8 +20,14 @@ def prepare(*, client=None, read_identity=current_identity):
     image = collector["spec"]["template"]["spec"]["containers"][0]["image"]
     current = read_identity(image)
     app = client.pin_app()
+    config = client.get(NAMESPACE, "configmap", "lab-collector")["data"]
+    parsed = [model.model_validate_json(config[name]) for name, model in (
+        ("bindings.json", BindingRegistry), ("runtime.json", BRuntime),
+        ("metric-queries.json", MetricCatalog))]
+    config_hash = sha256_json([item.model_dump(mode="json") for item in parsed])
     binding = NormalCIBinding.model_validate({"cluster_arn": CONTEXT,
-        "cluster_fingerprint": current["cluster_fingerprint"], "executor_sha256": executor_hash(),
+        "cluster_fingerprint": current["cluster_fingerprint"], "config_hash": config_hash,
+        "executor_sha256": executor_hash(),
         "app": {"name": app["pod_name"], "uid": app["pod_uid"],
                 "deployment_uid": app["deployment_uid"], "image": app["image"]},
         "collector": {"name": current["pod_name"], "uid": current["pod_uid"],
@@ -27,6 +35,7 @@ def prepare(*, client=None, read_identity=current_identity):
     # 실제 실행자가 사용할 읽기 검사와 관리자에게만 허용된 초기 확인을 구분한다.
     baseline = NormalCIClient(binding).guard()
     if (read_identity(image) != current or client.pin_app() != app
+            or client.get(NAMESPACE, "configmap", "lab-collector")["data"] != config
             or baseline["app"] != app):
         raise ValueError("normal_ci_preparation_target_changed")
     return {"schema_version": 1, "binding": binding.model_dump(mode="json"),

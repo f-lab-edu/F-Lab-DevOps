@@ -22,6 +22,7 @@ from ai_ops.incidents import _atomic_write
 from ai_ops.job_queue import JobQueue, STATES
 from ai_ops.normal_ci_contract import NormalCIBinding
 from ai_ops.normal_ci_inbox import NormalCIInbox
+from ai_ops.normal_ci_model_bridge import NormalCIModelBridge
 from ai_ops.observability import Telemetry, log_event, metrics_server
 from ai_ops.path_policy import cli_paths, permitted_path
 from ai_ops.worker import Worker
@@ -148,6 +149,16 @@ def main(argv=None) -> int:
         normal_binding_path = args.config / "normal-ci-binding.json"
         normal_inbox = (NormalCIInbox(queue, NormalCIBinding.model_validate_json(
             normal_binding_path.read_bytes())) if normal_binding_path.is_file() else None)
+        normal_model_bridge = None
+        normal_model_enabled = os.environ.get("AI_NORMAL_MODEL_BRIDGE_ENABLED", "false")
+        if normal_model_enabled not in {"false", "true"}:
+            raise ValueError("정상 CI 모델 연결 설정이 유효하지 않습니다")
+        if normal_model_enabled == "true":
+            if normal_inbox is None or not Path("/etc/ai-model-client/token").is_file():
+                raise ValueError("정상 CI 모델 연결 입력이 없습니다")
+            from ai_ops.model_gateway_client import ModelGatewayClient
+            normal_model_bridge = NormalCIModelBridge(
+                normal_inbox, ModelGatewayClient(), os.environ["AI_NORMAL_MODEL_CAMPAIGN_ID"])
         telemetry = WorkerTelemetry(queue)
         if args.retention:
             telemetry.retention = RetentionSchedule(queue, stopped=stopped.is_set, progress=telemetry.progress)
@@ -172,6 +183,8 @@ def main(argv=None) -> int:
                 if normal_inbox:
                     normal_inbox.prune()
                     normal_inbox.process_one()
+                if normal_model_bridge:
+                    normal_model_bridge.process_one()
             worker.serve(progress=telemetry.progress, maintenance=maintenance)
         return 0
     except Exception:

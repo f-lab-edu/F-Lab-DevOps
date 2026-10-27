@@ -166,6 +166,9 @@ def build_lab(inputs: LabInputs, *, password: str | None = None) -> dict:
                              readinessProbe={"httpGet": {"path": "/readyz", "port": "http"}, "periodSeconds": 5},
                              startupProbe={"httpGet": {"path": "/readyz", "port": "http"}, "periodSeconds": 5, "failureThreshold": 36})
         else:
+            if inputs.collector_persistent:
+                # EBS 첫 마운트에서 설정된 그룹 권한을 재시작마다 원본 파일에 다시 적용하지 않는다.
+                pod["securityContext"]["fsGroupChangePolicy"] = "OnRootMismatch"
             container.update(command=["python", "-c", "import signal; signal.pause()"],
                              env=[{"name": "PYTHONDONTWRITEBYTECODE", "value": "1"}, {"name": "HOME", "value": "/tmp"}],
                              readinessProbe={"exec": {"command": ["python", "-c", "from pathlib import Path; assert Path('/etc/ai-ops/runtime.json').is_file()"]}, "periodSeconds": 10})

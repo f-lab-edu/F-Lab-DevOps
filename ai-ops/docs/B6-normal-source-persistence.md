@@ -15,9 +15,18 @@
 
 기존 수집기에는 원본 세션이 있으므로 Deployment를 먼저 교체하면 자료가 사라진다. 관리자만 현재 대상·Pod UID·기존 `/data/incidents`의 파일 수/경로/해시를 확인하고, 실습 전용 `lab-collector-source` PVC를 생성해 `Bound`를 확인한다. 같은 namespace의 임시 이관 Pod는 현재 검증된 수집기 digest, 비활성 ServiceAccount, 토큰 마운트 차단, 제한된 UID·읽기 전용 루트로 띄우고 **새 PVC만** `/data`에 붙인다. 기존 Pod에서 새 Pod로 tar 스트림을 직접 전달해 로컬 파일·GitHub artifact·명령 출력에 원본을 남기지 않는다. 이관 Pod에서 전체 파일 목록·내용 해시·0700/0600 권한을 대조한다. 하나라도 다르면 기존 Pod를 유지하고 전환을 중단한다.
 
-검증 후 실습 quota를 PVC 1개로 바꾸고 `lab-collector`의 data 볼륨만 해당 PVC로 교체한다. 새 수집기가 Ready이고 이관한 세션·보고서 해시가 같을 때 이관 Pod를 삭제한다. 새 Pod UID와 실행 코드/설정 해시로 정상 CI binding을 다시 만들고, 현재 이름으로 제한한 RBAC·GitHub 환경의 `NORMAL_CI_BINDING`·`ai-ci/ci-config`를 함께 갱신한다. relay와 worker는 새 ConfigMap을 읽도록 순서대로 재시작한다. 기존 CI 실행은 옛 Pod의 자료로서 보존하지만 새 binding의 성공 사례로 재접수하지 않는다.
+검증 후 실습 quota를 PVC 1개로 바꾸고 `lab-collector`의 data 볼륨만 해당 PVC로 교체한다. **암호화 EBS 첫 마운트가 기존 파일의 그룹 권한을 넓힐 수 있으므로** 새 Deployment에는 `fsGroupChangePolicy=OnRootMismatch`를 설정한다. 이관 Pod에서 파일 수·내용·권한을 포함한 해시를 맞춘 뒤 이관 Pod를 제거하고 수집기를 전환한다. 새 Pod에서 원본 폴더 0700·파일 0600을 확인하고, 마운트가 권한을 넓혔다면 소유자·항목 종류를 검사한 뒤 해당 권한을 복구한다. 원본 세션과 규칙 보고서를 다시 읽어 검증한 뒤에만 성공으로 기록한다. 새 Pod UID와 실행 코드/설정 해시로 정상 CI binding을 다시 만들고, 현재 이름으로 제한한 RBAC·GitHub 환경의 `NORMAL_CI_BINDING`·`ai-ci/ci-config`를 함께 갱신한다. relay와 worker는 새 ConfigMap을 읽도록 순서대로 재시작한다. 기존 CI 실행은 옛 Pod의 자료로서 보존하지만 새 binding의 성공 사례로 재접수하지 않는다.
 
 실습 원본의 보관 기한과 용량은 별도 정리 정책으로 관리한다. PVC 1Gi가 가득 차면 수집을 실패로 처리해야 하며, 기존 원본을 임의로 삭제하거나 정제 영수증만으로 복구했다고 표시하지 않는다. 설치·삭제 절차에서는 이 PVC의 생성과 삭제 및 EBS 잔존 여부를 확인한다. PVC 삭제 전에 원본 보존 필요성을 확인한다.
+
+## 2026-10-27 실제 이관 결과
+
+- [PR #96](https://github.com/f-lab-edu/F-Lab-DevOps/pull/96)의 전체 AI 시험 522개와 이미지 검사가 통과했다. [이미지 등록 실행](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40477224644)은 성공했고, `sha256:e56d8f44607bb57b558a5b0a4dc9c5a3f4dd5c32f0aeefdb8c9e674e1022e6bc`의 ECR 검사는 `COMPLETE`·발견 항목 0개였다.
+- 기존 수집기의 파일 16개·156,822바이트를 로컬 파일 없이 tar 스트림으로 새 PVC에 옮겼다. 이관 Pod에서 내용·경로·권한을 포함한 결합 SHA-256 `026fc40917cc374fd9fb56b03a25a4289884d240d3c2ebcb98b1aa169628083f`가 기존 Pod와 같았다. 새 `lab-collector-source` 1Gi EBS는 gp3·암호화 true·Bound로 확인했다.
+- 첫 EBS 마운트는 파일을 0660, 폴더를 2770으로 넓혀 **권한 포함 결합 해시를 바꿨다**. 따라서 최초 해시를 그대로 보존했다고 주장하지 않는다. 소유자와 파일 종류를 검사한 뒤 0600/0700으로 복구하고 `fsGroupChangePolicy=OnRootMismatch`를 적용했다. 다시 Pod를 재생성해도 내용 기준 트리 SHA-256 `3de8cb25138a5c84c447fb2fa9f5ae54f39e4072665d45155fab45704ea8ba78`와 0600/0700 권한이 유지됐다. 새 Pod에서 기존 원본 세션 2건·규칙 보고서 2건을 파싱·조회했다.
+- 최종 Pod UID와 설정·실행 코드 해시로 정상 CI binding을 다시 만들고 전용 RBAC, GitHub 환경 변수, `ai-ci/ci-config`를 갱신했다. worker와 relay는 새 이미지로 Ready 1/1이며 기존 `ci-queue` PVC·GitHub 토큰 Secret은 동일한 식별자를 유지했다. 모델 연결 환경 변수는 설정하지 않았다.
+- [새 정상 관측 CI #40479470948](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40479470948)이 성공했다. 영속 PVC에서 원본 세션 3건·규칙 보고서 3건을 읽어 검증했고 모든 파일은 0600, 폴더는 0700이었다. 전달기의 주기 조회가 새 실행을 자동 접수해 worker에 `normal_ci_rules_summary` 상태 `ready`를 남겼다. `external_model_calls=0`이다.
+- 이 실측은 **원본의 Pod 재생성 후 보관과 규칙 요약 자동 접수**까지다. v3 모델 제출 코드·모의 시험은 통과했지만 실제 캠페인 활성화·유료 모델 보고서 생성은 수행하지 않았다. 열려 있던 과거 검토 화면은 새 이미지·Pod·binding과 일치하지 않으므로 승인에 사용할 수 없다.
 
 ## 모델 활성화 조건
 

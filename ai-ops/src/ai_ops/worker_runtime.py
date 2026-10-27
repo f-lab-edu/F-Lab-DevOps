@@ -20,6 +20,8 @@ from ai_ops.contracts import canonical_json_bytes
 from ai_ops.deployment_check import check_local
 from ai_ops.incidents import _atomic_write
 from ai_ops.job_queue import JobQueue, STATES
+from ai_ops.normal_ci_contract import NormalCIBinding
+from ai_ops.normal_ci_inbox import NormalCIInbox
 from ai_ops.observability import Telemetry, log_event, metrics_server
 from ai_ops.path_policy import cli_paths, permitted_path
 from ai_ops.worker import Worker
@@ -143,6 +145,9 @@ def main(argv=None) -> int:
         check_local(args.config, args.store)
         settings = load_b_settings(args.config / "bindings.json", args.config / "runtime.json", args.config / "metric-queries.json")
         queue = JobQueue(args.store)
+        normal_binding_path = args.config / "normal-ci-binding.json"
+        normal_inbox = (NormalCIInbox(queue, NormalCIBinding.model_validate_json(
+            normal_binding_path.read_bytes())) if normal_binding_path.is_file() else None)
         telemetry = WorkerTelemetry(queue)
         if args.retention:
             telemetry.retention = RetentionSchedule(queue, stopped=stopped.is_set, progress=telemetry.progress)
@@ -161,8 +166,13 @@ def main(argv=None) -> int:
         worker = Worker(queue, settings, stopped=stopped, model_bridge=model_bridge)
         log_event("process_started")
         with metrics_server(telemetry) if args.metrics else nullcontext():
-            worker.serve(progress=telemetry.progress,
-                         maintenance=telemetry.retention.tick if telemetry.retention else lambda: None)
+            def maintenance():
+                if telemetry.retention:
+                    telemetry.retention.tick()
+                if normal_inbox:
+                    normal_inbox.prune()
+                    normal_inbox.process_one()
+            worker.serve(progress=telemetry.progress, maintenance=maintenance)
         return 0
     except Exception:
         # 경로·질문·예외 원문은 상태 로그와 지표에 남기지 않는다.

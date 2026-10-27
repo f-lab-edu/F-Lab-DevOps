@@ -21,6 +21,9 @@ def build_service(image, config, api_cidrs):
     from ai_ops.b_contracts import BindingRegistry, BRuntime
     BindingRegistry.model_validate_json(config['bindings.json'])
     BRuntime.model_validate_json(config['runtime.json'])
+    if 'normal-ci-binding.json' in config:
+        from ai_ops.normal_ci_contract import NormalCIBinding
+        NormalCIBinding.model_validate_json(config['normal-ci-binding.json'])
     bindings = json.loads(config['bindings.json'])
     if len(bindings['bindings']) != 1 or bindings['bindings'][0]['target']['namespace'] != 'ai-ops-lab':
         raise ValueError('실습 대상만 허용')
@@ -58,6 +61,8 @@ def build_service(image, config, api_cidrs):
             mounts.append({'name': 'github', 'mountPath': '/etc/ai-ci-github', 'readOnly': True})
             volumes.append({'name': 'github', 'secret': {'secretName': 'ci-relay-github', 'defaultMode': 288}})
             container['env'].append({'name': 'AI_CI_GITHUB_TOKEN_FILE', 'value': '/etc/ai-ci-github/token'})
+            if 'normal-ci-binding.json' in config:
+                container['args'] += ['--normal-binding', '/etc/ai-ops/normal-ci-binding.json']
         pod = {'serviceAccountName': name, 'automountServiceAccountToken': False, 'enableServiceLinks': False,
                'terminationGracePeriodSeconds': 90, 'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001, 'fsGroup': 10001, 'fsGroupChangePolicy': 'OnRootMismatch', 'seccompProfile': {'type': 'RuntimeDefault'}},
                'containers': [container], 'volumes': volumes}

@@ -7,7 +7,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from ai_ops.ci_history import LAB_RUNS_PATH, MAX_API_BYTES, PREFIX, READ_TIMEOUT_SECONDS
+from ai_ops.ci_history import LAB_RUNS_PATH, NORMAL_RUNS_PATH, MAX_API_BYTES, PREFIX, READ_TIMEOUT_SECONDS
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -34,7 +34,7 @@ class TokenGitHubReader:
         return token
 
     def get(self, path, *, max_bytes=MAX_API_BYTES):
-        if path != LAB_RUNS_PATH and not re.fullmatch(re.escape(PREFIX) + r"/(?:runs/[1-9][0-9]*(?:/artifacts\?per_page=100)?|artifacts/[1-9][0-9]*/zip)", path):
+        if path not in (LAB_RUNS_PATH, NORMAL_RUNS_PATH) and not re.fullmatch(re.escape(PREFIX) + r"/(?:runs/[1-9][0-9]*(?:/artifacts\?per_page=100)?|artifacts/[1-9][0-9]*/zip)", path):
             raise ValueError("CI API path rejected")
         url = "https://api.github.com/" + path
         headers = {"Authorization": "Bearer " + self._token(), "User-Agent": "ai-ci-relay",

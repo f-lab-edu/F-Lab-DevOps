@@ -77,6 +77,8 @@ class NormalSourceStore:
     def handle(self, request: SourceRequest):
         if request.binding.executor_sha256 != executor_hash():
             raise ValueError("normal_ci_source_code_changed")
+        if request.binding.config_hash != self.settings.config_hash:
+            raise ValueError("normal_ci_source_config_changed")
         directory = self.directory/request.identity.session
         path = directory/"source.json"
         if request.action == "begin":

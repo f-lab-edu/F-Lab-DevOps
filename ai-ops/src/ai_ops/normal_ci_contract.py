@@ -54,6 +54,7 @@ class NormalCIBinding(StrictModel):
     schema_version: Literal[1] = 1
     cluster_arn: Literal["arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener"]
     cluster_fingerprint: Sha256
+    config_hash: Sha256
     executor_sha256: Sha256
     app: NormalPod
     collector: NormalPod
@@ -82,6 +83,7 @@ class NormalCIReceipt(StrictModel):
     identity: NormalCIIdentity
     target: dict
     binding_hash: Sha256
+    config_hash: Sha256
     executor_sha256: Sha256
     source_run: Annotated[StrictStr, Field(pattern=r"^run-[a-f0-9]{32}$")]
     rules_ref: Annotated[StrictStr, Field(pattern=r"^inc-[a-f0-9]{32}/run-[a-f0-9]{32}/report\.md$")]
@@ -115,12 +117,14 @@ class NormalCIReceipt(StrictModel):
         source = projection.base
         if (source.identity.deployment_uid != binding.app.deployment_uid
                 or source.identity.cluster_fingerprint != binding.cluster_fingerprint
+                or source.identity.config_hash != binding.config_hash
                 or source.identity.exporter_sha256 != binding.executor_sha256
                 or projection.probe.pod_uid != binding.app.uid
                 or projection.probe.image_reference_hash != sha256_json(binding.app.image)):
             raise ValueError("normal_ci_receipt_source_changed")
         return cls(identity=identity, target=TARGET,
             binding_hash=sha256_json(binding.model_dump(mode="json")),
+            config_hash=source.identity.config_hash,
             executor_sha256=binding.executor_sha256, source_run=source.identity.run_id,
             rules_ref=f"{source.identity.incident_id}/{source.identity.run_id}/report.md",
             source_bundle_hash=source.source_bundle_hash, source_audit_hash=source.source_audit_hash,

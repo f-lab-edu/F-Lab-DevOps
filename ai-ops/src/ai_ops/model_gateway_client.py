@@ -62,7 +62,7 @@ class ModelGatewayClient:
         if not re.fullmatch(r"campaign-[0-9a-f]{32}", identifier):
             raise ValueError("model_gateway_campaign_rejected")
         value = self._request("GET", f"/v1/campaign/{identifier}")
-        if set(value) != {"state", "created", "expires"}:
+        if set(value) != {"state", "created", "expires", "approved_at"}:
             raise ValueError("model_gateway_campaign_contract")
         return value
 
@@ -101,6 +101,14 @@ class ModelGatewayClient:
         submission = contract.from_projection(campaign_id, projection, rules_ref=rules_ref)
         if submission.source_run != source_run:
             raise ValueError("model_gateway_source_rejected")
+        value = self._request("POST", "/v1/submit", submission.model_dump(mode="json"))
+        if set(value) != {"outbox_id"} or not re.fullmatch(r"outbox-[0-9a-f]{64}", value["outbox_id"]):
+            raise ValueError("model_gateway_outbox_contract")
+        return value["outbox_id"]
+
+    def enqueue_normal_receipt(self, campaign_id: str, receipt, binding) -> str:
+        """정제 영수증에서 만든 v3 제출만 기존 서명 경로로 보낸다."""
+        submission = SequenceModelSubmission.from_normal_receipt(campaign_id, receipt, binding)
         value = self._request("POST", "/v1/submit", submission.model_dump(mode="json"))
         if set(value) != {"outbox_id"} or not re.fullmatch(r"outbox-[0-9a-f]{64}", value["outbox_id"]):
             raise ValueError("model_gateway_outbox_contract")

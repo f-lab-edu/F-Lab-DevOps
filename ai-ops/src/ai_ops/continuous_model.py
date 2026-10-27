@@ -43,7 +43,8 @@ def implementation_hash() -> str:
              "model_gateway_transport.py", "model_gateway_client.py", "model_gateway.py",
              "model_live_probe.py", "model_runtime.py", "model_activation.py", "model_service.py",
              "normal_ci_contract.py", "normal_ci_rbac.py", "normal_ci_runner.py", "normal_ci_source.py",
-             "normal_ci_history.py", "normal_ci_inbox.py", "ci_history.py", "ci_token_reader.py",
+             "normal_ci_history.py", "normal_ci_inbox.py", "normal_ci_model_bridge.py",
+             "ci_history.py", "ci_token_reader.py",
              "ci_relay.py", "ci_service.py", "worker_runtime.py", "model_campaign_review.py")
     return sha256_json({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                         for name in names})
@@ -238,8 +239,11 @@ class ContinuousModelStore:
             if row is None:
                 raise ValueError("campaign_missing")
             value = dict(row)
+            approval = db.execute("SELECT approved FROM live_approvals WHERE campaign_id=?",
+                                  (identifier,)).fetchone()
         value["binding"] = json.loads(value["binding"])
         value["binding_hash"] = sha256_json(value["binding"])
+        value["approved_at"] = approval["approved"] if approval else None
         return value
 
     def enqueue(self, campaign_id: str, projection: Projection | SequenceProjection, *, source_run: str,

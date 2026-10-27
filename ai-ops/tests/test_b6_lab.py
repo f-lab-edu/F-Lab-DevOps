@@ -18,15 +18,28 @@ def inputs():
 
 
 class B6LabTest(TestCase):
-    def test_only_lab_namespace_and_no_persistent_or_external_resources(self):
+    def test_only_lab_namespace_with_private_collector_volume(self):
         bundle = build_lab(inputs())
         summary = validate_lab(bundle)
         self.assertEqual(summary["database_topology"], "single_primary_no_replica")
         self.assertFalse(summary["external_model_enabled"])
-        self.assertFalse(summary["persistent_storage"])
+        self.assertTrue(summary["persistent_storage"])
+        claim = next(item for item in bundle["items"] if item["kind"] == "PersistentVolumeClaim")
+        self.assertEqual(claim["metadata"]["name"], "lab-collector-source")
+        self.assertEqual(claim["spec"]["storageClassName"], "ai-ops-gp3-encrypted")
+        collector = next(item for item in bundle["items"] if item["kind"] == "Deployment"
+                         and item["metadata"]["name"] == "lab-collector")
+        self.assertEqual(collector["spec"]["template"]["spec"]["volumes"][-1],
+                         {"name": "data", "persistentVolumeClaim": {"claimName": "lab-collector-source"}})
         for item in bundle["items"]:
             self.assertEqual(item["metadata"].get("namespace", item["metadata"]["name"]), NAMESPACE)
-            self.assertNotIn(item["kind"], {"PersistentVolumeClaim", "Ingress", "ClusterRole", "Application"})
+            self.assertNotIn(item["kind"], {"Ingress", "ClusterRole", "Application"})
+
+    def test_existing_ephemeral_manifest_remains_valid_for_migration(self):
+        old = inputs().model_copy(update={"collector_persistent": False})
+        bundle = build_lab(old)
+        self.assertFalse(validate_lab(bundle)["persistent_storage"])
+        self.assertFalse(any(item["kind"] == "PersistentVolumeClaim" for item in bundle["items"]))
 
     def test_mutations_cannot_point_at_production_or_expand_authority(self):
         original = build_lab(inputs())

@@ -62,6 +62,8 @@ gh workflow view ci-cd.yml --repo f-lab-edu/F-Lab-DevOps
 
 [AI 클러스터 정리 절차](ai-ops-cluster-lifecycle.md)를 **Karpenter·앱·Prometheus·Argo·CSI 제거 전에** 먼저 수행한다. 현재 AI Helm release, metrics Service/ServiceMonitor·NetworkPolicy·전용 RBAC, namespace·StorageClass와 5Gi PVC/EBS에 더해 별도 `ai-ci` 및 존재하는 경우 `ai-model`의 Deployment·Secret·PVC/PV/EBS도 대상이다. M7-2 준비 리소스가 있으면 `ai-ops-lab`·`ai-ci`·`ai-model`의 `model-gateway-current-read` Role/RoleBinding과 `ai-ci/ci-worker-model-gateway` NetworkPolicy도 함께 제거한다. 전체 삭제 요청에서 AI 클러스터 자료는 삭제하지만, 로컬 소스·개인 API 키·Slack/Watchdog URL·GitHub Actions 읽기 토큰 원본은 AWS 정리와 별개로 유지한다.
 
+정상 관측 수집기의 `ai-ops-lab/lab-collector-source` PVC를 설치한 경우 이 PVC/PV/EBS도 AI 정리 대상에 포함한다. 현재 볼륨 ID와 원본 세션 보존 필요 여부를 먼저 기록하고, 삭제 후 EBS 부재를 확인한다.
+
 실제 AI PV/Volume ID를 기록 → Helm uninstall → 남은 `data-ai-ops-0` PVC 명시 삭제 → PV와 EBS 실제 부재 확인 → 전용 Role/RoleBinding 잔존 확인 → AI StorageClass/namespace 제거 순서다. StatefulSet의 PVC 보존 Retain 때문에 EKS destroy나 namespace 삭제만으로 완료 처리하지 않는다. 같은 태그의 잔여 AI EBS도 대조하고 EBS가 남으면 CSI/EKS 제거 전에 중지한다. 이미 클러스터가 사라진 재개 상황의 소유권·unattached 볼륨 정리도 연결 절차를 따른다.
 
 이후 14-0절에서 AI ECR의 모든 digest·AI root 네 리소스를 먼저 destroy하고 production root를 처리한다. AI state와 bucket 버전/삭제 마커는 두 root와 실물 삭제 확인 후 마지막에 정리한다. Route53은 계속 보존한다.

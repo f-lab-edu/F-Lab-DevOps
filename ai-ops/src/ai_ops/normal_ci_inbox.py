@@ -48,6 +48,7 @@ class NormalCIInbox:
             raise ValueError("normal_ci_inbox_payload_rejected")
         receipt = NormalCIReceipt.model_validate(payload["receipt"])
         if (receipt.binding_hash != self.binding_hash
+                or receipt.config_hash != self.binding.config_hash
                 or receipt.executor_sha256 != self.binding.executor_sha256
                 or receipt.identity.run_id != payload["run_id"]
                 or receipt.identity.run_attempt != payload["run_attempt"]

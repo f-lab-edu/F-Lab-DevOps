@@ -82,7 +82,8 @@ class _Handler(BaseHTTPRequestHandler):
                     raise ValueError("gateway_campaign_scope")
                 value = store.campaign(campaign[1])
                 self._json(200, {"state": value["state"], "created": value["created"],
-                                 "expires": value["expires"]})
+                                 "expires": value["expires"],
+                                 "approved_at": value["approved_at"]})
             elif source:
                 if source[1] != allowed:
                     raise ValueError("gateway_campaign_scope")

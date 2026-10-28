@@ -36,3 +36,11 @@
 - 승인 전에는 gateway·proxy를 켜거나 API 키를 클러스터에 넣지 않는다. 승인 후에도 정상 사례 한 건만 검증하고 보고서 상태·중복·예산·중지·만료를 확인한다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.
+
+## 2026-10-28 v3 첫 활성화에서 발견한 설정 경계
+
+사용자가 정상 관측 v3 캠페인 `campaign-e26beec99cd548ffb17dab4cfc0bde73`을 승인했다. 검토한 정상 CI 영수증은 수집기 `ai-ops-lab/lab-collector` 설정 해시 `329843b3...`에 묶여 있었다. 그러나 gateway의 기존 기동 검사는 실패·원복 CI가 사용하는 `ai-ci/ci-config` 해시 `0e4e94df...`와 대조해 `model_probe_config_changed`로 기동을 거부했다. 두 설정은 Argo 대상 네임스페이스가 달라 의도적으로 별개다.
+
+이 캠페인의 새 영수증 제출·토큰 계산·모델 생성은 **0건**이었다. worker의 v3 연결은 켜지 않았다. 캠페인을 개인·클러스터 장부에서 `stopped`로 기록하고 gateway·proxy를 0으로 내린 뒤, 클러스터의 모델 API 키·서비스 토큰 Secret을 제거했다. 기존 장부의 보고서 1건은 유지했다. 이전 승인은 새 이미지나 수정된 입력 계약에 재사용하지 않는다.
+
+후속 수정은 v1/v2가 기존 `ci-config`를 검사하고 v3는 `lab-collector` 설정과 `ci-normal-binding`을 함께 검사하도록 한다. gateway의 GET 권한도 각 ConfigMap 이름으로 한정한다. 수정 이미지 배포 후 새 v3 검토안·별도 승인을 받아 한 건 실측해야 한다.

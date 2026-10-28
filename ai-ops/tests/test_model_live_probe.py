@@ -10,6 +10,8 @@ import unittest
 from ai_ops.b_contracts import ReadResponse
 from ai_ops.contracts import sha256_json
 from ai_ops.model_live_probe import ModelLiveProbe
+from ai_ops.model_sequence_projection import SEQUENCE_POLICY
+from ai_ops.normal_ci_contract import NormalCIBinding, executor_hash
 from test_model_projection import ROOT, TARGET
 
 
@@ -84,6 +86,50 @@ class ModelLiveProbeTest(unittest.TestCase):
         self.ca.write_bytes(b"changed")
         with self.assertRaises(ValueError):
             probe.verify(self.binding)
+
+    def test_v3_uses_collector_config_and_current_normal_binding(self):
+        approved = dict(self.binding, policy=SEQUENCE_POLICY)
+        normal = NormalCIBinding.model_validate({
+            "cluster_arn": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+            "cluster_fingerprint": approved["cluster_fingerprint"],
+            "config_hash": approved["config_hash"],
+            "executor_sha256": executor_hash(),
+            "app": {"name": "lab-api-abcde-abcde", "uid": "pod-1",
+                    "deployment_uid": approved["deployment_uid"],
+                    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+                             "urlshortener@sha256:" + "c" * 64},
+            "collector": {"name": "lab-collector-abcde-abcde", "uid": "pod-2",
+                          "deployment_uid": "collector-1",
+                          "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+                                   "urlshortener-practice-ai-ops@sha256:" + "d" * 64},
+        })
+        current = copy.deepcopy(self.responses)
+        current["/api/v1/namespaces/ai-ops-lab/configmaps/lab-collector"] = {"data": self.files}
+        current["/api/v1/namespaces/ai-ci/configmaps/ci-normal-binding"] = {
+            "data": {"normal-ci-binding.json": normal.model_dump_json()}}
+        current["/api/v1/namespaces/ai-ci/configmaps/ci-config"] = {"data": {}}
+        probe, transport = self.probe(current)
+        probe.verify(approved)
+        self.assertEqual(len(transport.paths), 4)
+        self.assertNotIn("/api/v1/namespaces/ai-ci/configmaps/ci-config", transport.paths)
+
+        for path, mutate in (
+            ("/api/v1/namespaces/ai-ops-lab/configmaps/lab-collector",
+             lambda x: x["data"].update({"runtime.json": "{}"})),
+            ("/api/v1/namespaces/ai-ci/configmaps/ci-normal-binding",
+             lambda x: x["data"].update({"normal-ci-binding.json": "{}"})),
+        ):
+            changed = copy.deepcopy(current)
+            mutate(changed[path])
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                self.probe(changed)[0].verify(approved)
+
+        changed = copy.deepcopy(current)
+        stale = normal.model_dump(mode="json")
+        stale["config_hash"] = "f" * 64
+        changed["/api/v1/namespaces/ai-ci/configmaps/ci-normal-binding"]["data"]["normal-ci-binding.json"] = json.dumps(stale)
+        with self.assertRaisesRegex(ValueError, "model_probe_normal_binding_changed"):
+            self.probe(changed)[0].verify(approved)
 
 
 if __name__ == "__main__":

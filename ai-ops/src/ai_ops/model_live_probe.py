@@ -10,7 +10,9 @@ from ai_ops.b_contracts import BRuntime, BindingRegistry, MetricCatalog, ReadReq
 from ai_ops.contracts import sha256_json
 from ai_ops.live_collectors.transport import HTTPReadTransport
 from ai_ops.model_projection import TARGET
+from ai_ops.model_sequence_projection import SEQUENCE_POLICY
 from ai_ops.model_service import IMAGE_PATTERN
+from ai_ops.normal_ci_contract import NormalCIBinding, executor_hash
 
 
 TOKEN = Path("/var/run/ai-model/kubernetes/token")
@@ -18,7 +20,7 @@ CA = Path("/var/run/ai-model/kubernetes/ca.crt")
 
 
 class ModelLiveProbe:
-    """고정 Kubernetes GET 세 건으로 승인 시점과 현재 자원을 대조한다."""
+    """고정 Kubernetes GET으로 승인 시점과 현재 자원을 대조한다."""
 
     def __init__(self, *, expected_cluster_fingerprint: str, expected_ca_sha256: str,
                  token: Path = TOKEN, ca: Path = CA, transport=None):
@@ -50,7 +52,10 @@ class ModelLiveProbe:
         app = self._read("/apis/apps/v1/namespaces/ai-ops-lab/deployments/lab-api", 16384)
         if app.get("metadata", {}).get("uid") != binding["deployment_uid"]:
             raise ValueError("model_probe_deployment_changed")
-        config = self._read("/api/v1/namespaces/ai-ci/configmaps/ci-config")
+        normal_policy = binding.get("policy") == SEQUENCE_POLICY
+        config_path = ("/api/v1/namespaces/ai-ops-lab/configmaps/lab-collector"
+                       if normal_policy else "/api/v1/namespaces/ai-ci/configmaps/ci-config")
+        config = self._read(config_path)
         data = config.get("data", {})
         if set(data) != {"bindings.json", "runtime.json", "metric-queries.json"}:
             raise ValueError("model_probe_config_changed")
@@ -66,6 +71,20 @@ class ModelLiveProbe:
                 runtime.llm_enabled is not False or
                 sha256_json([item.model_dump(mode="json") for item in parsed]) != binding["config_hash"]):
             raise ValueError("model_probe_config_changed")
+        if normal_policy:
+            current = self._read("/api/v1/namespaces/ai-ci/configmaps/ci-normal-binding")
+            if set(current.get("data", {})) != {"normal-ci-binding.json"}:
+                raise ValueError("model_probe_normal_binding_changed")
+            try:
+                normal = NormalCIBinding.model_validate_json(
+                    current["data"]["normal-ci-binding.json"])
+            except (ValueError, TypeError, KeyError):
+                raise ValueError("model_probe_normal_binding_changed") from None
+            if (normal.cluster_fingerprint != binding["cluster_fingerprint"] or
+                    normal.app.deployment_uid != binding["deployment_uid"] or
+                    normal.config_hash != binding["config_hash"] or
+                    normal.executor_sha256 != executor_hash()):
+                raise ValueError("model_probe_normal_binding_changed")
         gateway = self._read("/apis/apps/v1/namespaces/ai-model/deployments/model-gateway", 16384)
         containers = gateway.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
         image = containers[0].get("image", "") if len(containers) == 1 else ""

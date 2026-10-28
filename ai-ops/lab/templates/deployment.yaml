@@ -1,0 +1,153 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "lab-api",
+    "namespace": "ai-ops-lab",
+    "labels": {
+      "ai-ops-purpose": "b6-isolated-lab"
+    },
+    "annotations": {
+      "ai-ops/b6-deployment-owner": "gitops",
+      "argocd.argoproj.io/sync-options": "Prune=false,Delete=false"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "strategy": {
+      "type": "Recreate"
+    },
+    "selector": {
+      "matchLabels": {
+        "app": "lab-api"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "ai-ops-purpose": "b6-isolated-lab",
+          "app": "lab-api"
+        }
+      },
+      "spec": {
+        "serviceAccountName": "lab-workload",
+        "automountServiceAccountToken": false,
+        "enableServiceLinks": false,
+        "securityContext": {
+          "runAsNonRoot": true,
+          "runAsUser": 1000,
+          "runAsGroup": 1000,
+          "fsGroup": 1000,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "containers": [
+          {
+            "name": "api",
+            "image": "{{ .Values.api.image.repository }}@{{ .Values.api.image.digest }}",
+            "imagePullPolicy": "IfNotPresent",
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "readOnlyRootFilesystem": true,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              }
+            },
+            "resources": {
+              "requests": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              },
+              "limits": {
+                "cpu": "500m",
+                "memory": "384Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              }
+            ],
+            "env": [
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "lab-database",
+                    "key": "DATABASE_URL"
+                  }
+                }
+              },
+              {
+                "name": "DATABASE_READ_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "lab-database",
+                    "key": "DATABASE_READ_URL"
+                  }
+                }
+              },
+              {
+                "name": "REDIS_URL",
+                "value": "redis://lab-redis.ai-ops-lab.svc:6379/0"
+              },
+              {
+                "name": "APP_ENV",
+                "value": "practice"
+              },
+              {
+                "name": "ENABLE_FAULT_INJECTION",
+                "value": "true"
+              },
+              {
+                "name": "MAX_FAULT_DELAY_MS",
+                "value": "1000"
+              },
+              {
+                "name": "REPLICA_CONSISTENCY_WINDOW_SECONDS",
+                "value": "5"
+              },
+              {
+                "name": "PYTHONDONTWRITEBYTECODE",
+                "value": "1"
+              }
+            ],
+            "ports": [
+              {
+                "name": "http",
+                "containerPort": 8000
+              }
+            ],
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/readyz",
+                "port": "http"
+              },
+              "periodSeconds": 5
+            },
+            "startupProbe": {
+              "httpGet": {
+                "path": "/readyz",
+                "port": "http"
+              },
+              "periodSeconds": 5,
+              "failureThreshold": 36
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "tmp",
+            "emptyDir": {
+              "sizeLimit": "64Mi"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

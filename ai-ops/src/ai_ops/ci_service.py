@@ -8,7 +8,7 @@ import re
 NAMESPACE = 'ai-ci'
 
 
-def build_service(image, config, api_cidrs):
+def build_service(image, config, api_cidrs, *, projection_secret_name=None):
     """검증 이미지를 사용하며 토큰 값 없이 Secret 이름만 참조한다."""
     if not re.fullmatch(r'716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}', image):
         raise ValueError('전용 digest 이미지 필요')
@@ -18,6 +18,8 @@ def build_service(image, config, api_cidrs):
             raise ValueError('내부 API /32 필요')
     if not api_cidrs:
         raise ValueError('현재 API 주소 필요')
+    if projection_secret_name not in (None, 'ci-projection-identity'):
+        raise ValueError('사건 조회는 고정된 실습 전용 Secret만 허용')
     from ai_ops.b_contracts import BindingRegistry, BRuntime, MetricCatalog
     required_config = ('bindings.json', 'runtime.json', 'metric-queries.json')
     if set(config) not in (set(required_config), set(required_config) | {'normal-ci-binding.json'}):
@@ -68,6 +70,24 @@ def build_service(image, config, api_cidrs):
             for key in ['readinessProbe', 'livenessProbe']:
                 container[key] = {'exec': {'command': ['python', '-m', 'ai_ops.worker_runtime', '--probe']}, 'periodSeconds': 30, 'timeoutSeconds': 5, 'failureThreshold': 3}
             container['startupProbe'] = {'exec': {'command': ['python', '-m', 'ai_ops.worker_runtime', '--probe']}, 'periodSeconds': 10, 'failureThreshold': 18, 'timeoutSeconds': 5}
+            if projection_secret_name is not None:
+                volumes.append({'name': 'projection-identity', 'secret': {
+                    'secretName': projection_secret_name, 'defaultMode': 288,
+                    'items': [{'key': key, 'path': key} for key in ('token', 'tls.crt', 'tls.key')]}})
+                pod_projection = {
+                    'name': 'projection-read', 'image': image,
+                    'command': ['python', '-m', 'ai_ops.c_projection_server'],
+                    'args': ['--store', '/data/incidents'],
+                    'ports': [{'name': 'projection-tls', 'containerPort': 9444, 'protocol': 'TCP'}],
+                    'securityContext': security,
+                    'resources': {'requests': {'cpu': '25m', 'memory': '64Mi'},
+                                  'limits': {'cpu': '150m', 'memory': '192Mi'}},
+                    'volumeMounts': [
+                        {'name': 'data', 'mountPath': '/data', 'readOnly': True},
+                        {'name': 'projection-identity', 'mountPath': '/etc/ai-ci-projection', 'readOnly': True},
+                    ],
+                    'readinessProbe': {'tcpSocket': {'port': 'projection-tls'}, 'periodSeconds': 10},
+                }
         else:
             mounts.append({'name': 'github', 'mountPath': '/etc/ai-ci-github', 'readOnly': True})
             volumes.append({'name': 'github', 'secret': {'secretName': 'ci-relay-github', 'defaultMode': 288}})
@@ -77,6 +97,8 @@ def build_service(image, config, api_cidrs):
         pod = {'serviceAccountName': name, 'automountServiceAccountToken': False, 'enableServiceLinks': False,
                'terminationGracePeriodSeconds': 90, 'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001, 'fsGroup': 10001, 'fsGroupChangePolicy': 'OnRootMismatch', 'seccompProfile': {'type': 'RuntimeDefault'}},
                'containers': [container], 'volumes': volumes}
+        if worker and projection_secret_name is not None:
+            pod['containers'].append(pod_projection)
         if not worker:
             pod['affinity'] = {'podAffinity': {'requiredDuringSchedulingIgnoredDuringExecution': [{'labelSelector': {'matchLabels': {'app': 'ci-worker'}}, 'topologyKey': 'kubernetes.io/hostname'}]}}
         obj('Deployment', name, {'replicas': 0, 'strategy': {'type': 'Recreate'}, 'selector': {'matchLabels': {'app': name}}, 'template': {'metadata': {'labels': {'app': name}}, 'spec': pod}}, api='apps/v1')

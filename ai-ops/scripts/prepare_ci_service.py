@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--image', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--normal-binding', type=Path, help='현재 Pod에 고정된 정상 관측 CI binding')
+    parser.add_argument('--projection-read', action='store_true', help='별도 Secret을 가진 읽기 전용 실습 사건 조회 sidecar를 준비')
     args = cli_paths(parser, parser.parse_args(), {'manifest': 'input', 'output': 'output',
                                                    'normal_binding': 'input'})
     bundle = json.loads(args.manifest.read_text()); validate_lab(bundle)
@@ -28,7 +29,8 @@ def main():
             args.normal_binding.read_bytes()).model_dump_json()
     policy = next(x for x in bundle['items'] if x['kind']=='NetworkPolicy' and x['metadata']['name']=='lab-collector')
     cidrs = [x['ipBlock']['cidr'] for x in policy['spec']['egress'][0]['to']]
-    write_private_json(args.output, build_service(args.image, config, cidrs))
+    write_private_json(args.output, build_service(args.image, config, cidrs,
+                                                 projection_secret_name='ci-projection-identity' if args.projection_read else None))
     print('비활성 배포 정의 생성 완료. 토큰·Secret 생성·서버 적용은 실행하지 않았습니다.')
 
 

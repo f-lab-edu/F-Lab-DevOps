@@ -1,6 +1,6 @@
 # C-02 로컬 사건 조회·이미지 변경안 첫 구현 — 2026-10-28 KST
 
-판정: **로컬 코드·모의 TLS 검증 완료, C-02 전체는 진행 중.** [C-01 설계](C1-approval-recovery-design.md)의 요청과 특정 변경 승인을 분리하는 작업이다. 실습 `ai-ci/ci-worker` PVC에서 사건 요약만 제공할 선택적 TLS sidecar와 로컬 조회 클라이언트를 준비했지만 **새 이미지·Secret·sidecar를 EKS에 배포하지 않았다.** GitHub PR·승인도 생성하지 않았다. Helm 입력은 준비 상태이며 현재 Argo는 계속 `deployment.json`을 사용한다. 이 기록을 실제 복구 기능으로 해석하지 않는다.
+판정: **인증된 실습 사건 조회를 EKS에서 확인, C-02 전체는 진행 중.** [C-01 설계](C1-approval-recovery-design.md)의 요청과 특정 변경 승인을 분리하는 작업이다. 실습 `ai-ci/ci-worker` PVC의 제한된 TLS sidecar를 배포하고 실제 사건 한 건을 운영자 CLI에서 읽었다. Helm 입력은 준비 상태이며 현재 Argo는 계속 `deployment.json`을 사용한다. 변경안의 실시간 검증과 승인·실행은 연결되지 않았으므로 이 기록을 실제 복구 기능으로 해석하지 않는다.
 
 ## 구현한 처리 흐름
 
@@ -25,20 +25,23 @@
 
 S10 조사 사건은 운영 `ai-ops` StatefulSet이 아니라 **`ai-ci/ci-worker`의 `ci-queue` PVC**에 있다. 선택적 `projection-read` sidecar는 같은 Pod에서 이 PVC를 **읽기 전용**으로 마운트하고, 등록된 `urlshortener/ai-ops-lab/lab-api/practice` 사건의 ID·대상·상태·증거 종류별 수·인용 ID·묶음/보고서/감사 해시만 TLS로 반환한다. 원문 질문·로그·보고서 문장·토큰은 응답에 없다. 인증용 `ci-projection-identity` Secret의 `token`은 CI 전달기 GitHub 토큰이나 운영 경보 토큰과 공유하지 않는다. 이 sidecar에는 Kubernetes 서비스 계정 토큰·GitHub 자격을 마운트하지 않고, Service와 인바운드 NetworkPolicy 허용도 추가하지 않았다.
 
-운영자 로컬 서비스는 같은 OS 사용자와 `gh api user`의 허용 ID를 먼저 확인한 뒤, 별도 로컬 토큰 파일과 CA 인증서로 sidecar TLS 연결을 검증한다. 로컬 포트 전달은 **전송 경로일 뿐 인증 수단이 아니다.** 실제 활성화 때는 Secret의 `token/tls.crt/tls.key`, `ci-worker.ai-ci.svc` SAN 인증서, 운영자 전용 `0600` 토큰 파일·CA 파일, 범위를 제한한 Pod port-forward 권한을 준비해야 한다. `prepare_ci_service.py --projection-read`는 복제수 0의 배포 정의만 생성한다. 현재 활성 worker에 그대로 적용하면 worker가 내려가므로 기존 배포 절차와 현재 복제수·PVC를 대조해 별도 전환해야 한다. 자격 원문은 Git·문서·실행 출력에 남기지 않는다.
+운영자 로컬 서비스는 같은 OS 사용자와 `gh api user`의 허용 ID를 먼저 확인한 뒤, 별도 로컬 토큰 파일과 CA 인증서로 sidecar TLS 연결을 검증한다. 로컬 포트 전달은 **전송 경로일 뿐 인증 수단이 아니다.** 현재 `ai-ci/ci-projection-identity` Secret은 `token/tls.crt/tls.key`를 담고, `ci-worker.ai-ci.svc` SAN 인증서·토큰의 로컬 원본은 사용자 전용 `/Users/jounghyeon/.local/share/url-shortener-ai-ops/c2-projection-identity-20261028/`에 `0700/0600`으로 보존한다. 인증서 만료는 **2026-11-27 18:22 KST**다. 만료 전에 새 자격을 발급하고 Secret·로컬 클라이언트의 CA를 함께 교체해야 한다. 재설치에서는 Secret 복사본을 다시 만들되 원본 값을 Git·문서·실행 출력에 남기지 않는다. 운영자용 범위 제한 Pod port-forward RBAC는 아직 없다. 이번 실측은 관리자의 임시 kubeconfig로 전송 경로만 열었고, 로컬 CLI에는 `kubectl exec`나 Secret 조회 권한을 부여하지 않았다. `prepare_ci_service.py --projection-read`는 복제수 0의 배포 정의만 생성하므로 활성 worker에 그대로 적용하면 worker가 내려간다. 이번에는 현재 Deployment의 UID·resourceVersion·복제수 1·PVC를 검사하는 조건부 JSON patch로 sidecar와 Secret 볼륨만 추가했다.
 
 ## 확인 결과
 
 - `helm lint ai-ops/lab`: 오류 0개. 기본 `helm template`의 단일 Deployment가 기존 `deployment.json`과 구조상 **완전히 동일**했다.
 - 대체 digest로 렌더하면 `spec.template.spec.containers[0].image` **한 필드만** 달라졌다.
 - `test_c_recovery` 집중 시험 **7개 통과**. 로컬 Unix socket 시험은 기본 샌드박스의 소켓 생성 제한으로 처음 실행에서 막혀, 로컬 소켓 권한으로 같은 시험을 재실행해 통과했다. GitHub 조회는 모의 응답을 사용했고 실제 토큰을 읽거나 클러스터/모델을 호출하지 않았다. 변경안 ID 충돌도 저장 전에 거부한다.
-- `test_c_projection`·`test_ci_service`·기존 `test_alert_receiver`와 위 7개를 합쳐 **22개 통과**. 합성 S10 이력으로 실제 `ci-worker` 형식의 사건을 개인 큐에 저장하고 TLS 요약 경로로 조회했으며, 보고서 문장은 응답에 없었다. 실습 sidecar의 별도 인증·안전한 자격 파일·로컬 운영자 경로와 기본 배포 비활성도 확인했다. TLS 인증서·토큰은 시험에서 만든 합성값이다. 실제 EKS 통신·port-forward 정책은 아직 확인하지 않았다.
+- `test_c_projection`·`test_ci_service`·기존 `test_alert_receiver`와 위 7개를 합쳐 **22개 통과**. 전체 AI 시험 **539개 통과**와 PR #102의 `contracts`·`image` 검사 통과를 확인했다. 합성 S10 이력으로 실제 `ci-worker` 형식의 사건을 개인 큐에 저장하고 TLS 요약 경로로 조회했으며, 보고서 문장은 응답에 없었다.
 - 2026-10-28 18:05 KST에 현재 EKS endpoint로 임시 kubeconfig를 만들고 **읽기 전용**으로 재조회했다. `ai-ci/ci-worker`는 1/1이고 컨테이너는 `ci-worker` 하나, 볼륨은 `config/data/tmp/identity`였다. `ci-queue` PVC는 `Bound/ReadWriteOnce`이고 `ci-projection-identity` Secret은 없었다. 기본 kubeconfig를 바꾸지 않았으며 임시 파일을 삭제했다. 따라서 현재 클러스터에는 사건 조회 sidecar·자격이 없고 원격 조회 성공은 아직 입증하지 않았다.
+- PR [#102](https://github.com/f-lab-edu/F-Lab-DevOps/pull/102)를 main 병합 커밋 `2e87cf69bf50916722743000a2545020e7201ec7`로 반영했다. [이미지 등록 실행](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40663445452)은 검사 통과 후 `sha256:4faa5c5ca812d20a1306bab9d3f8ab2513b50182dc9cf439dfc5e07e3f196a3e`를 AI ECR에 게시했다.
+- 2026-10-28 18:25 KST에 `ci-projection-identity` Secret을 생성하고, `ai-ci/ci-worker`에 **`projection-read` sidecar와 Secret 볼륨만 추가**했다. `ci-worker` 본체 이미지는 기존 digest, 복제수는 1, `ci-queue` PVC는 동일하게 유지했다. rollout 뒤 두 컨테이너가 Ready·재시작 0이었다. 기존 `ci-deny`의 인바운드 차단을 유지하고 Service는 만들지 않았다.
+- 현재 PVC의 `inc-087b8cb2438443f3b09f7004fbb049d4`/`run-262cbdc5bd6242ebadb8cccd06f42d6a`를 TLS 클라이언트와 운영자 CLI에서 조회했다. 고정 practice 대상, `partial` 상태, 증거 개수·인용 ID 개수·세 검증 해시만 반환했다. 잘못된 토큰과 없는 실행 ID는 거부됐다. 검증용 로컬 서비스·port-forward는 종료했다. 이 한 건은 **읽기 경로의 실측**이며 원인 해결이나 변경안 성공의 증거가 아니다.
 - 이번 작업은 기존 Argo Application, S10·정상 CI workflow, Kubernetes 권한, GitHub 보호 규칙·자격을 변경하지 않았다. 다른 작업의 미커밋 파일도 보존했다.
 
 ## C-02 종료까지 남은 연결
 
-1. **인증된 사건 읽기 경로 활성화:** 실습 worker용 선택적 sidecar와 로컬 클라이언트의 코드는 준비했다. 새 이미지 등록, 분리된 Secret·CA의 소유자 보관, 최소 port-forward 권한, 현재 worker·PVC 보존을 확인한 순차 배포와 실제 S10 사건의 조회/거부 실측이 남았다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다. 그전에는 로컬 서비스가 실제 S10 사건을 조회한다고 주장하지 않는다.
+1. **조회 경로 권한·재설치 마무리:** 실습 사건의 실제 조회·거부는 확인했다. 관리자의 광범위한 임시 kubeconfig를 대신할 **대상 Pod 한정 port-forward RBAC**와 자격 회전·재설치 절차를 검증해야 한다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
 2. **values 전환과 기존 실습 호환:** S10 실행기의 `deployment.json` 비교, Argo directory 입력, 정상 CI의 App 검사와 artifact 연결을 Helm values에 맞춰 함께 변경한다. 렌더 동등성·실패→기존 CI 원복·정상 관측 회귀 후 Argo를 동일 단일 소유자로 전환한다. 이 전에는 실제 변경안/PR을 활성화하지 않는다.
 3. **검증된 변경안 입력:** 새 초안의 현재 이미지/UID/base SHA, 이전 정상 digest와 ECR 존재성, CI/Argo 이력, 공유 `LabLease` 상태를 읽기 전용으로 재검사한다. 원본 증거 ID·변경 영향·검증/복구 조건도 제안 계약에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 제안·취소·만료 상태를 실제 저장소와 연결한다.
 4. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.

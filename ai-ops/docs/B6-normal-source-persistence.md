@@ -44,3 +44,13 @@
 이 캠페인의 새 영수증 제출·토큰 계산·모델 생성은 **0건**이었다. worker의 v3 연결은 켜지 않았다. 캠페인을 개인·클러스터 장부에서 `stopped`로 기록하고 gateway·proxy를 0으로 내린 뒤, 클러스터의 모델 API 키·서비스 토큰 Secret을 제거했다. 기존 장부의 보고서 1건은 유지했다. 이전 승인은 새 이미지나 수정된 입력 계약에 재사용하지 않는다.
 
 후속 수정은 v1/v2가 기존 `ci-config`를 검사하고 v3는 `lab-collector` 설정과 `ci-normal-binding`을 함께 검사하도록 한다. gateway의 GET 권한도 각 ConfigMap 이름으로 한정한다. 수정 이미지 배포 후 새 v3 검토안·별도 승인을 받아 한 건 실측해야 한다.
+
+## 2026-10-28 v3 재시도에서 확인한 Pod 고정 경계
+
+[PR #101](https://github.com/f-lab-edu/F-Lab-DevOps/pull/101)의 설정 경계 수정과 새 이미지 `sha256:9800fe8c…f63b0b`를 적용했다. 사용자가 모델 gateway의 `ai-ops-lab/lab-collector`, `ai-ci/ci-normal-binding` ConfigMap에 대한 `get` 권한과 별도 캠페인 `campaign-31ab324bfc8143fdb7bfa43703b39588`을 승인했다. gateway·proxy와 worker는 기동했으나, [정상 CI #40639505092](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40639505092)는 승인 전에 고정한 `lab-api` Pod가 이미 교체돼 실행 전 거부됐다. 이 캠페인의 새 영수증·모델 전송·예산 예약은 모두 0건이었다. 개인·클러스터 장부에서 캠페인을 중지하고 모델 관련 클러스터 Secret을 제거했으며 gateway·proxy를 0으로 내렸다.
+
+현재 Pod로 `ci-normal-binding` ConfigMap과 GitHub `ai-ops-normal-ci` 환경의 `NORMAL_CI_BINDING`을 갱신했지만, 첫 [재검증 CI #40640261282](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40640261282)는 잠금 취득 뒤 테스트 앱 명령을 실행하지 못했다. CI 결과는 `recovery_unverified`, `external_model_calls=0`이었다. 원인은 `b6-normal-coordinator` Role의 `pods` 조회·`pods/exec` 생성 대상 이름이 여전히 교체 전 Pod에 고정돼 있었기 때문이다. 관리자가 해당 실행의 자기 아이템 파일 부재·DB 행 0개·Redis 응답·앱 준비 상태를 확인하고 동일 cleanup 명령과 기준선 검사를 다시 성공시킨 뒤, 일치하는 잠금 소유자만 해제했다. Role의 두 이름 제한은 현재 Pod로 교체하고 이전 Pod의 exec 권한이 제거됐음을 확인했다. 공유 잠금의 5분 관측 창이 끝난 뒤 정상 CI를 다시 실행해야 한다.
+
+Pod 재생성 후에는 **binding ConfigMap, GitHub 환경 변수, 정상 CI Role의 `pods`·`pods/exec` 대상 이름을 함께 갱신**한다. 세 곳 중 하나라도 이전 Pod를 가리키면 새 실습 CI를 시작하지 않는다. 기존 캠페인의 정확한 결합 해시는 새 binding에 재사용하지 않는다.
+
+5분 관측 창 이후 [정상 CI #40641183042](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40641183042)가 성공했다. 정제 영수증의 binding 해시는 현재 Pod·ConfigMap과 일치하고 `owned_data_removed`, `baseline_unchanged`, `lock_released`가 모두 참이며 모델 호출은 0건이다. 처음에는 전달기·worker가 ConfigMap 갱신 전 binding을 메모리에 유지해 영수증을 거부했다. 두 프로세스를 공유 PVC 사용 순서에 맞춰 재시작한 뒤 worker의 정상 영수증 상태가 `ready`로 자동 접수됐다. 새 샘플로 `campaign-683ca19c2a7341498afa306518de89db`의 비활성 검토안을 준비했으며, 별도 승인 전에는 API 키를 클러스터에 재설치하거나 gateway·proxy를 켜지 않는다.

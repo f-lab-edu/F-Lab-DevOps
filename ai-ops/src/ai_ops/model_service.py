@@ -143,17 +143,20 @@ def build_prepared_service(image: str, api_cidrs: list[str]) -> dict:
         "ports": [{"protocol": "TCP", "port": 443}]})
 
     permissions = (
-        ("ai-ops-lab", "deployments", "apps", "lab-api"),
-        ("ai-ci", "configmaps", "", "ci-config"),
-        ("ai-model", "deployments", "apps", "model-gateway"),
+        ("ai-ops-lab", (("deployments", "apps", "lab-api"),
+                        ("configmaps", "", "lab-collector"))),
+        ("ai-ci", (("configmaps", "", "ci-config"),
+                   ("configmaps", "", "ci-normal-binding"))),
+        ("ai-model", (("deployments", "apps", "model-gateway"),)),
     )
-    for namespace, resource, api_group, name in permissions:
+    for namespace, entries in permissions:
         role_name = "model-gateway-current-read"
         metadata = {"name": role_name, "namespace": namespace,
                     "labels": {"app.kubernetes.io/part-of": "ai-model"}}
         items.append({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role",
             "metadata": metadata, "rules": [{"apiGroups": [api_group], "resources": [resource],
-                                        "resourceNames": [name], "verbs": ["get"]}]})
+                "resourceNames": [name], "verbs": ["get"]}
+                for resource, api_group, name in entries]})
         items.append({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding",
             "metadata": metadata, "roleRef": {"apiGroup": "rbac.authorization.k8s.io",
                 "kind": "Role", "name": role_name},

@@ -71,12 +71,16 @@ class ModelServiceTests(unittest.TestCase):
         self.assertEqual(gateway["containers"][0]["env"][-1],
                          {"name": "AI_MODEL_ENABLED", "value": "false"})
         self.assertTrue(any("projected" in volume for volume in gateway["volumes"]))
-        for namespace, resource, name in (("ai-ops-lab", "deployments", "lab-api"),
-                                          ("ai-ci", "configmaps", "ci-config"),
-                                          ("ai-model", "deployments", "model-gateway")):
+        for namespace, entries in (
+            ("ai-ops-lab", (("deployments", "lab-api"), ("configmaps", "lab-collector"))),
+            ("ai-ci", (("configmaps", "ci-config"), ("configmaps", "ci-normal-binding"))),
+            ("ai-model", (("deployments", "model-gateway"),)),
+        ):
             role = find("Role", "model-gateway-current-read", namespace)
-            self.assertEqual(role["rules"], [{"apiGroups": ["apps" if resource == "deployments" else ""],
-                "resources": [resource], "resourceNames": [name], "verbs": ["get"]}])
+            self.assertEqual(role["rules"], [
+                {"apiGroups": ["apps" if resource == "deployments" else ""],
+                 "resources": [resource], "resourceNames": [name], "verbs": ["get"]}
+                for resource, name in entries])
             self.assertEqual(find("RoleBinding", "model-gateway-current-read", namespace)
                              ["subjects"][0]["namespace"], "ai-model")
         egress = find("NetworkPolicy", "ci-worker-model-gateway", "ai-ci")["spec"]["egress"]

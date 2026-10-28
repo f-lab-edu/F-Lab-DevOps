@@ -1,8 +1,12 @@
 # AI 운영 조사 기능
 
-> 최신 상태(2026-10-25 KST): [B-06-M7 첫 실측](docs/B6-model-campaign-first-live-run.md)에서 격리 CI의 실패·자동 복구 → 전달기 자동 접수 → 규칙 보고서와 별도 실제 모델 보고서 생성 한 건을 확인했다. 모델은 허용된 사실을 인용했지만 CI·배포 자료가 전송에서 제외돼 이미지 실패의 원인은 설명하지 못했다. 이를 보완할 [CI 실패·원복 정제 입력 v2](docs/B6-model-ci-projection-v2-implementation.md)와 [worker/gateway 연결 코드](docs/B6-model-ci-projection-v2-connection.md)는 모의 검증까지 구현했다. 새 코드의 배포·v2 캠페인 승인·실제 전송은 하지 않았다. 현재 v1 캠페인은 2026-10-26 15:38 KST까지 승인 범위에서 활성이고, 만료 후 연결·Pod·자격 정리가 필요하다. M7과 B 전체 완료·C 진입은 보류한다. 아래 단계별 설명에는 작성 당시의 진행 상태가 포함돼 있다.
+> 최신 상태(2026-10-28 KST): 격리 실습에서 [CI 실패·원복 v2](docs/B6-model-ci-projection-v2-connection.md)와 [정상 캐시 관측 v3](docs/B6-normal-source-persistence.md)의 자동 접수·별도 모델 보고서 생성을 각각 확인했다. v3 정상 CI 한 건의 재접수는 `duplicate=true`였고 영수증·전달 기록은 각각 1건이었다. 승인 캠페인은 한 건 검증 후 중지했고 gateway·프록시·모델 Secret은 0이다. 보고서는 `needs_review`이며 조치는 실행하지 않았다. [B-02 원본 시각·S10 실패/원복 대조](docs/B2-cross-source-time-audit-20261028.md)까지 마쳐 [B단계의 합의된 읽기 조사·격리 실습 종료 조건](docs/B-stage-readiness-audit-20261028.md)을 충족했다. [B-06 판정](docs/B6-completion-gate-20261028.md)은 장부·보고서 보존과 안전 경계를 구분한다. C-01 설계 후 C-02의 로컬 조회·요청·초안 첫 구현을 진행 중이며, 쓰기·복구 권한은 없다. 현재 작업 브랜치의 문서·시험 변경은 커밋 및 새 원격 CI 검증 전이다. 아래 단계별 설명에는 작성 당시의 진행 상태가 포함돼 있다.
 
-현재 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. **A7은 새 v3 합성 입력에서 수정 고정 증거 AI와 도구 탐색 AI를 각각 48/48회 완료**했다. 기대 진단 자동 채점은 각각 45/48, 36/48이다. 첫 반복의 Codex 예비 검토와 Claude 외부 AI 교차검토, [AI 전용 원격 CI 통과](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37116993482), [앱 CI 원격 검증](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37118365182), [두 workflow의 PR 이벤트 검증](https://github.com/f-lab-edu/F-Lab-DevOps/pull/16)을 확인했다. 익명 A/B 검토 화면과 원본 증거 전용 수동 분석 화면·빈 기록표를 준비했지만 사람의 독립 의미 채점과 수동 분석 기준선은 남았다. B-02 읽기 수집기는 모의 API로 검증했으며 실클러스터 연결과 변경 실행은 후속 구현 범위다.
+[C-01 승인 기반 이미지 복구 설계](docs/C1-approval-recovery-design.md)는 현재 실습 GitOps 입력과 계획의 values-only 변경 차이, 사용자 인증·정확한 PR 승인, 실행 주체 분리와 브랜치 보호 선행 조건을 정리했다. **C-02의 실제 연결과 C-03~C-05 기능, 쓰기·복구 권한은 아직 없다.**
+
+[C-02 로컬 구현](docs/C2-local-request-and-proposal.md)은 원문 없는 사건 조회·인증된 해결 요청·이미지 digest 한 필드 변경안 초안과 기존 Deployment를 그대로 렌더하는 비활성 Helm 입력을 추가했다. 실습 worker PVC의 선택적 TLS 요약 sidecar와 로컬 조회 클라이언트도 준비했다. **실제 EKS sidecar 배포·S10 사건 조회·Argo 전환·승인·실행은 아직 연결되지 않았다.**
+
+A단계 기록에서는 **A0~A4와 A6 로컬 검증을 완료**했다. A5의 합성 증거 전용 OpenAI Responses 어댑터는 실제 AI 보고서 생성·근거 인용·감사 기록을 확인했고 현재 엔진으로 사용한다. 실패 실행의 알려진 부분 사용량과 S2 정상 캐시 miss 재검증도 마쳤다. 다만 원래 계획한 HolmesGPT와 동등 조건의 4~6건 품질 비교는 아직 수행하지 않아 **A5 전체 상태는 검증 중**이다. 그 판단과 한계는 [A5 문서](docs/A5-engine-decision.md)에 있다. A6는 현재 어댑터의 보고서 계약·실패 시 규칙 부분 결과·보안 경계를 모의 응답으로 검증했다. **A7은 새 v3 합성 입력에서 수정 고정 증거 AI와 도구 탐색 AI를 각각 48/48회 완료**했다. 기대 진단 자동 채점은 각각 45/48, 36/48이다. 첫 반복의 Codex 예비 검토와 Claude 외부 AI 교차검토, [AI 전용 원격 CI 통과](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37116993482), [앱 CI 원격 검증](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/37118365182), [두 workflow의 PR 이벤트 검증](https://github.com/f-lab-edu/F-Lab-DevOps/pull/16)을 확인했다. 익명 A/B 검토 화면과 원본 증거 전용 수동 분석 화면·빈 기록표를 준비했지만 사람의 독립 의미 채점과 수동 분석 기준선은 남았다. B-02 읽기 수집기의 모의 검증과 당시 미연결 상태는 B단계 실측 전의 기록이다.
 
 - [A0 코드 기준선과 확인 결과](docs/A0-baseline.md)
 - [데이터 출처·보관 기준](docs/data-policy.md)
@@ -121,7 +125,7 @@ B-04 후속 [예약 보관 정리](docs/B4-retention-schedule.md)를 구현했�
 
 ## B-06 실환경 운영 평가·데모
 
-[운영 평가와 남은 조건](docs/B6-operational-evaluation.md), [안전한 읽기 데모 절차](docs/B6-operational-demo.md), [검증 범위에 맞춘 포트폴리오 초안](docs/B6-portfolio.md)을 관리한다. 실제 큐·권한·중복·외부 전송 차단은 확인했으며, 자료 품질·독립 실습 시나리오·라이브 모델 평가는 미완료다. B 전체 완료나 C 실행 권한 부여로 해석하지 않는다.
+[운영 평가와 남은 조건](docs/B6-operational-evaluation.md), [안전한 읽기 데모 절차](docs/B6-operational-demo.md), [검증 범위에 맞춘 포트폴리오 초안](docs/B6-portfolio.md)을 관리한다. **초기 평가 당시** 실제 큐·권한·중복·외부 전송 차단만 확인했고 독립 실습·라이브 모델 검증은 남아 있었다. 현재 B단계 제한 범위의 판정은 문서 최상단과 [단계별 감사](docs/B-stage-readiness-audit-20261028.md)를 따른다. 이 판정은 C단계 실행 권한 부여가 아니다.
 
 2026-10-21 [독립 실습 환경과 시나리오 준비](docs/B6-isolated-lab.md)를 완료했다. `ai-ops-lab`의 앱·Redis·단일 PostgreSQL·읽기 수집기 4개와 실제 수집·권한·Prometheus 표본 준비를 확인했다. 운영 연결값·PVC를 재사용하지 않으며 새 RDS·영구 볼륨·LB는 없다. 시나리오 정답 기준·복구 절차와 전체 253개 시험을 기록했지만 실제 장애 주입과 라이브 모델 비교는 후속이다.
 

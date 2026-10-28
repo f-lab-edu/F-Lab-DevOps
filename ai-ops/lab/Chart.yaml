@@ -1,0 +1,5 @@
+apiVersion: v2
+name: ai-ops-c-lab
+description: 승인 기반 실습 앱 이미지 복구를 위한 단일 Deployment 정의
+version: 0.1.0
+type: application

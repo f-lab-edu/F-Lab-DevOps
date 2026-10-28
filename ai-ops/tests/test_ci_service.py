@@ -44,6 +44,23 @@ class CIServiceTests(unittest.TestCase):
         config=dict(self.config);config['bindings.json']=config['bindings.json'].replace('ai-ops-lab','url-shortener')
         with self.assertRaises(ValueError): build_service(self.image,config,['10.0.0.1/32'])
 
+    def test_projection_sidecar_is_opt_in_and_reads_only_lab_worker_pvc(self):
+        docs = build_service(self.image, self.config, ['10.0.0.1/32'],
+                             projection_secret_name='ci-projection-identity')['items']
+        worker = next(x for x in docs if x['kind'] == 'Deployment' and x['metadata']['name'] == 'ci-worker')
+        pod = worker['spec']['template']['spec']
+        self.assertEqual(worker['spec']['replicas'], 0)
+        self.assertEqual([x['name'] for x in pod['containers']], ['ci-worker', 'projection-read'])
+        sidecar = pod['containers'][1]
+        self.assertEqual(sidecar['command'], ['python', '-m', 'ai_ops.c_projection_server'])
+        self.assertEqual(sidecar['volumeMounts'][0], {'name': 'data', 'mountPath': '/data', 'readOnly': True})
+        self.assertEqual([x['name'] for x in sidecar['volumeMounts']], ['data', 'projection-identity'])
+        self.assertFalse(any(x['kind'] == 'Service' for x in docs))
+        self.assertFalse(any(x['kind'] == 'NetworkPolicy' and x['spec'].get('ingress')
+                             for x in docs))
+        with self.assertRaises(ValueError):
+            build_service(self.image, self.config, ['10.0.0.1/32'], projection_secret_name='other')
+
     def test_normal_binding_only_enables_separate_relay_scan_and_worker_inbox(self):
         binding = normal_fixture()[3]
         config = dict(self.config)

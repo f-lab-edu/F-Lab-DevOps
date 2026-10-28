@@ -68,6 +68,8 @@ S10 실습 CI와 B-06 정상 관측 CI는 별도 선택 연결이다. 활성화�
 
 정상 관측 원본을 보관하는 구성에서는 `ai-ops-lab/lab-collector-source` 1Gi 암호화 PVC를 만들고 `Bound`와 EBS 암호화를 확인한 뒤 수집기를 배포한다. 새 Pod UID·설정 해시로 `NORMAL_CI_BINDING`, 전용 RBAC, `ai-ci/ci-config`를 다시 생성한다. 기존 실습 Pod의 `emptyDir` 원본이 남아 있는 재설치·전환은 [이관 절차](../../ai-ops/docs/B6-normal-source-persistence.md)를 먼저 따른다. 이전 캠페인 승인이나 영수증을 새 Pod의 현재 증거로 사용하지 않는다.
 
+2026-10-28 확인 사항: 모델 gateway의 전송 전 검사는 `ai-ci/ci-config`에 `bindings.json`·`runtime.json`·`metric-queries.json` 세 항목만 허용한다. 현재 `prepare_ci_service.py --normal-binding` 출력은 `normal-ci-binding.json`을 여기에 추가하므로, 모델 캠페인 설치에서는 이 출력을 그대로 적용하지 않는다. 정상 결합값은 별도 `ai-ci/ci-normal-binding` ConfigMap에 두고 worker·relay의 `/etc/ai-ops` 투영 볼륨에 함께 마운트한다. 현재 클러스터는 이 형태로 수정해 두 프로세스 Ready와 영수증 `ready`를 확인했다. 생성기 수정은 진행 중인 캠페인의 구현 해시를 바꾸므로 캠페인 종료 후 반영한다.
+
 현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
 
 ## 2. kubeconfig와 노드

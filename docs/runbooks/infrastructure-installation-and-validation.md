@@ -68,7 +68,9 @@ S10 실습 CI와 B-06 정상 관측 CI는 별도 선택 연결이다. 활성화�
 
 정상 관측 원본을 보관하는 구성에서는 `ai-ops-lab/lab-collector-source` 1Gi 암호화 PVC를 만들고 `Bound`와 EBS 암호화를 확인한 뒤 수집기를 배포한다. 새 Pod UID·설정 해시로 `NORMAL_CI_BINDING`, 전용 RBAC, `ai-ci/ci-config`를 다시 생성한다. 기존 실습 Pod의 `emptyDir` 원본이 남아 있는 재설치·전환은 [이관 절차](../../ai-ops/docs/B6-normal-source-persistence.md)를 먼저 따른다. 이전 캠페인 승인이나 영수증을 새 Pod의 현재 증거로 사용하지 않는다.
 
-2026-10-28 확인 사항: 모델 gateway의 전송 전 검사는 `ai-ci/ci-config`에 `bindings.json`·`runtime.json`·`metric-queries.json` 세 항목만 허용한다. `prepare_ci_service.py --normal-binding`은 정상 결합값을 별도 `ai-ci/ci-normal-binding` ConfigMap에 두고 worker·relay의 `/etc/ai-ops` 투영 볼륨에 함께 마운트하도록 수정했다. 현재 클러스터는 이 형태로 Ready와 영수증 `ready`를 확인했다. 변경 전 이미지·소스나 기존에 저장한 매니페스트를 재적용하면 설정이 단일 ConfigMap으로 돌아갈 수 있으므로 배포 시 소스 버전과 생성물의 두 ConfigMap을 확인한다. 이 수정의 새 이미지는 아직 등록·배포하지 않았다.
+2026-10-28 확인 사항: 모델 gateway의 전송 전 검사는 `ai-ci/ci-config`에 `bindings.json`·`runtime.json`·`metric-queries.json` 세 항목만 허용한다. `prepare_ci_service.py --normal-binding`은 정상 결합값을 별도 `ai-ci/ci-normal-binding` ConfigMap에 두고 worker·relay의 `/etc/ai-ops` 투영 볼륨에 함께 마운트하도록 수정했다. 현재 클러스터는 이 형태로 Ready와 영수증 `ready`를 확인했다. 변경 전 이미지·소스나 기존에 저장한 매니페스트를 재적용하면 설정이 단일 ConfigMap으로 돌아갈 수 있으므로 배포 시 소스 버전과 생성물의 두 ConfigMap을 확인한다.
+
+C-02 사건 조회가 필요하면 `ai-ci/ci-worker`와 `ci-queue` PVC가 복구된 **뒤에** [C-02 배포 기록](../../ai-ops/docs/C2-local-request-and-proposal.md)의 조회 sidecar를 별도 선택 연결로 복원한다. 로컬 원본 `c2-projection-identity-20261028`의 소유자 권한·인증서 SAN·만료일을 확인해 새 `ai-ci/ci-projection-identity` Secret을 만든다. 현재 설치의 worker 복제수·PVC·UID와 검증된 AI 이미지 digest를 대조하고 `projection-read` 컨테이너와 Secret 볼륨만 추가한다. `prepare_ci_service.py --projection-read` 출력은 기본 **복제수 0**이므로 활성 worker에 그대로 적용하지 않는다. sidecar Ready·실제 사건의 TLS 조회·잘못된 토큰 거부를 확인하며, 로컬 port-forward는 시험 후 종료한다. 재설치만으로 해결 승인·모델 캠페인을 켜지 않는다.
 
 현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
 

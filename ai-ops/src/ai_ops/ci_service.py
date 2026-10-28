@@ -18,12 +18,17 @@ def build_service(image, config, api_cidrs):
             raise ValueError('내부 API /32 필요')
     if not api_cidrs:
         raise ValueError('현재 API 주소 필요')
-    from ai_ops.b_contracts import BindingRegistry, BRuntime
+    from ai_ops.b_contracts import BindingRegistry, BRuntime, MetricCatalog
+    required_config = ('bindings.json', 'runtime.json', 'metric-queries.json')
+    if set(config) not in (set(required_config), set(required_config) | {'normal-ci-binding.json'}):
+        raise ValueError('실습 CI 설정 항목이 유효하지 않음')
     BindingRegistry.model_validate_json(config['bindings.json'])
     BRuntime.model_validate_json(config['runtime.json'])
-    if 'normal-ci-binding.json' in config:
+    MetricCatalog.model_validate_json(config['metric-queries.json'])
+    normal_binding = config.get('normal-ci-binding.json')
+    if normal_binding is not None:
         from ai_ops.normal_ci_contract import NormalCIBinding
-        NormalCIBinding.model_validate_json(config['normal-ci-binding.json'])
+        NormalCIBinding.model_validate_json(normal_binding)
     bindings = json.loads(config['bindings.json'])
     if len(bindings['bindings']) != 1 or bindings['bindings'][0]['target']['namespace'] != 'ai-ops-lab':
         raise ValueError('실습 대상만 허용')
@@ -36,7 +41,9 @@ def build_service(image, config, api_cidrs):
     obj('Namespace', NAMESPACE, ns=None)['metadata']['labels'].update({'pod-security.kubernetes.io/enforce': 'restricted'})
     for name in ['ci-worker', 'ci-relay']:
         obj('ServiceAccount', name, automountServiceAccountToken=False)
-    obj('ConfigMap', 'ci-config', data=deepcopy(config))
+    obj('ConfigMap', 'ci-config', data={key: deepcopy(config[key]) for key in required_config})
+    if normal_binding is not None:
+        obj('ConfigMap', 'ci-normal-binding', data={'normal-ci-binding.json': normal_binding})
     for ns, role in [('ai-ops-lab', 'lab-read-only'), ('argocd', 'b6-lab-argo-read')]:
         obj('RoleBinding', 'ci-worker-read', ns=ns, api='rbac.authorization.k8s.io/v1',
             roleRef={'apiGroup': 'rbac.authorization.k8s.io', 'kind': 'Role', 'name': role},
@@ -46,7 +53,11 @@ def build_service(image, config, api_cidrs):
     for name, module in [('ci-worker', 'worker_runtime'), ('ci-relay', 'ci_relay')]:
         worker = name == 'ci-worker'
         mounts = [{'name': 'config', 'mountPath': '/etc/ai-ops', 'readOnly': True}, {'name': 'data', 'mountPath': '/data'}, {'name': 'tmp', 'mountPath': '/tmp'}]
-        volumes = [{'name': 'config', 'configMap': {'name': 'ci-config'}}, {'name': 'data', 'persistentVolumeClaim': {'claimName': 'ci-queue'}}, {'name': 'tmp', 'emptyDir': {'sizeLimit': '32Mi'}}]
+        config_volume = ({'name': 'config', 'projected': {'sources': [
+            {'configMap': {'name': 'ci-config'}}, {'configMap': {'name': 'ci-normal-binding'}}]}}
+            if normal_binding is not None else
+            {'name': 'config', 'configMap': {'name': 'ci-config'}})
+        volumes = [config_volume, {'name': 'data', 'persistentVolumeClaim': {'claimName': 'ci-queue'}}, {'name': 'tmp', 'emptyDir': {'sizeLimit': '32Mi'}}]
         container = {'name': name, 'image': image, 'command': ['python', '-m', 'ai_ops.' + module],
                      'args': ['--retention', '--metrics'] if worker else ['--config', '/etc/ai-ops', '--store', '/data/incidents', '--watch'],
                      'securityContext': security, 'resources': {'requests': {'cpu': '50m', 'memory': '96Mi'}, 'limits': {'cpu': '500m', 'memory': '256Mi'}},
@@ -61,7 +72,7 @@ def build_service(image, config, api_cidrs):
             mounts.append({'name': 'github', 'mountPath': '/etc/ai-ci-github', 'readOnly': True})
             volumes.append({'name': 'github', 'secret': {'secretName': 'ci-relay-github', 'defaultMode': 288}})
             container['env'].append({'name': 'AI_CI_GITHUB_TOKEN_FILE', 'value': '/etc/ai-ci-github/token'})
-            if 'normal-ci-binding.json' in config:
+            if normal_binding is not None:
                 container['args'] += ['--normal-binding', '/etc/ai-ops/normal-ci-binding.json']
         pod = {'serviceAccountName': name, 'automountServiceAccountToken': False, 'enableServiceLinks': False,
                'terminationGracePeriodSeconds': 90, 'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001, 'fsGroup': 10001, 'fsGroupChangePolicy': 'OnRootMismatch', 'seccompProfile': {'type': 'RuntimeDefault'}},

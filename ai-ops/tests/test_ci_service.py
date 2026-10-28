@@ -49,8 +49,17 @@ class CIServiceTests(unittest.TestCase):
         config = dict(self.config)
         config['normal-ci-binding.json'] = binding.model_dump_json()
         docs = build_service(self.image, config, ['10.0.0.1/32'])['items']
+        core = next(x for x in docs if x['kind']=='ConfigMap' and x['metadata']['name']=='ci-config')
+        normal = next(x for x in docs if x['kind']=='ConfigMap' and x['metadata']['name']=='ci-normal-binding')
+        self.assertEqual(set(core['data']), {'bindings.json','runtime.json','metric-queries.json'})
+        self.assertEqual(normal['data'], {'normal-ci-binding.json': binding.model_dump_json()})
         relay = next(x for x in docs if x['kind']=='Deployment' and x['metadata']['name']=='ci-relay')
         worker = next(x for x in docs if x['kind']=='Deployment' and x['metadata']['name']=='ci-worker')
+        for deployment in (relay, worker):
+            config_volume = deployment['spec']['template']['spec']['volumes'][0]
+            self.assertEqual([source['configMap']['name'] for source in
+                              config_volume['projected']['sources']],
+                             ['ci-config', 'ci-normal-binding'])
         self.assertEqual(relay['spec']['template']['spec']['containers'][0]['args'][-2:],
                          ['--normal-binding', '/etc/ai-ops/normal-ci-binding.json'])
         self.assertNotIn('--normal-binding', worker['spec']['template']['spec']['containers'][0]['args'])

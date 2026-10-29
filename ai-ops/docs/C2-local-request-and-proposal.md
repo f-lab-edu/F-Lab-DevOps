@@ -1,6 +1,6 @@
-# C-02 로컬 사건 조회·이미지 변경안 첫 구현 — 2026-10-28 KST
+# C-02 로컬 사건 조회·이미지 변경안 첫 구현 — 2026-10-29 KST 갱신
 
-판정: **인증된 실습 사건 조회와 현재 Pod 한정 포트 전달을 EKS에서 확인, C-02 전체는 진행 중.** [C-01 설계](C1-approval-recovery-design.md)의 요청과 특정 변경 승인을 분리하는 작업이다. 실습 `ai-ci/ci-worker` PVC의 제한된 TLS sidecar를 배포하고 실제 사건 한 건을 운영자 CLI에서 읽었다. Helm 입력은 준비 상태이며 현재 Argo는 계속 `deployment.json`을 사용한다. 현재 실측에서 변경안의 선행 조건이 성립하지 않아 실제 제안·승인·실행은 연결하지 않았다.
+판정: **인증된 실습 사건 조회와 현재 Pod 한정 포트 전달을 EKS에서 확인, C-02 전체는 진행 중.** [C-01 설계](C1-approval-recovery-design.md)의 요청과 특정 변경 승인을 분리하는 작업이다. 실습 `ai-ci/ci-worker` PVC의 제한된 TLS sidecar를 배포하고 실제 사건 한 건을 운영자 CLI에서 읽었다. 2026-10-29에는 실습 Argo 입력을 Helm `values.yaml`로 전환했다. 현재 앱은 이미 복구되어 실제 제안·승인·실행은 연결하지 않았다.
 
 ## 구현한 처리 흐름
 
@@ -16,10 +16,10 @@
 | [c_operator.py](../src/ai_ops/c_operator.py) | 사용자 전용 Unix socket의 `show`·`request` 인터페이스 |
 | [c_projection_server.py](../src/ai_ops/c_projection_server.py)·[c_projection_client.py](../src/ai_ops/c_projection_client.py) | 실습 worker PVC의 제한된 TLS 요약 응답과 운영자 로컬 TLS 검증 클라이언트 |
 | [ci_service.py](../src/ai_ops/ci_service.py)·[prepare_ci_service.py](../scripts/prepare_ci_service.py) | 별도 Secret이 지정됐을 때만 실습 worker Pod에 읽기 전용 sidecar를 추가하는 비활성 배포 정의 |
-| [Chart.yaml](../lab/Chart.yaml)·[values.yaml](../lab/values.yaml)·[Deployment template](../lab/templates/deployment.yaml) | 기존 단일 실습 Deployment와 동일하게 렌더되는 **비활성** Helm 입력 |
+| [Chart.yaml](../lab/Chart.yaml)·[values.yaml](../lab/values.yaml)·[Deployment template](../lab/templates/deployment.yaml) | 기존 단일 실습 Deployment와 동일하게 렌더되는 Helm 입력. 2026-10-29부터 실습 Application의 활성 소스 |
 | [검증 시험](../tests/test_c_recovery.py) | 대상/권한 거부, 원문 제외, 정확한 digest diff, 중복 저장, 로컬 소켓 경계 |
 
-`values.yaml`은 JSON 형식으로 쓴 유효한 YAML이며, 추가 키와 다른 repository를 [values.schema.json](../lab/values.schema.json)이 거부한다. 제안 생성 함수도 같은 고정 구조를 별도로 검사한다. Helm chart는 현재의 [deployment.json](../lab/deployment.json)을 대신해 **아직 Argo에 연결되지 않았다.** 기존 GitOps 입력과 중복 관리하지 않는다.
+`values.yaml`은 JSON 형식으로 쓴 유효한 YAML이며, 추가 키와 다른 repository를 [values.schema.json](../lab/values.schema.json)이 거부한다. 제안 생성 함수도 같은 고정 구조를 별도로 검사한다. 2026-10-29 이전의 Argo 입력은 [deployment.json](../lab/deployment.json)이었고, 현재는 Helm chart가 활성 입력이다. `deployment.json`은 비교 기준 파일로 남아 있으며 Argo는 Helm 렌더의 단일 Deployment만 관리한다.
 
 ## 실습 worker 사건 조회 경로의 현재 상태
 
@@ -27,9 +27,9 @@ S10 조사 사건은 운영 `ai-ops` StatefulSet이 아니라 **`ai-ci/ci-worker
 
 운영자 로컬 서비스는 같은 OS 사용자와 `gh api user`의 허용 ID를 먼저 확인한 뒤, 별도 로컬 토큰 파일과 CA 인증서로 sidecar TLS 연결을 검증한다. 로컬 포트 전달은 **전송 경로일 뿐 인증 수단이 아니다.** 현재 `ai-ci/ci-projection-identity` Secret은 `token/tls.crt/tls.key`를 담고, `ci-worker.ai-ci.svc` SAN 인증서·토큰의 로컬 원본은 사용자 전용 `/Users/jounghyeon/.local/share/url-shortener-ai-ops/c2-projection-identity-20261028/`에 `0700/0600`으로 보존한다. 인증서 만료는 **2026-11-27 18:22 KST**다. 만료 전에 새 자격을 발급하고 Secret·로컬 클라이언트의 CA를 함께 교체해야 한다. 재설치에서는 Secret 복사본을 다시 만들되 원본 값을 Git·문서·실행 출력에 남기지 않는다. 2026-10-28의 첫 실측은 관리자 kubeconfig로 포트를 열었다. 2026-10-29에는 아래의 Pod 한정 RBAC와 단기 토큰으로 같은 조회를 다시 확인했다. 운영자 CLI에는 `kubectl exec`나 Secret 조회 권한을 부여하지 않았다. `prepare_ci_service.py --projection-read`는 복제수 0의 배포 정의만 생성하므로 활성 worker에 그대로 적용하면 worker가 내려간다. 이번에는 현재 Deployment의 UID·resourceVersion·복제수 1·PVC를 검사하는 조건부 JSON patch로 sidecar와 Secret 볼륨만 추가했다.
 
-## 2026-10-29 현재 Pod 한정 접근과 변경안 선행 조건
+## 2026-10-29 Helm 전환 전 Pod 한정 접근과 변경안 선행 조건
 
-현재 `ai-ci/ci-worker-bcd4f56ff-gg22s`의 UID·ReplicaSet→Deployment 소유 관계·두 컨테이너 Ready·9444 포트를 확인해 [권한 생성 코드](../src/ai_ops/c_portforward_access.py)와 [준비 명령](../scripts/prepare_c2_portforward.py)으로 ServiceAccount·Role·RoleBinding 세 개만 만들었다. Role은 **그 Pod 이름의 `pods get`과 `pods/portforward create`만** 허용한다. ServiceAccount의 자동 토큰 마운트는 껐다. [단기 자격 발급 명령](../scripts/issue_c2_portforward_kubeconfig.py)은 적용된 Role의 정확한 규칙과 현재 Pod UID를 다시 검사한 뒤 1시간 TokenRequest를 개인 `0600` kubeconfig로 쓴다. 사용자용 영구 Kubernetes 자격이나 서비스는 만들지 않는다. Pod가 교체되면 기존 Role의 이름·UID 결합은 낡으므로 새 Pod에서 계획을 다시 만들고 이전 단기 자격을 폐기한다.
+당시 `ai-ci/ci-worker-bcd4f56ff-gg22s`의 UID·ReplicaSet→Deployment 소유 관계·두 컨테이너 Ready·9444 포트를 확인해 [권한 생성 코드](../src/ai_ops/c_portforward_access.py)와 [준비 명령](../scripts/prepare_c2_portforward.py)으로 ServiceAccount·Role·RoleBinding 세 개만 만들었다. Role은 **그 Pod 이름의 `pods get`과 `pods/portforward create`만** 허용한다. ServiceAccount의 자동 토큰 마운트는 껐다. [단기 자격 발급 명령](../scripts/issue_c2_portforward_kubeconfig.py)은 적용된 Role의 정확한 규칙과 현재 Pod UID를 다시 검사한 뒤 1시간 TokenRequest를 개인 `0600` kubeconfig로 쓴다. 사용자용 영구 Kubernetes 자격이나 서비스는 만들지 않는다. Pod가 교체되면 기존 Role의 이름·UID 결합은 낡으므로 새 Pod에서 계획을 다시 만들고 이전 단기 자격을 폐기한다.
 
 재설치 시 관리자 kubeconfig가 담긴 개인 폴더를 `AI_OPS_FILES_ROOT`로 지정하고, 현재 Pod 이름을 다시 조회해 다음 순서로 실행한다. 생성한 매니페스트·단기 자격은 Git에 추가하지 않는다.
 
@@ -51,6 +51,18 @@ kubectl --kubeconfig "$INSTALL_DIR/c2-kubeconfig.json" -n ai-ci port-forward "po
 
 같은 시점의 변경안 선행 조건을 [실시간 사전 판정](../src/ai_ops/c_live_preflight.py)과 [읽기 전용 실행기](../scripts/audit_c2_live_preflight.py)로 확인해 개인 파일에 보관했다. Argo `lab-target`은 여전히 `deployment.json` directory를 입력으로 사용하고 `Synced/Healthy`, 실습 앱은 기존 digest로 1/1 Ready이며 공유 Lease는 비어 있다. 고정 revision의 `values.yaml` digest는 실제 Deployment 이미지와 일치하지 않는다. 판정은 `values_source_inactive`, `values_stale`, `already_recovered`이며 `proposal_allowed=false`, 클러스터·GitHub 쓰기 0건이다. 따라서 이전 S10 사건은 이미 자동 원복된 역사적 사건이고, 현재 values만 바꾸는 제안은 실제 배포를 바꾸지 못한다. **새 제안은 0건**이다. 이 사전 판정은 승인 가능한 변경안 검증기가 아니며, 조건이 모두 맞아도 검증된 이전 정상 digest·현재 실패·ECR·Argo/CI 원본 증거를 요구해 제안을 생성하지 않는다. [관련 거부 시험](../tests/test_c_live_preflight.py) 3개를 추가했다. Helm 전환과 이 근거 검증을 마친 후에만 실시간 변경안 생성 경로를 열 수 있다. 현재의 `draft_proposal`은 계속 오프라인 계약이다.
 
+## 2026-10-29 Helm 입력 전환과 실측
+
+[PR #108](https://github.com/f-lab-edu/F-Lab-DevOps/pull/108)의 `main` 병합 SHA `85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d`에서 `values.yaml` digest를 현재 실습 앱 이미지와 일치시켰다. `helm lint`가 통과했고 Helm 렌더의 단일 Deployment가 기존 `deployment.json`과 구조상 같았다. Argo `argocd/lab-target`의 UID·수동 sync·프로젝트·경로를 고정한 채 `directory` 입력을 제거하고 이 SHA를 대상으로 수동 동기화했다. 결과는 `Synced/Healthy`, `deployment.apps/lab-api unchanged`였고 Deployment UID `cf2b76e1-29be-4b73-a39f-dd8e61b3fa78`, generation 4, 이미지 digest, Ready 1/1이 유지됐다.
+
+S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 커밋을 허용한다. ECR에서 실패 digest가 없음을 확인한 뒤 [실습 CI #40817078189](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40817078189)를 실행했다. artifact는 새 digest의 이미지 취득 실패 `failure`, 원래 SHA·digest의 `rollback success`, 최종 `recovered_after_failure`를 담았다. 최초 실패를 보존하는 CI 최종 `failure`는 설계된 결과다. 이후 Argo는 같은 SHA에 `Synced/Healthy`, 앱은 같은 UID와 원래 이미지로 Ready 1/1이었다.
+
+새 digest 형식의 CI 기록을 읽는 코드는 [이미지 등록 #40817266248](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40817266248)에서 검사·게시했고, worker·조회 sidecar·전달기를 새 digest `sha256:11aa823b63c78e136b8fee0eef31d7665d7db141544108544b509f2943150719`로 교체했다. `ci-queue` PVC와 읽기 전용 조회 경계는 유지했다. 전달기는 위 S10 기록 1건을 자동 접수했고 worker는 규칙 기반 부분 보고서를 작성했다. 새 worker Pod `ci-worker-b44c99bf9-h9qmm`에 맞춰 C-02 Role의 Pod 이름·UID를 다시 결합하고 1시간 자격을 재발급했다. 새 자격은 이 Pod의 포트 전달은 허용하고 `pods/exec`·Secret 조회는 거부했다.
+
+전환 뒤 [읽기 전용 사전 판정](../scripts/audit_c2_live_preflight.py)의 차단 사유는 `already_recovered` 하나였다. 이전의 `values_source_inactive`·`values_stale`은 해소됐지만, 과거 S10 실패는 이미 자동 원복됐으므로 새 제안은 만들지 않았다. 모델 gateway·proxy는 계속 복제수 0이며 유료 모델 전송을 켜지 않았다.
+
+정상 CI는 S10 뒤 앱 Pod UID가 바뀌고 실행기 코드 해시가 바뀌어 결합값·Pod 이름 제한 RBAC·GitHub 환경 변수 `NORMAL_CI_BINDING`·`ai-ci/ci-normal-binding`을 재생성해야 한다. 수집기 내부의 `executor_hash()`도 새 코드와 같아야 하므로 수집기 이미지를 같은 digest로 올리고 암호화 `lab-collector-source` PVC를 보존했다. relay는 결합값 변경 후 다시 시작한다. 초기 재실행 [#40817692942](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40817692942)는 옛 앱 Pod UID 때문에 시작 전 거부됐고, [#40817926084](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40817926084)는 옛 수집기 코드 해시 때문에 `capture_failed`였으나 자기 데이터 제거·배포 기준선 보존·잠금 해제가 모두 확인됐다. 앱·수집기 Pod를 다시 결합한 [#40818314394](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40818314394)는 성공했다. 결과 artifact의 `record_type=b6_normal_ci_observation`, `owned_data_removed=true`, `baseline_unchanged=true`, `lock_released=true`, `external_model_calls=0`을 확인했고, relay 로그에서 이 정상 기록 1건의 자동 접수를 확인했다. 앱·수집기·worker·relay는 각각 Ready 1/1이며 모델 gateway·proxy는 복제수 0이다.
+
 ## 확인 결과
 
 - `helm lint ai-ops/lab`: 오류 0개. 기본 `helm template`의 단일 Deployment가 기존 `deployment.json`과 구조상 **완전히 동일**했다.
@@ -66,8 +78,7 @@ kubectl --kubeconfig "$INSTALL_DIR/c2-kubeconfig.json" -n ai-ci port-forward "po
 ## C-02 종료까지 남은 연결
 
 1. **조회 경로 자격 회전·재설치 마무리:** 현재 Pod 한정 RBAC·1시간 자격과 실제 TLS 조회는 확인했다. 다음 Pod 교체에서 권한을 새 이름·UID로 재생성하고 이전 자격 만료·거부를 재검증해야 한다. 인증서 만료 전 Secret·로컬 CA의 묶음 회전도 남아 있다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **values 전환과 기존 실습 호환:** S10 실행기의 `deployment.json` 비교, Argo directory 입력, 정상 CI의 App 검사와 artifact 연결을 Helm values에 맞춰 함께 변경한다. 렌더 동등성·실패→기존 CI 원복·정상 관측 회귀 후 Argo를 동일 단일 소유자로 전환한다. 이 전에는 실제 변경안/PR을 활성화하지 않는다.
-3. **검증된 변경안 입력:** 새 초안의 현재 이미지/UID/base SHA, 이전 정상 digest와 ECR 존재성, CI/Argo 이력, 공유 `LabLease` 상태를 읽기 전용으로 재검사한다. 원본 증거 ID·변경 영향·검증/복구 조건도 제안 계약에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 제안·취소·만료 상태를 실제 저장소와 연결한다.
-4. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
+2. **검증된 변경안 입력:** 새 초안의 현재 이미지/UID/base SHA, 이전 정상 digest와 ECR 존재성, CI/Argo 이력, 공유 `LabLease` 상태를 읽기 전용으로 재검사한다. 원본 증거 ID·변경 영향·검증/복구 조건도 제안 계약에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 제안·취소·만료 상태를 실제 저장소와 연결한다.
+3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

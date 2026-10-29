@@ -89,6 +89,14 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 재현 시 `--normal-binding`에는 성공한 정상 CI 실행 당시의 개인 결합값 파일을, `--normal-run-id`와 `--normal-head`에는 그 실행의 GitHub ID와 전체 SHA를 넣는다. `--kubeconfig`는 현재 클러스터, `--output`은 개인 폴더의 새 JSON 파일이어야 한다. 예: `AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py --kubeconfig "$INSTALL_DIR/kubeconfig" --normal-binding "$INSTALL_DIR/normal-binding.json" --normal-run-id 40818314394 --normal-head 85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d --output "$INSTALL_DIR/c2-proof-new.json"`. 앱이 이미 복구됐으면 GitHub·ECR 조회 전에 중단한다. 관련 거부 시험 4개와 기존 사전 판정 시험 3개가 통과했다.
 
+## 2026-10-29 새 이미지 배포와 Pod 한정 자격 갱신
+
+[AI 이미지 등록 실행 #40822529008](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40822529008)의 시험·빌드·ECR 게시가 통과했고 `main`의 C-02 코드를 담은 digest `sha256:850dc9d53ebf5a41f047615a7c6c20be5566b895b22204e571fd7f7da02ef5ef`를 ECR 원본에서 확인했다. 현재 `ai-ci/ci-worker` Deployment의 UID·resourceVersion·복제수 1·두 컨테이너의 이전 이미지·`ci-queue` PVC를 검사한 조건부 패치를 server dry-run한 다음, worker와 `projection-read` 이미지만 이 digest로 교체했다. 새 Pod `ci-worker-69dc5ff957-6ll7f`의 두 컨테이너는 Ready, 재시작은 0회였다. 실습 앱 `ai-ops-lab/lab-api`는 기존 digest와 Ready 1/1을 유지했다.
+
+새 Pod의 소유 관계를 확인해 C-02 ServiceAccount·Role·RoleBinding의 대상 이름과 UID를 다시 결합했다. 1시간짜리 새 kubeconfig는 개인 `0600` 파일에만 발급했다. 이 자격으로 **현재 Pod 조회·포트 전달은 허용**, **이전 Pod 포트 전달·Pod 목록·exec·Secret 조회는 거부**됨을 확인했다. localhost 포트 전달 위에서 기존 S10 사건 `inc-62b340f119f342679acc71bfc8dc07a8`/`run-f530bc00ab54470894e3bddf94b58a68`의 제한된 TLS 요약을 다시 읽고 포트 전달을 종료했다. 이 과거 사건의 보고서는 `partial`이고 이미지 장애 결합값이 없다. 새 이미지의 조회 경로와 Pod 교체 뒤 권한 갱신을 확인한 결과이며, 실제 장애 제안 성공의 근거는 아니다.
+
+Helm 소스는 revision `85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d`에서 `Synced/Healthy`, 실습 앱 이미지는 `values.yaml`과 일치, Lease는 비어 있다. 읽기 전용 사전 판정 결과는 `already_recovered`, `proposal_allowed=false`였다. 새 제안·PR·실습 앱 변경은 만들지 않았다.
+
 ## 2026-10-28 첫 구현 당시 확인 결과
 
 - `helm lint ai-ops/lab`: 오류 0개. 기본 `helm template`의 단일 Deployment가 기존 `deployment.json`과 구조상 **완전히 동일**했다.
@@ -103,8 +111,8 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 ## C-02 종료까지 남은 연결
 
-1. **조회 경로 자격 회전·재설치 마무리:** 현재 Pod 한정 RBAC·1시간 자격과 실제 TLS 조회는 확인했다. 다음 Pod 교체에서 권한을 새 이름·UID로 재생성하고 이전 자격 만료·거부를 재검증해야 한다. 인증서 만료 전 Secret·로컬 CA의 묶음 회전도 남아 있다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. C-02의 라이브 양성 경로와 조회 자격 회전 검증은 남아 있다.
+1. **조회 경로의 장기 자격 관리:** Pod 교체 뒤 RBAC 재결합·단기 토큰 재발급·이전 Pod 거부와 실제 TLS 조회는 검증했다. 인증서 만료일인 2026-11-27 18:22 KST 전에 Secret·로컬 CA를 함께 회전하고 구 자격 거부를 확인해야 한다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
+2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. C-02의 라이브 양성 경로는 별도 승인과 자동 원복 조건을 갖춘 격리 실습 실패에서 확인한다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

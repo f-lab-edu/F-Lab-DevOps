@@ -63,7 +63,15 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 정상 CI는 S10 뒤 앱 Pod UID가 바뀌고 실행기 코드 해시가 바뀌어 결합값·Pod 이름 제한 RBAC·GitHub 환경 변수 `NORMAL_CI_BINDING`·`ai-ci/ci-normal-binding`을 재생성해야 한다. 수집기 내부의 `executor_hash()`도 새 코드와 같아야 하므로 수집기 이미지를 같은 digest로 올리고 암호화 `lab-collector-source` PVC를 보존했다. relay는 결합값 변경 후 다시 시작한다. 초기 재실행 [#40817692942](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40817692942)는 옛 앱 Pod UID 때문에 시작 전 거부됐고, [#40817926084](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40817926084)는 옛 수집기 코드 해시 때문에 `capture_failed`였으나 자기 데이터 제거·배포 기준선 보존·잠금 해제가 모두 확인됐다. 앱·수집기 Pod를 다시 결합한 [#40818314394](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40818314394)는 성공했다. 결과 artifact의 `record_type=b6_normal_ci_observation`, `owned_data_removed=true`, `baseline_unchanged=true`, `lock_released=true`, `external_model_calls=0`을 확인했고, relay 로그에서 이 정상 기록 1건의 자동 접수를 확인했다. 앱·수집기·worker·relay는 각각 Ready 1/1이며 모델 gateway·proxy는 복제수 0이다.
 
-## 확인 결과
+## 2026-10-29 복구 근거 읽기 검증
+
+[복구 근거 검증기](../src/ai_ops/c_recovery_proof.py)는 기존 [실시간 사전 판정](../src/ai_ops/c_live_preflight.py)이 Helm 소스·현재 이미지·Argo·Lease를 통과했을 때만 동작한다. [감사 명령](../scripts/audit_c2_live_preflight.py)에 정상 CI 결합값 파일, 실행 ID와 head SHA를 함께 주면 GitHub 원본 실행·artifact를 `verify_normal_ci_history`로 검증한다. 동일 EKS의 지문과 현재 kubeconfig, ECR 계정을 대조하고 이전 정상 digest의 ECR 존재 및 현재 실패 digest의 부재를 확인한다. 현재 Deployment의 단일 Pod와 ReplicaSet 소유 UID, 관측 generation, 이미지 취득 실패 이유, Argo의 현재 revision·동기화 시각이 정상 CI 완료 이후인지 검사한다. 확인되지 않은 값은 `blockers`에 남긴다.
+
+이 검증이 모두 통과해도 결과는 `proof_ready=true`, `proposal_allowed=false`, `incident_correlation_and_request_required`다. 특정 사건의 보고서·증거 해시와 인증된 해결 요청을 현재 실패에 연결하는 단계가 아직 없기 때문이다. 정상 CI #40818314394의 GitHub 원본 실행·artifact와 당시 결합값은 별도 읽기 검증을 통과했다. 현재 실습 앱은 정상 이미지로 Ready 1/1이라 실시간 감사 결과는 `already_recovered`, `proof_ready=false`, `proposal_allowed=false`였다. 정상 CI 기록만으로 과거 실패를 현재 장애로 취급하지 않는다. 변경안·PR·배포는 0건이다.
+
+재현 시 `--normal-binding`에는 성공한 정상 CI 실행 당시의 개인 결합값 파일을, `--normal-run-id`와 `--normal-head`에는 그 실행의 GitHub ID와 전체 SHA를 넣는다. `--kubeconfig`는 현재 클러스터, `--output`은 개인 폴더의 새 JSON 파일이어야 한다. 예: `AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py --kubeconfig "$INSTALL_DIR/kubeconfig" --normal-binding "$INSTALL_DIR/normal-binding.json" --normal-run-id 40818314394 --normal-head 85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d --output "$INSTALL_DIR/c2-proof-new.json"`. 앱이 이미 복구됐으면 GitHub·ECR 조회 전에 중단한다. 관련 거부 시험 4개와 기존 사전 판정 시험 3개가 통과했다.
+
+## 2026-10-28 첫 구현 당시 확인 결과
 
 - `helm lint ai-ops/lab`: 오류 0개. 기본 `helm template`의 단일 Deployment가 기존 `deployment.json`과 구조상 **완전히 동일**했다.
 - 대체 digest로 렌더하면 `spec.template.spec.containers[0].image` **한 필드만** 달라졌다.
@@ -78,7 +86,7 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 ## C-02 종료까지 남은 연결
 
 1. **조회 경로 자격 회전·재설치 마무리:** 현재 Pod 한정 RBAC·1시간 자격과 실제 TLS 조회는 확인했다. 다음 Pod 교체에서 권한을 새 이름·UID로 재생성하고 이전 자격 만료·거부를 재검증해야 한다. 인증서 만료 전 Secret·로컬 CA의 묶음 회전도 남아 있다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **검증된 변경안 입력:** 새 초안의 현재 이미지/UID/base SHA, 이전 정상 digest와 ECR 존재성, CI/Argo 이력, 공유 `LabLease` 상태를 읽기 전용으로 재검사한다. 원본 증거 ID·변경 영향·검증/복구 조건도 제안 계약에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 제안·취소·만료 상태를 실제 저장소와 연결한다.
+2. **검증된 변경안 입력:** 이전 정상 CI·ECR과 현재 이미지 취득 실패를 대조하는 읽기 계약은 추가했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 다음에는 원본 사건 증거 ID·보고서 해시·인증 요청을 현재 장애에 연결하고 영향·검증/복구 조건을 제안 계약에 넣는다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 제안·취소·만료 상태를 실제 저장소와 연결한다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

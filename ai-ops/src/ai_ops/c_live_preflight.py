@@ -50,5 +50,5 @@ def assess_live_preflight(application: dict, deployment: dict, lease: dict,
         blockers.append("prior_digest_and_failure_proof_required")
     return {"schema_version": 1, "target": "urlshortener/ai-ops-lab/lab-api/practice",
             "base_sha": revision, "target_uid": deployment["metadata"].get("uid"),
-            "blockers": blockers, "proposal_allowed": False,
+            "blockers": blockers, "proof_ready": False, "proposal_allowed": False,
             "cluster_or_github_write_performed": False}

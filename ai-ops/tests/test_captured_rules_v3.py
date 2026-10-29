@@ -35,10 +35,11 @@ class CapturedRulesV3Test(unittest.TestCase):
     def snapshot(self, *, reason="Failed", message="failed to pull ErrImagePull", involved="pod-1", ready=False,
                  phase="Pending", event_age=10, pod_age=0, deployment_age=0, deployment_uid="dep-1",
                  deployment_image="registry.invalid/app:bad", pod_image="registry.invalid/app:bad",
-                 event_type="Warning", missing_owner=False, event_missing=False):
+                 event_type="Warning", missing_owner=False, event_missing=False,
+                 pod_deployment_uid="dep-1"):
         builder = SnapshotBuilder(self.settings, self.target, clock=Clock())
         builder.workload_expected_pods = 1
-        context = {"resource_uid": "pod-1", "resource_version": "2", "deployment_uid": "dep-1",
+        context = {"resource_uid": "pod-1", "resource_version": "2", "deployment_uid": pod_deployment_uid,
                    "replicaset_uid": "rs-1", "replicaset_resource_version": "3"}
         if missing_owner:
             context.pop("replicaset_uid")

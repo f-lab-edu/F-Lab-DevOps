@@ -43,7 +43,7 @@ class RecoveryProofTest(unittest.TestCase):
                                 "uid": "rs-1", "ownerReferences": [{"kind": "Deployment",
                                 "uid": self.binding.app.deployment_uid, "controller": True}]},
                    "spec": {"template": {"spec": {"containers": [{"image": self.image}]}}}}
-        self.pods = [{"metadata": {"name": "lab-api-rs-1", "namespace": "ai-ops-lab",
+        self.pods = [{"metadata": {"name": "lab-api-rs-1", "namespace": "ai-ops-lab", "uid": "pod-1",
                                    "creationTimestamp": timestamp, "ownerReferences": [
                                        {"kind": "ReplicaSet", "name": "lab-api-rs",
                                         "uid": "rs-1", "controller": True}]},

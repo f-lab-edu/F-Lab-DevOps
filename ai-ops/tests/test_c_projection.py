@@ -95,6 +95,7 @@ class CProjectionTest(unittest.TestCase):
         self.assertEqual(projected.run_id, result["run_id"])
         self.assertEqual(projected.target.namespace, "ai-ops-lab")
         self.assertEqual(len(projected.bundle_hash), 64)
+        self.assertIsNone(projected.image_failure)
         self.assertNotIn("자동 원복 단계", projected.model_dump_json())
 
 

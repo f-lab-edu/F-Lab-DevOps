@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import difflib
 import hashlib
@@ -51,6 +52,24 @@ def _private(path: Path, *, directory: bool) -> None:
         raise ValueError("C 자료 경로의 소유자·권한이 유효하지 않습니다")
 
 
+class ImageFailureBinding(StrictModel):
+    """보고서가 인용한 이미지 장애 세 자료의 원문 없는 결합값이다."""
+
+    schema_version: int = 1
+    pod_uid_hash: Sha256
+    deployment_uid_hash: Sha256
+    image_hash: Sha256
+    observed_at: UTCDateTime
+    evidence_ids: list[str] = Field(min_length=3, max_length=3)
+
+    @model_validator(mode="after")
+    def fixed_shape(self):
+        if (self.schema_version != 1 or len(set(self.evidence_ids)) != 3
+                or self.evidence_ids != sorted(self.evidence_ids)):
+            raise ValueError("이미지 장애 결합값의 근거 ID가 유효하지 않습니다")
+        return self
+
+
 class IncidentProjection(StrictModel):
     schema_version: int = 1
     incident_id: IncidentId
@@ -64,12 +83,59 @@ class IncidentProjection(StrictModel):
     current_state: str
     evidence_counts: dict[str, int]
     cited_evidence_ids: list[str]
+    image_failure: ImageFailureBinding | None = None
 
     @model_validator(mode="after")
     def fixed_target(self):
         if self.schema_version != 1 or self.target != TARGET:
             raise ValueError("C 사건 투영은 등록된 실습 대상만 허용합니다")
         return self
+
+
+def _image_failure_binding(record) -> ImageFailureBinding | None:
+    """재검증된 v3 보고서의 Pod·이벤트·Deployment 인용만 추출한다."""
+    if (getattr(getattr(record.report, "execution", None), "engine", None) != "rules-captured-v3"
+            or record.report.diagnosis_status != "suspected_cause"):
+        return None
+    items = {item.evidence_id: item for item in record.bundle.evidence}
+    entries = {entry.evidence_id: entry for entry in record.collection_audit.entries}
+    candidates = []
+    for fact in record.report.facts:
+        ids = set(fact.evidence_ids)
+        if len(ids) != 3 or not any(set(hypothesis.supporting_evidence_ids) == ids
+                                    for hypothesis in record.report.hypotheses):
+            continue
+        selected = [items.get(item_id) for item_id in ids]
+        if any(item is None or item.status != "available" or item.provenance.kind != "captured"
+               for item in selected) or {item.kind for item in selected} != {"workload_status", "event", "deployment"}:
+            continue
+        pod = next(item for item in selected if item.kind == "workload_status")
+        event = next(item for item in selected if item.kind == "event")
+        deployment = next(item for item in selected if item.kind == "deployment")
+        p, e, d = (entries.get(item.evidence_id) for item in (pod, event, deployment))
+        if (any(entry is None or entry.status != "available" or entry.reason != "collected"
+                for entry in (p, e, d))
+                or p.time_field != "response_received_at" or d.time_field != "response_received_at"
+                or e.time_field not in {"eventTime", "lastTimestamp"}
+                or not all((p.resource_uid, p.resource_version, p.deployment_uid,
+                            p.replicaset_uid, p.replicaset_resource_version))
+                or d.resource_uid != p.deployment_uid
+                or pod.payload.get("phase") != "Pending" or pod.payload.get("ready") is not False
+                or pod.payload.get("image") != deployment.payload.get("image")
+                or event.payload.get("type") != "Warning"
+                or event.payload.get("involved_uid") != p.resource_uid
+                or event.payload.get("reason") not in {"Failed", "BackOff", "ImagePullBackOff", "ErrImagePull"}
+                or (event.payload["reason"] in {"Failed", "BackOff"} and not re.search(
+                    r"(?<![\w])(?:ImagePullBackOff|ErrImagePull)(?![\w])", event.payload.get("message", "")))
+                or not 0 <= (pod.observed_at - event.observed_at).total_seconds() <= 120
+                or abs((deployment.observed_at - pod.observed_at).total_seconds()) > 120):
+            continue
+        candidates.append(ImageFailureBinding(
+            pod_uid_hash=sha256_json(p.resource_uid), deployment_uid_hash=sha256_json(p.deployment_uid),
+            image_hash=sha256_json(pod.payload["image"]), observed_at=pod.observed_at,
+            evidence_ids=sorted(ids),
+        ))
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def read_incident_projection(root: Path, incident_id: str, run_id: str) -> IncidentProjection:
@@ -102,6 +168,7 @@ def read_incident_projection(root: Path, incident_id: str, run_id: str) -> Incid
         diagnosis_status=record.report.diagnosis_status,
         current_state=record.report.current_state,
         evidence_counts=dict(sorted(counts.items())), cited_evidence_ids=sorted(ids),
+        image_failure=_image_failure_binding(record),
     )
 
 
@@ -113,6 +180,7 @@ class RecoveryRequest(StrictModel):
     run_id: RunId
     bundle_hash: Sha256
     report_hash: Sha256
+    failure_binding_hash: Sha256 | None = None
     target: Target
     requested_at: UTCDateTime
 
@@ -132,6 +200,8 @@ def create_request(projection: IncidentProjection, requester_github_id: int,
                            requester_github_id=requester_github_id,
                            incident_id=projection.incident_id, run_id=projection.run_id,
                            bundle_hash=projection.bundle_hash, report_hash=projection.report_hash,
+                           failure_binding_hash=(sha256_json(projection.image_failure.model_dump(mode="json"))
+                                                 if projection.image_failure else None),
                            target=TARGET, requested_at=now or datetime.now(timezone.utc))
 
 
@@ -298,3 +368,20 @@ class RecoveryDraftStore:
         if row is None:
             raise ValueError("변경안이 없습니다")
         return RecoveryProposal.model_validate_json(row[0])
+
+
+def read_existing_request(root: Path, request_id: str) -> RecoveryRequest:
+    """감사 명령에서 기존 개인 요청만 읽는다. DB나 폴더를 새로 만들지 않는다."""
+    if not re.fullmatch(r"creq-[0-9a-f]{32}", request_id):
+        raise ValueError("해결 요청 ID가 유효하지 않습니다")
+    root = root.expanduser().absolute()
+    if root.resolve().is_relative_to(REPO_ROOT.resolve()):
+        raise ValueError("C 상태는 저장소 밖에 보관해야 합니다")
+    _private(root, directory=True)
+    path = root / "recovery-drafts.sqlite3"
+    _private(path, directory=False)
+    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=5)) as db:
+        row = db.execute("SELECT body FROM requests WHERE id=?", (request_id,)).fetchone()
+    if row is None:
+        raise ValueError("해결 요청이 없습니다")
+    return RecoveryRequest.model_validate_json(row[0])

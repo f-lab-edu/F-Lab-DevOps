@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from contextlib import closing
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 import difflib
 import hashlib
@@ -17,7 +17,7 @@ import uuid
 
 from pydantic import Field, model_validator
 
-from ai_ops.contracts import IncidentId, RunId, Sha256, StrictModel, Target, UTCDateTime, canonical_json_bytes, sha256_json
+from ai_ops.contracts import IncidentId, RunId, Sha256, StrictModel, Target, UTCDateTime, _utc_datetime, canonical_json_bytes, sha256_json
 from ai_ops.incidents import IncidentStore, REPO_ROOT
 
 
@@ -226,10 +226,16 @@ class RecoveryProposal(StrictModel):
     created_at: UTCDateTime
     expires_at: UTCDateTime
     state: str = "draft"
+    failure_binding_hash: Sha256 | None = None
+    recheck_hash: Sha256 | None = None
+    source_evidence_ids: list[str] = Field(default_factory=list)
+    impact_scope: str | None = None
+    verification_checks: list[str] = Field(default_factory=list)
+    failure_action: str | None = None
 
     @model_validator(mode="after")
     def fixed_scope(self):
-        if (self.schema_version != 1 or self.target != TARGET or self.repository != REPOSITORY or self.values_path != VALUES_PATH
+        if (self.schema_version not in (1, 2) or self.target != TARGET or self.repository != REPOSITORY or self.values_path != VALUES_PATH
                 or self.state != "draft" or not COMMIT.fullmatch(self.base_sha)
                 or not DIGEST.fullmatch(self.current_digest) or not DIGEST.fullmatch(self.desired_digest)
                 or self.current_digest == self.desired_digest
@@ -237,8 +243,28 @@ class RecoveryProposal(StrictModel):
                 or self.diff != _image_diff(self.current_digest, self.desired_digest)
                 or hashlib.sha256(self.diff.encode()).hexdigest() != self.diff_hash):
             raise ValueError("복구 변경안의 대상·시간·diff 계약이 유효하지 않습니다")
+        if self.schema_version == 2:
+            if (self.failure_binding_hash is None or self.recheck_hash is None
+                    or len(self.source_evidence_ids) != 3
+                    or len(set(self.source_evidence_ids)) != 3
+                    or self.source_evidence_ids != sorted(self.source_evidence_ids)
+                    or self.impact_scope != "ai-ops-lab/lab-api image only"
+                    or self.verification_checks != [
+                        "argo_synced_healthy", "pod_image_matches_desired_digest",
+                        "pod_ready", "readyz_success", "items_flow_success"]
+                    or self.failure_action != "stop_and_report_without_unapproved_rollback"):
+                raise ValueError("검증된 변경안의 근거·영향·확인·실패 조건이 유효하지 않습니다")
+        elif (self.failure_binding_hash is not None or self.recheck_hash is not None
+              or self.source_evidence_ids or self.impact_scope is not None
+              or self.verification_checks or self.failure_action is not None):
+            raise ValueError("오프라인 초안에는 검증된 변경안 필드를 넣을 수 없습니다")
         body = self.model_dump(mode="json", exclude={"proposal_hash"})
-        if sha256_json(body) != self.proposal_hash:
+        hashes = {sha256_json(body)}
+        if self.schema_version == 1:
+            old_fields = {"failure_binding_hash", "recheck_hash", "source_evidence_ids",
+                          "impact_scope", "verification_checks", "failure_action"}
+            hashes.add(sha256_json({key: value for key, value in body.items() if key not in old_fields}))
+        if self.proposal_hash not in hashes:
             raise ValueError("복구 변경안 해시가 일치하지 않습니다")
         return self
 
@@ -291,6 +317,58 @@ def draft_proposal(request: RecoveryRequest, *, target_uid: str, base_sha: str,
     return RecoveryProposal.model_validate({**body, "proposal_hash": sha256_json(body)})
 
 
+def draft_verified_proposal(request: RecoveryRequest, projection: IncidentProjection,
+                            readiness: dict, values_bytes: bytes,
+                            *, now: datetime | None = None) -> RecoveryProposal:
+    """읽기 전용 재확인 결과로 v2 초안을 만든다. 승인·PR·배포는 하지 않는다."""
+    moment = now or datetime.now(timezone.utc)
+    if moment.utcoffset() != timedelta(0):
+        raise ValueError("초안 시각은 UTC여야 합니다")
+    failure = projection.image_failure
+    if (failure is None or readiness.get("proposal_ready") is not True
+            or readiness.get("proposal_allowed") is not False
+            or readiness.get("blockers") != ["draft_only_c3_approval_required"]
+            or request.incident_id != projection.incident_id or request.run_id != projection.run_id
+            or request.bundle_hash != projection.bundle_hash or request.report_hash != projection.report_hash
+            or request.failure_binding_hash != sha256_json(failure.model_dump(mode="json"))
+            or readiness.get("request_id") != request.request_id
+            or readiness.get("incident_id") != projection.incident_id
+            or readiness.get("run_id") != projection.run_id
+            or readiness.get("bundle_hash") != projection.bundle_hash
+            or readiness.get("report_hash") != projection.report_hash
+            or readiness.get("failure_binding_hash") != request.failure_binding_hash
+            or readiness.get("target") != "urlshortener/ai-ops-lab/lab-api/practice"
+            or readiness.get("pod_uid_hash") != failure.pod_uid_hash
+            or readiness.get("deployment_uid_hash") != failure.deployment_uid_hash
+            or readiness.get("image_hash") != failure.image_hash
+            or readiness.get("current_digest") == readiness.get("prior_digest")):
+        raise ValueError("재확인 근거와 사건·요청이 일치하지 않습니다")
+    from ai_ops.c_recovery_proof import PROPOSAL_IDENTITY_FIELDS
+    try:
+        binding = {field: readiness[field] for field in PROPOSAL_IDENTITY_FIELDS}
+        binding["proof_checked_at"] = readiness["proof_checked_at"]
+        checked = _utc_datetime(readiness["proof_checked_at"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("재확인 결합값이 유효하지 않습니다") from exc
+    if (readiness.get("proposal_readiness_hash") != sha256_json(binding)
+            or not checked <= moment <= checked + timedelta(seconds=30)):
+        raise ValueError("재확인 근거가 변경됐거나 만료됐습니다")
+    offline = draft_proposal(request, target_uid=readiness["target_uid"],
+                             base_sha=readiness["base_sha"],
+                             current_image=IMAGE_REPOSITORY + "@" + readiness["current_digest"],
+                             desired_digest=readiness["prior_digest"],
+                             values_bytes=values_bytes, now=moment)
+    body = offline.model_dump(mode="json", exclude={"proposal_hash"})
+    body.update(schema_version=2, failure_binding_hash=request.failure_binding_hash,
+                recheck_hash=readiness["proposal_readiness_hash"],
+                source_evidence_ids=failure.evidence_ids,
+                impact_scope="ai-ops-lab/lab-api image only",
+                verification_checks=["argo_synced_healthy", "pod_image_matches_desired_digest",
+                                     "pod_ready", "readyz_success", "items_flow_success"],
+                failure_action="stop_and_report_without_unapproved_rollback")
+    return RecoveryProposal.model_validate({**body, "proposal_hash": sha256_json(body)})
+
+
 class RecoveryDraftStore:
     """개인 디스크의 초안만 원자 저장한다. 승인·실행 상태는 수용하지 않는다."""
 
@@ -310,12 +388,17 @@ class RecoveryDraftStore:
             db.execute("CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, body BLOB NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, body BLOB NOT NULL)")
 
+    @contextmanager
     def _connect(self):
         _private(self.root, directory=True)
         _private(self.path, directory=False)
         db = sqlite3.connect(self.path, timeout=5)
-        db.execute("PRAGMA busy_timeout=5000")
-        return db
+        try:
+            db.execute("PRAGMA busy_timeout=5000")
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def save_request(self, request: RecoveryRequest) -> RecoveryRequest:
         rb = canonical_json_bytes(request.model_dump(mode="json"))
@@ -339,7 +422,9 @@ class RecoveryDraftStore:
     def save(self, request: RecoveryRequest, proposal: RecoveryProposal) -> RecoveryProposal:
         if (request.request_id != proposal.request_id or request.incident_id != proposal.incident_id
                 or request.run_id != proposal.run_id or request.target != proposal.target
-                or request.bundle_hash != proposal.bundle_hash or request.report_hash != proposal.report_hash):
+                or request.bundle_hash != proposal.bundle_hash or request.report_hash != proposal.report_hash
+                or (proposal.schema_version == 2 and
+                    request.failure_binding_hash != proposal.failure_binding_hash)):
             raise ValueError("요청과 변경안이 일치하지 않습니다")
         if proposal.state != "draft":
             raise ValueError("초안 외 상태는 아직 저장할 수 없습니다")

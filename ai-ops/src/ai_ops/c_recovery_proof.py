@@ -173,3 +173,53 @@ def assess_incident_request(live: dict, projection: IncidentProjection,
     result["failure_binding_hash"] = request.failure_binding_hash
     result["blockers"] = ["fresh_recheck_and_proposal_contract_required"]
     return result
+
+
+PROPOSAL_IDENTITY_FIELDS = (
+    "target", "base_sha", "target_uid", "application_uid", "current_digest",
+    "prior_digest", "normal_ci_run_id", "normal_ci_artifact_digest", "pod_uid_hash",
+    "deployment_uid_hash", "image_hash", "pod_created_at", "incident_id", "run_id",
+    "request_id", "bundle_hash", "report_hash", "failure_binding_hash",
+)
+
+
+def assess_proposal_recheck(first: dict, refreshed: dict, *, now: datetime | None = None) -> dict:
+    """두 번의 독립된 실시간 조회가 같은 이미지 장애인지 확인한다.
+
+    입력 JSON 자체는 신뢰 증명이 아니다. 호출자는 매번 원본 API와 인증된
+    사건 조회를 새로 수행해야 하며, C-03 실행 직전에도 다시 확인해야 한다.
+    """
+    result = {**refreshed, "proposal_ready": False, "proposal_allowed": False,
+              "cluster_or_github_write_performed": False}
+    if (first.get("incident_ready") is not True
+            or first.get("blockers") != ["fresh_recheck_and_proposal_contract_required"]
+            or first.get("proposal_allowed") is not False
+            or first.get("cluster_or_github_write_performed") is not False):
+        result["blockers"] = ["initial_incident_proof_not_ready"]
+        return result
+    if (refreshed.get("incident_ready") is not True
+            or refreshed.get("blockers") != ["fresh_recheck_and_proposal_contract_required"]
+            or refreshed.get("proposal_allowed") is not False
+            or refreshed.get("cluster_or_github_write_performed") is not False):
+        return result
+    moment = now or datetime.now(timezone.utc)
+    if moment.utcoffset() != timedelta(0):
+        raise ValueError("변경안 재확인 시각은 UTC여야 합니다")
+    try:
+        earlier = _utc_datetime(first["proof_checked_at"])
+        later = _utc_datetime(refreshed["proof_checked_at"])
+        same = all(first[field] is not None and first[field] == refreshed[field]
+                   for field in PROPOSAL_IDENTITY_FIELDS)
+    except (KeyError, TypeError, ValueError):
+        same = False
+        earlier = later = moment
+    if (not same or not earlier < later <= moment or later - earlier > timedelta(seconds=60)
+            or moment - later > timedelta(seconds=30)):
+        result["blockers"] = ["incident_recheck_changed_or_stale"]
+        return result
+    binding = {field: refreshed[field] for field in PROPOSAL_IDENTITY_FIELDS}
+    binding["proof_checked_at"] = refreshed["proof_checked_at"]
+    result["proposal_ready"] = True
+    result["proposal_readiness_hash"] = sha256_json(binding)
+    result["blockers"] = ["draft_only_c3_approval_required"]
+    return result

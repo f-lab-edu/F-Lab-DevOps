@@ -73,6 +73,24 @@ class B6CITest(unittest.TestCase):
         self.assertTrue(self.ci.load()['injection_requested'])
         self.assertEqual(json.loads((self.ci.records/'deployment.json').read_text())['verification_result'],'inconclusive')
 
+    def test_c2_hold_only_runs_for_verified_failure_and_stops_on_recovery(self):
+        with patch.object(self.ci,'observe') as observe,patch('ai_ops.b6_ci.time.sleep') as sleep:
+            self.assertEqual(self.ci.hold(),0)
+            observe.assert_not_called();sleep.assert_not_called()
+        self.state.update(injection_requested=True,deployment_verified_failure=True);self.ci.save(self.state)
+        healthy=self.failure_observation();healthy['ready_replicas']=1
+        with patch.object(self.ci,'observe',return_value=healthy) as observe,patch('ai_ops.b6_ci.time.sleep') as sleep:
+            self.assertEqual(self.ci.hold(),0)
+            observe.assert_called_once();sleep.assert_not_called()
+
+    def test_c2_hold_has_five_minute_deadline(self):
+        self.state.update(injection_requested=True,deployment_verified_failure=True);self.ci.save(self.state)
+        with patch.object(self.ci,'observe',return_value=self.failure_observation()) as observe, \
+                patch('ai_ops.b6_ci.time.monotonic',side_effect=[0,0,0,300]), \
+                patch('ai_ops.b6_ci.time.sleep') as sleep:
+            self.assertEqual(self.ci.hold(),0)
+            observe.assert_called_once();sleep.assert_called_once_with(5)
+
     def test_healthy_without_ready_matching_revision_does_not_finish_rollback(self):
         self.state['injection_requested']=True;self.ci.save(self.state)
         observed={'image':self.state['good_image'],'ready_replicas':1,'sync_status':'Synced','health_status':'Healthy',

@@ -6,6 +6,11 @@ on:
         description: 검토한 실습 이미지 실패 커밋의 전체 SHA
         required: true
         type: string
+      c2_observation_window:
+        description: 별도 승인한 C-02 실습에서 실패 상태를 최대 5분 관측
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -62,6 +67,11 @@ jobs:
         env:
           ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
         run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci deploy'
+      - name: C-02 승인된 실패 관측 창
+        if: always() && steps.prepare.outcome == 'success' && inputs.c2_observation_window
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+        run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci hold'
       - name: 실패해도 원래 고정 revision으로 복구
         if: always() && steps.prepare.outcome == 'success'
         continue-on-error: true

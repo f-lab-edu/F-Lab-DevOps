@@ -81,6 +81,12 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 `--proposal-output`까지 지정했을 때에만 [v2 초안](../src/ai_ops/c_recovery.py)을 개인 DB와 새 JSON 파일에 기록한다. v2는 세 원본 증거 ID, 장애 결합 해시, 두 번째 재조회 결합 해시, 영향 범위 `ai-ops-lab/lab-api`의 이미지 한 필드, Argo 동기화·적용 digest·Pod Ready·`/readyz`·`/items` 확인 조건을 포함한다. 확인 실패 시 자동으로 실패 이미지를 다시 적용하지 않고 중단·보고한다. 초안의 24시간 만료는 검토 기한일 뿐 실시간 장애 근거의 유효기간을 늘리지 않는다. 결과는 계속 `draft`, `proposal_allowed=false`이며 GitHub PR·승인·배포는 만들지 않는다. C-03 실행 전에는 원본 서비스와 승인 상태를 다시 조회해야 한다. 현재 클러스터는 정상이라 이 v2 양성 경로는 합성 시험으로만 확인했다.
 
+## 2026-10-29 초안 취소·만료·이력
+
+[개인 변경안 저장소](../src/ai_ops/c_recovery.py)는 초안 본문을 그대로 두고 SQLite의 별도 상태·이력 표에 `draft → cancelled` 또는 `draft → expired`만 기록한다. 생성·전이마다 버전과 UTC 시각, 요청자 ID(자동 만료는 없음)를 남긴다. 상태 전이는 하나의 트랜잭션에서 이전 버전을 검사하고, 이력 순서·현재 상태가 맞지 않으면 조회를 거부한다. 기존 DB에 상태 이력이 없는 초안은 첫 조회에서 생성 시각을 기준으로 초기 `draft` 이력을 채운다.
+
+[운영자 로컬 소켓](../src/ai_ops/c_operator.py)의 `proposal-status --proposal-id <ID>`는 커널 peer UID·현재 GitHub ID와 원래 요청자를 대조해 상태와 이력만 반환한다. `cancel-proposal --proposal-id <ID>`는 같은 요청자의 미만료 초안만 취소하며 반복 호출로 이력을 늘리지 않는다. 만료는 별도 상시 작업이 아니라 상태 조회·취소·재사용 시 현재 UTC 시각을 확인해 원자 기록한다. 취소·만료된 초안은 일반 변경안 읽기와 재저장을 거부한다. 앞서 출력한 JSON 파일은 **생성 시점의 불변 사본**이므로 현재 사용 가능 여부는 반드시 소켓의 상태 조회로 확인한다. 이 소켓은 여전히 GitHub PR·승인·배포 명령을 받지 않는다.
+
 재현 시 `--normal-binding`에는 성공한 정상 CI 실행 당시의 개인 결합값 파일을, `--normal-run-id`와 `--normal-head`에는 그 실행의 GitHub ID와 전체 SHA를 넣는다. `--kubeconfig`는 현재 클러스터, `--output`은 개인 폴더의 새 JSON 파일이어야 한다. 예: `AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py --kubeconfig "$INSTALL_DIR/kubeconfig" --normal-binding "$INSTALL_DIR/normal-binding.json" --normal-run-id 40818314394 --normal-head 85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d --output "$INSTALL_DIR/c2-proof-new.json"`. 앱이 이미 복구됐으면 GitHub·ECR 조회 전에 중단한다. 관련 거부 시험 4개와 기존 사전 판정 시험 3개가 통과했다.
 
 ## 2026-10-28 첫 구현 당시 확인 결과
@@ -98,7 +104,7 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 ## C-02 종료까지 남은 연결
 
 1. **조회 경로 자격 회전·재설치 마무리:** 현재 Pod 한정 RBAC·1시간 자격과 실제 TLS 조회는 확인했다. 다음 Pod 교체에서 권한을 새 이름·UID로 재생성하고 이전 자격 만료·거부를 재검증해야 한다. 인증서 만료 전 Secret·로컬 CA의 묶음 회전도 남아 있다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안은 구현했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 다음에는 `draft` 이후 취소·만료 상태와 감사 이력을 실제 저장소에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다.
+2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. C-02의 라이브 양성 경로와 조회 자격 회전 검증은 남아 있다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

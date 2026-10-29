@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import socket
 import socketserver
+import sqlite3
 import stat
 import subprocess
 
@@ -38,25 +39,36 @@ class OperatorHandler(socketserver.StreamRequestHandler):
             if not raw.endswith(b"\n") or len(raw) > MAX_REQUEST:
                 raise ValueError("C 요청 크기가 유효하지 않습니다")
             value = json.loads(raw)
-            if not isinstance(value, dict) or set(value) != {"action", "incident_id", "run_id"}:
+            if not isinstance(value, dict) or "action" not in value:
                 raise ValueError("C 요청 형식이 유효하지 않습니다")
-            if value["action"] not in {"show", "request"}:
-                raise ValueError("C 명령을 허용하지 않습니다")
-            projection = (self.server.projection_client.fetch(value["incident_id"], value["run_id"])
-                          if self.server.projection_client is not None
-                          else read_incident_projection(self.server.incident_root,
-                                                        value["incident_id"], value["run_id"]))
-            if value["action"] == "show":
-                reply = {"status": "ok", "projection": projection.model_dump(mode="json")}
+            action = value["action"]
+            if action in {"proposal-status", "cancel-proposal"}:
+                if set(value) != {"action", "proposal_id"}:
+                    raise ValueError("변경안 상태 요청 형식이 유효하지 않습니다")
+                state = (self.server.drafts.status(value["proposal_id"], user_id)
+                         if action == "proposal-status" else
+                         self.server.drafts.cancel(value["proposal_id"], user_id))
+                reply = {"status": "ok", "proposal_status": state}
+            elif action in {"show", "request"}:
+                if set(value) != {"action", "incident_id", "run_id"}:
+                    raise ValueError("사건 요청 형식이 유효하지 않습니다")
+                projection = (self.server.projection_client.fetch(value["incident_id"], value["run_id"])
+                              if self.server.projection_client is not None
+                              else read_incident_projection(self.server.incident_root,
+                                                            value["incident_id"], value["run_id"]))
+                if action == "show":
+                    reply = {"status": "ok", "projection": projection.model_dump(mode="json")}
+                else:
+                    request = create_request(projection, user_id)
+                    self.server.drafts.save_request(request)
+                    reply = {"status": "ok", "request": request.model_dump(mode="json")}
             else:
-                request = create_request(projection, user_id)
-                self.server.drafts.save_request(request)
-                reply = {"status": "ok", "request": request.model_dump(mode="json")}
+                raise ValueError("C 명령을 허용하지 않습니다")
             payload = canonical_json_bytes(reply)
             if len(payload) > MAX_RESPONSE:
                 raise ValueError("C 응답 크기가 유효하지 않습니다")
             self.wfile.write(payload + b"\n")
-        except (ValueError, OSError, TypeError, KeyError, http.client.HTTPException):
+        except (ValueError, OSError, TypeError, KeyError, sqlite3.Error, http.client.HTTPException):
             # 저장소·GitHub 오류나 내부 경로·본문은 호출자에게 노출하지 않는다.
             self.wfile.write(b'{"status":"rejected"}\n')
 
@@ -91,7 +103,17 @@ class OperatorServer(socketserver.UnixStreamServer):
 def _client(path: Path, action: str, incident_id: str, run_id: str) -> dict:
     if action not in {"show", "request"}:
         raise ValueError("C 읽기/요청 명령만 지원합니다")
-    data = canonical_json_bytes({"action": action, "incident_id": incident_id, "run_id": run_id}) + b"\n"
+    return _send(path, {"action": action, "incident_id": incident_id, "run_id": run_id})
+
+
+def _proposal_client(path: Path, action: str, proposal_id: str) -> dict:
+    if action not in {"proposal-status", "cancel-proposal"}:
+        raise ValueError("C 변경안 상태 명령만 지원합니다")
+    return _send(path, {"action": action, "proposal_id": proposal_id})
+
+
+def _send(path: Path, body: dict) -> dict:
+    data = canonical_json_bytes(body) + b"\n"
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
         connection.settimeout(10)
         connection.connect(str(path))
@@ -105,7 +127,7 @@ def _client(path: Path, action: str, incident_id: str, run_id: str) -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="C-02 로컬 사건 조회·해결 요청")
-    parser.add_argument("action", choices=("serve", "show", "request"))
+    parser.add_argument("action", choices=("serve", "show", "request", "proposal-status", "cancel-proposal"))
     parser.add_argument("--state-root", type=Path, default=Path.home()/".local/share/url-shortener-ai-ops/c-approvals")
     parser.add_argument("--incident-store", type=Path)
     parser.add_argument("--projection-token-file", type=Path)
@@ -114,6 +136,7 @@ def main(argv=None) -> int:
     parser.add_argument("--allowed-github-id", type=int)
     parser.add_argument("--incident-id")
     parser.add_argument("--run-id")
+    parser.add_argument("--proposal-id")
     args = parser.parse_args(argv)
     if args.action == "serve":
         remote = args.projection_token_file is not None or args.projection_ca_file is not None
@@ -128,9 +151,14 @@ def main(argv=None) -> int:
                             projection_client=projection_client) as server:
             server.serve_forever(poll_interval=0.5)
         return 0
-    if not args.incident_id or not args.run_id:
-        parser.error("사건 ID와 실행 ID를 함께 지정해야 합니다")
-    result = _client(_socket_path(args.state_root), args.action, args.incident_id, args.run_id)
+    if args.action in {"proposal-status", "cancel-proposal"}:
+        if not args.proposal_id or args.incident_id or args.run_id:
+            parser.error("변경안 상태 명령에는 변경안 ID만 지정해야 합니다")
+        result = _proposal_client(_socket_path(args.state_root), args.action, args.proposal_id)
+    else:
+        if not args.incident_id or not args.run_id or args.proposal_id:
+            parser.error("사건 조회·요청에는 사건 ID와 실행 ID만 지정해야 합니다")
+        result = _client(_socket_path(args.state_root), args.action, args.incident_id, args.run_id)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0 if result.get("status") == "ok" else 1
 

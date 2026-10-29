@@ -124,7 +124,8 @@ class IncidentCorrelationTest(unittest.TestCase):
         state = Path(self.case.directory.name) / "c-v2-state"
         store = RecoveryDraftStore(state)
         store.save(request, proposal)
-        self.assertEqual(store.read(proposal.proposal_id), proposal)
+        self.assertEqual(store.status(proposal.proposal_id, 12345,
+                                      now=proposal.created_at)["state"], "draft")
         forged = deepcopy(proposal.model_dump(mode="json"))
         forged["verification_checks"] = ["argo_synced_healthy"]
         forged["proposal_hash"] = sha256_json({key: value for key, value in forged.items()

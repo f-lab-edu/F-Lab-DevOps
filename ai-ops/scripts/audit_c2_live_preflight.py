@@ -6,9 +6,10 @@ from pathlib import Path
 import subprocess
 
 from ai_ops.c_live_preflight import SHA, assess_live_preflight
-from ai_ops.c_recovery_proof import assess_incident_request, assess_recovery_proof
-from ai_ops.c_recovery import (IMAGE_REPOSITORY, IncidentProjection, _values,
-                               read_existing_request)
+from ai_ops.c_recovery_proof import (assess_incident_request, assess_proposal_recheck,
+                                     assess_recovery_proof)
+from ai_ops.c_recovery import (IMAGE_REPOSITORY, IncidentProjection, RecoveryDraftStore,
+                               _values, draft_verified_proposal, read_existing_request)
 from ai_ops.c_operator import _client
 from ai_ops.contracts import sha256_json
 from ai_ops.normal_ci_contract import NormalCIBinding
@@ -23,26 +24,9 @@ def _run(*args: str) -> str:
     return output
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="C-02 현재 변경안 선행 조건 읽기 전용 감사")
-    parser.add_argument("--kubeconfig", required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--normal-binding", type=Path)
-    parser.add_argument("--normal-run-id", type=int)
-    parser.add_argument("--normal-head")
-    parser.add_argument("--operator-state-root", type=Path)
-    parser.add_argument("--incident-id")
-    parser.add_argument("--incident-run-id")
-    parser.add_argument("--request-id")
-    args = cli_paths(parser, parser.parse_args(), {"output": "output", "normal_binding": "input",
-                                                  "operator_state_root": "store"})
-    if any(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)) \
-            and not all(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)):
-        parser.error("정상 CI 근거의 결합값·실행 ID·head SHA를 함께 지정해야 합니다")
-    incident_fields = (args.operator_state_root, args.incident_id, args.incident_run_id, args.request_id)
-    if any(value is not None for value in incident_fields) and (not all(value is not None for value in incident_fields)
-                                                               or args.normal_binding is None):
-        parser.error("사건 연결에는 운영자 상태 폴더·사건/실행/요청 ID와 정상 CI 근거가 함께 필요합니다")
+def _collect(args):
+    """원본 서비스와 인증된 사건을 매 호출마다 새로 조회한다."""
+    projection = request = None
     kubeconfig = str(Path(args.kubeconfig).expanduser().absolute())
     def get(namespace: str, kind: str, name: str) -> dict:
         return json.loads(_run("kubectl", "--kubeconfig", kubeconfig, "-n", namespace,
@@ -105,8 +89,51 @@ def main() -> int:
             if not github_id.isdecimal() or request.requester_github_id != int(github_id):
                 raise ValueError("현재 운영자와 해결 요청의 GitHub ID가 다릅니다")
             result = assess_incident_request(result, projection, request)
+    return result, projection, request, values
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="C-02 현재 변경안 선행 조건 읽기 전용 감사")
+    parser.add_argument("--kubeconfig", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--normal-binding", type=Path)
+    parser.add_argument("--normal-run-id", type=int)
+    parser.add_argument("--normal-head")
+    parser.add_argument("--operator-state-root", type=Path)
+    parser.add_argument("--incident-id")
+    parser.add_argument("--incident-run-id")
+    parser.add_argument("--request-id")
+    parser.add_argument("--proposal-recheck", action="store_true")
+    parser.add_argument("--proposal-output", type=Path)
+    args = cli_paths(parser, parser.parse_args(), {"output": "output", "normal_binding": "input",
+                                                  "operator_state_root": "store",
+                                                  "proposal_output": "output"})
+    if any(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)) \
+            and not all(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)):
+        parser.error("정상 CI 근거의 결합값·실행 ID·head SHA를 함께 지정해야 합니다")
+    incident_fields = (args.operator_state_root, args.incident_id, args.incident_run_id, args.request_id)
+    if any(value is not None for value in incident_fields) and (not all(value is not None for value in incident_fields)
+                                                               or args.normal_binding is None):
+        parser.error("사건 연결에는 운영자 상태 폴더·사건/실행/요청 ID와 정상 CI 근거가 함께 필요합니다")
+    if args.proposal_output is not None and not args.proposal_recheck:
+        parser.error("변경안 출력에는 실시간 재조회가 필요합니다")
+    if args.proposal_output is not None and args.proposal_output == args.output:
+        parser.error("감사 결과와 변경안은 서로 다른 파일에 기록해야 합니다")
+    if args.proposal_recheck and not all(value is not None for value in incident_fields):
+        parser.error("재조회에는 인증된 사건과 해결 요청이 필요합니다")
+    result, _, _, _ = _collect(args)
+    if args.proposal_recheck:
+        if result.get("incident_ready"):
+            refreshed, projection, request, values = _collect(args)
+            result = assess_proposal_recheck(result, refreshed)
+            if args.proposal_output is not None and result["proposal_ready"]:
+                proposal = draft_verified_proposal(request, projection, result, values)
+                RecoveryDraftStore(args.operator_state_root).save(request, proposal)
+                write_private_json(args.proposal_output, proposal.model_dump(mode="json"))
+        else:
+            result["proposal_ready"] = False
     write_private_json(args.output, result)
-    print("C-02 실시간 근거를 읽기 전용으로 기록했습니다. 제안·승인·배포는 생성하지 않았습니다.")
+    print("C-02 실시간 근거를 읽기 전용으로 기록했습니다. PR·승인·배포는 생성하지 않았습니다.")
     return 0
 
 

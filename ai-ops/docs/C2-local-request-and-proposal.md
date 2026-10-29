@@ -7,7 +7,7 @@
 1. 운영자 컴퓨터의 Unix socket 서비스가 **커널 peer UID**와 로컬 `gh api user`의 불변 GitHub ID를 허용 목록과 대조한다. 클라이언트가 적은 사용자 이름은 받지 않는다. 서비스는 `show`와 `request`만 지원하고 `approve`·`execute` 명령은 없다.
 2. `show`는 `incident_id`·`run_id`를 모두 요구한다. 기존 `IncidentStore`의 저장 계약을 **읽기 전용**으로 다시 검사하고 `urlshortener/ai-ops-lab/lab-api/practice` 대상만 통과시킨다. 반환 값은 대상·묶음/보고서/감사 해시, 상태·증거 종류별 수·인용 ID와 해당 v3 보고서가 뒷받침하는 이미지 장애 결합값이다. 질문·로그·보고서 문장·원본 UID·이미지·토큰은 반환하지 않는다.
 3. `request`는 위 조회를 통과한 사건과 인증 사용자 ID를 묶어 개인 SQLite에 기록한다. 이 단계의 결과는 **해결 요청**이며 변경안 승인이나 GitHub 쓰기가 아니다. 개인 디렉터리는 `0700`, DB는 `0600`; 동일 요청 ID의 다른 내용과 동일 요청의 다른 변경안을 거부한다.
-4. 변경안 초안 함수는 요청의 증거 묶음·보고서 해시, 고정 저장소·실습 대상·base SHA·현재 이미지와 `values.yaml`의 이미지가 일치하는지 확인한다. `api.image.digest` 한 필드만 바꾼 정확한 diff·해시·24시간 만료를 생성해 `draft`로만 저장한다. 현재 이미지·과거 정상 digest·ECR 존재성·Argo 상태의 **실시간 검증 입력은 아직 없다.** 따라서 이 함수는 오프라인 초안 계약이며 실제 제안 승인 경로에는 연결하지 않았다.
+4. 기존 v1 초안 함수는 요청의 증거 묶음·보고서 해시, 고정 저장소·실습 대상·base SHA·현재 이미지와 `values.yaml`의 이미지가 일치하는지 확인한다. `api.image.digest` 한 필드만 바꾼 정확한 diff·해시·24시간 만료를 생성한다. 이 함수는 오프라인 계약으로 남긴다. v2 초안은 아래의 실시간 근거 재조회와 사건·요청 연결을 추가로 통과해야 만들 수 있다. 두 버전 모두 `draft`이며 승인·실행 경로는 없다.
 
 | 파일 | 역할 |
 |---|---|
@@ -75,6 +75,12 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 [읽기 전용 감사 명령](../scripts/audit_c2_live_preflight.py)에 `--operator-state-root`, `--incident-id`, `--incident-run-id`, `--request-id`를 정상 CI 근거 인자와 함께 주면, 현재 이미지 실패 근거를 새로 조회한 뒤 인증된 운영자 socket의 `show`와 개인 DB의 기존 요청을 읽는다. `gh api user`의 GitHub ID가 요청자와 같아야 한다. [연결 검증기](../src/ai_ops/c_recovery_proof.py)는 현재 Pod·Deployment·이미지 해시, 사건/실행 ID, 묶음·보고서·장애 결합 해시, 관측 시각과 60초 이내의 실시간 재조회 시각을 대조한다. 맞으면 `incident_ready=true`이지만 `proposal_allowed=false`와 `fresh_recheck_and_proposal_contract_required`를 유지한다. 이 값은 사건과 요청을 같은 장애에 연결했다는 뜻이며, 승인 가능한 변경안을 뜻하지 않는다. 현재 앱이 복구된 상태에서는 이 연결 단계에 들어가지 않는다. 현재 클러스터에서 양성 경로는 검증하지 않았고, 합성 사건 시험만 통과했다.
 
+## 2026-10-29 v2 초안 직전 재조회와 조건
+
+감사 명령에 `--proposal-recheck`를 추가하면 위의 Kubernetes·Argo·ECR·GitHub·운영자 사건 조회를 **같은 실행에서 다시 수행**한다. 첫 조회가 사건 연결을 통과하지 못하면 두 번째 조회나 초안 저장을 하지 않는다. 두 번째 조회의 Pod UID·Deployment UID·현재/이전 digest·Argo revision·정상 CI artifact·사건/요청 해시가 첫 조회와 같고, 순서대로 60초 이내에 읽혔으며 두 번째 근거가 30초 이내일 때만 `proposal_ready=true`가 된다. 도중 자동 원복되면 `already_recovered`를 유지하고 초안을 만들지 않는다.
+
+`--proposal-output`까지 지정했을 때에만 [v2 초안](../src/ai_ops/c_recovery.py)을 개인 DB와 새 JSON 파일에 기록한다. v2는 세 원본 증거 ID, 장애 결합 해시, 두 번째 재조회 결합 해시, 영향 범위 `ai-ops-lab/lab-api`의 이미지 한 필드, Argo 동기화·적용 digest·Pod Ready·`/readyz`·`/items` 확인 조건을 포함한다. 확인 실패 시 자동으로 실패 이미지를 다시 적용하지 않고 중단·보고한다. 초안의 24시간 만료는 검토 기한일 뿐 실시간 장애 근거의 유효기간을 늘리지 않는다. 결과는 계속 `draft`, `proposal_allowed=false`이며 GitHub PR·승인·배포는 만들지 않는다. C-03 실행 전에는 원본 서비스와 승인 상태를 다시 조회해야 한다. 현재 클러스터는 정상이라 이 v2 양성 경로는 합성 시험으로만 확인했다.
+
 재현 시 `--normal-binding`에는 성공한 정상 CI 실행 당시의 개인 결합값 파일을, `--normal-run-id`와 `--normal-head`에는 그 실행의 GitHub ID와 전체 SHA를 넣는다. `--kubeconfig`는 현재 클러스터, `--output`은 개인 폴더의 새 JSON 파일이어야 한다. 예: `AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py --kubeconfig "$INSTALL_DIR/kubeconfig" --normal-binding "$INSTALL_DIR/normal-binding.json" --normal-run-id 40818314394 --normal-head 85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d --output "$INSTALL_DIR/c2-proof-new.json"`. 앱이 이미 복구됐으면 GitHub·ECR 조회 전에 중단한다. 관련 거부 시험 4개와 기존 사전 판정 시험 3개가 통과했다.
 
 ## 2026-10-28 첫 구현 당시 확인 결과
@@ -92,7 +98,7 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 ## C-02 종료까지 남은 연결
 
 1. **조회 경로 자격 회전·재설치 마무리:** 현재 Pod 한정 RBAC·1시간 자격과 실제 TLS 조회는 확인했다. 다음 Pod 교체에서 권한을 새 이름·UID로 재생성하고 이전 자격 만료·거부를 재검증해야 한다. 인증서 만료 전 Secret·로컬 CA의 묶음 회전도 남아 있다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청을 대조하는 읽기 계약은 추가했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 다음에는 초안 직전 재조회, 영향·검증/복구 조건을 제안 계약에 넣고 제안·취소·만료 상태를 실제 저장소에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다.
+2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안은 구현했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 다음에는 `draft` 이후 취소·만료 상태와 감사 이력을 실제 저장소에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

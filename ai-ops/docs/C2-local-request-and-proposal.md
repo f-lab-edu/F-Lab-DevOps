@@ -131,6 +131,10 @@ worker는 사건 `inc-38255794fd52414ea4e5ce428990f606`/실행 `run-e114984db243
 
 같은 관측 창의 읽기 전용 C-02 사전 판정은 `values_stale`, `argo_not_stable`, `lab_locked`를 반환해 `proposal_allowed=false`였다. S10이 실패 revision을 일회성으로 동기화하는 동안 활성 GitOps `targetRevision`은 정상 기준선이므로, **이 실습에서 v2 변경안은 생성하지 않았다.** CI는 고정 정상 revision으로 자동 원복했고 artifact의 결과는 `recovered_after_failure`다. 재조회 시 Argo는 기준선 `Synced/Healthy`, Deployment는 원래 digest로 Ready 1/1, 공유 Lease는 빈 상태였다. CI 최종 `failure`는 최초 장애를 보존하는 설계 결과다. 모델 전송·운영 앱 변경은 없었다.
 
+자동 원복으로 실습 앱 Pod가 교체되자 정상 관측 CI의 Pod 한정 Role·결합값을 현재 Pod로 갱신하고 이전 Pod 권한 제거를 확인했다. worker 재시작으로 바뀐 Pod에도 C-02 조회 Role의 대상 이름·UID를 다시 결합하고 1시간 조회 자격을 재발급했다. 새 자격은 현재 worker Pod 조회·포트 전달만 허용하고, 이전 Pod 포트 전달·Secret 조회·exec는 거부했다. TLS 조회에서 위 사건의 `image_failure` 근거 결합을 다시 확인했다.
+
+[정상 관측 CI #40828027673](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40828027673)은 같은 실습 앱의 자기 아이템 네 번 읽기에서 `miss→hit→miss→hit`와 HTTP 200을 기록하고 성공했다. 영수증은 기준선 유지·실습 소유 자료 삭제·공유 잠금 해제·외부 모델 호출 0건을 기록했다. 전달기는 영수증 한 건을 자동 접수했고 worker의 정제 요약 상태는 `ready`였다. 최종 재조회에서 Argo는 기준선 `Synced/Healthy`, 앱은 원래 digest로 Ready 1/1, `ci-worker`와 `ci-relay`는 각각 Ready 1/1, 공유 Lease는 빈 상태였다.
+
 1. **조회 경로의 장기 자격 관리:** Pod 교체 뒤 RBAC 재결합·단기 토큰 재발급·이전 Pod 거부와 실제 TLS 조회는 검증했다. 인증서 만료일인 2026-11-27 18:22 KST 전에 Secret·로컬 CA를 함께 회전하고 구 자격 거부를 확인해야 한다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
 2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 S10 실패에서 v3 사건의 이미지 장애 결합은 확인했지만, 활성 GitOps 소스 revision과 공유 잠금 조건 때문에 v2 초안 양성 경로는 여전히 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 다음 실습은 실패 revision을 활성 GitOps 소스로 전환하고 반드시 정상 기준선으로 원복하는 별도 절차를 준비해야 한다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.

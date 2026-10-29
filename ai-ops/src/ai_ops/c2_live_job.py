@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import hashlib
 import re
 
 
@@ -14,31 +15,79 @@ SHA = re.compile(r"[a-f0-9]{40}\Z")
 DIGEST = re.compile(r"sha256:[a-f0-9]{64}\Z")
 
 
-def validate_live_preflight(preflight: dict, *, failure_revision: str,
-                            now: datetime | None = None) -> None:
-    """방금 읽은 격리 실습의 실제 이미지 실패 근거만 접수 준비에 사용한다."""
+def validate_s10_live_failure(application: dict, deployment: dict, replica_set: dict,
+                              pods: list[dict], lease: dict, *, baseline_revision: str,
+                              failure_revision: str, failure_image: str, run_id: int,
+                              run_attempt: int,
+                              now: datetime | None = None) -> None:
+    """S10 관측 창의 고정 대상·현재 실패 Pod·잠금을 대조한다."""
     moment = now or datetime.now(timezone.utc)
     if moment.utcoffset() != timedelta(0):
-        raise ValueError("사전 판정 확인 시각은 UTC여야 합니다")
-    if (not isinstance(preflight, dict) or preflight.get("target") != "urlshortener/ai-ops-lab/lab-api/practice"
-            or preflight.get("base_sha") != failure_revision or preflight.get("proof_ready") is not True
-            or preflight.get("blockers") != ["incident_correlation_and_request_required"]
-            or preflight.get("proposal_allowed") is not False
-            or preflight.get("cluster_or_github_write_performed") is not False
-            or not isinstance(preflight.get("current_digest"), str)
-            or not DIGEST.fullmatch(preflight["current_digest"])):
-        raise ValueError("현재 실습 이미지 실패 근거가 준비되지 않았습니다")
+        raise ValueError("실습 실패 확인 시각은 UTC여야 합니다")
+    if (type(run_id) is not int or not 1 <= run_id <= 10**15
+            or type(run_attempt) is not int or not 1 <= run_attempt <= 100
+            or not isinstance(baseline_revision, str) or not SHA.fullmatch(baseline_revision)
+            or not isinstance(failure_revision, str) or not SHA.fullmatch(failure_revision)
+            or baseline_revision == failure_revision or not isinstance(failure_image, str)
+            or not failure_image.startswith("716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@")
+            or not DIGEST.fullmatch(failure_image.split("@", 1)[1])):
+        raise ValueError("실습 실패 입력이 유효하지 않습니다")
     try:
-        checked = datetime.fromisoformat(preflight["proof_checked_at"].replace("Z", "+00:00"))
-    except (KeyError, AttributeError, ValueError):
-        raise ValueError("사전 판정 시각이 유효하지 않습니다") from None
-    if checked.utcoffset() != timedelta(0) or not timedelta(0) <= moment - checked <= timedelta(seconds=60):
-        raise ValueError("실습 이미지 실패 사전 판정이 만료됐습니다")
+        source = application["spec"]["source"]
+        operation = application["status"]["operationState"]
+        dep_meta = deployment["metadata"]
+        dep_spec = deployment["spec"]
+        pod = pods[0]
+        pod_meta = pod["metadata"]
+        pod_status = pod["status"]["containerStatuses"][0]
+        dep_container = dep_spec["template"]["spec"]["containers"][0]
+        pod_container = pod["spec"]["containers"][0]
+        owner = pod_meta["ownerReferences"][0]
+        rs_owner = replica_set["metadata"]["ownerReferences"][0]
+        started = datetime.fromisoformat(operation["startedAt"].replace("Z", "+00:00"))
+        created = datetime.fromisoformat(pod_meta["creationTimestamp"].replace("Z", "+00:00"))
+    except (KeyError, IndexError, TypeError, AttributeError, ValueError):
+        raise ValueError("실습 실패 원본 구조가 유효하지 않습니다") from None
+    holder = "ci-" + hashlib.sha256(f"{run_id}:{run_attempt}".encode()).hexdigest()[:32]
+    if (len(pods) != 1 or application["metadata"].get("name") != "lab-target"
+            or application["metadata"].get("namespace") != "argocd"
+            or application["spec"].get("project") != "b6-lab"
+            or source.get("repoURL") != "https://github.com/f-lab-edu/F-Lab-DevOps.git"
+            or source.get("path") != "ai-ops/lab" or source.get("targetRevision") != baseline_revision
+            or application["spec"].get("syncPolicy", {}).get("automated") is not None
+            or operation.get("phase") != "Succeeded"
+            or operation.get("operation", {}).get("sync", {}).get("revision") != failure_revision
+            or operation.get("syncResult", {}).get("revision") != failure_revision
+            or dep_meta.get("name") != "lab-api" or dep_meta.get("namespace") != "ai-ops-lab"
+            or dep_spec.get("replicas") != 1
+            or len(dep_spec["template"]["spec"]["containers"]) != 1
+            or dep_container.get("name") != "api" or dep_container.get("image") != failure_image
+            or deployment["status"].get("observedGeneration") != dep_meta.get("generation")
+            or deployment["status"].get("readyReplicas", 0) != 0
+            or replica_set["metadata"].get("namespace") != "ai-ops-lab"
+            or rs_owner.get("kind") != "Deployment" or rs_owner.get("uid") != dep_meta.get("uid")
+            or owner.get("kind") != "ReplicaSet" or owner.get("uid") != replica_set["metadata"].get("uid")
+            or pod_meta.get("namespace") != "ai-ops-lab"
+            or len(pod["spec"]["containers"]) != 1
+            or pod_container.get("name") != "api" or pod_container.get("image") != failure_image
+            or pod_status.get("name") != "api" or pod_status.get("image") != failure_image
+            or pod_status.get("ready") is not False
+            or pod_status.get("state", {}).get("waiting", {}).get("reason") not in ("ErrImagePull", "ImagePullBackOff")
+            or lease["metadata"].get("name") != "b6-scenario-lock"
+            or lease["metadata"].get("namespace") != "ai-ops-lab"
+            or lease.get("spec", {}).get("holderIdentity") != holder
+            or started.utcoffset() != timedelta(0) or created.utcoffset() != timedelta(0)
+            or not timedelta(0) <= moment - started <= timedelta(minutes=5)
+            or not timedelta(0) <= moment - created <= timedelta(minutes=5)):
+        raise ValueError("현재 격리 실습 이미지 실패를 확인하지 못했습니다")
 
 
-def build_live_capture_job(deployment: dict, *, run_id: int, failure_revision: str) -> dict:
+def build_live_capture_job(deployment: dict, *, run_id: int, run_attempt: int,
+                           failure_revision: str) -> dict:
     """현재 worker 이미지·설정·PVC에 결합하고 별도 조회 자격은 싣지 않는다."""
-    if type(run_id) is not int or not 1 <= run_id <= 10**15 or not isinstance(failure_revision, str) or not SHA.fullmatch(failure_revision):
+    if (type(run_id) is not int or not 1 <= run_id <= 10**15
+            or type(run_attempt) is not int or not 1 <= run_attempt <= 100
+            or not isinstance(failure_revision, str) or not SHA.fullmatch(failure_revision)):
         raise ValueError("실습 CI 실행 ID 또는 실패 revision이 유효하지 않습니다")
     try:
         metadata = deployment["metadata"]
@@ -64,7 +113,7 @@ def build_live_capture_job(deployment: dict, *, run_id: int, failure_revision: s
             or (config.get("configMap", {}).get("name") != "ci-config"
                 and config_sources != {"ci-config", "ci-normal-binding"})):
         raise ValueError("실습 worker의 이미지·설정·PVC가 고정 범위와 다릅니다")
-    name = f"c2-live-capture-{run_id}"
+    name = f"c2-live-capture-{run_id}-{run_attempt}"
     args = ["queue-submit", "--bindings", "/etc/ai-ops/bindings.json", "--runtime", "/etc/ai-ops/runtime.json",
             "--metric-queries", "/etc/ai-ops/metric-queries.json", "--store", "/data/incidents",
             "--target", TARGET, "--question", QUESTION, "--request-id", name]

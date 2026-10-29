@@ -2,12 +2,14 @@
 
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import hashlib
 import unittest
 
-from ai_ops.c2_live_job import build_live_capture_job, validate_live_preflight
+from ai_ops.c2_live_job import build_live_capture_job, validate_s10_live_failure
 
 
 IMAGE = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:" + "a" * 64
+BAD = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:" + "c" * 64
 
 
 def worker_deployment() -> dict:
@@ -22,25 +24,47 @@ def worker_deployment() -> dict:
 
 
 class C2LiveJobTest(unittest.TestCase):
-    def test_fresh_verified_failure_is_required(self):
+    def test_current_s10_failure_and_run_lock_are_required(self):
         now = datetime(2026, 10, 29, 6, 0, tzinfo=timezone.utc)
-        proof = {"target": "urlshortener/ai-ops-lab/lab-api/practice", "base_sha": "b" * 40,
-                 "proof_ready": True, "blockers": ["incident_correlation_and_request_required"],
-                 "proposal_allowed": False, "cluster_or_github_write_performed": False,
-                 "current_digest": "sha256:" + "c" * 64,
-                 "proof_checked_at": (now - timedelta(seconds=30)).isoformat().replace("+00:00", "Z")}
-        validate_live_preflight(proof, failure_revision="b" * 40, now=now)
-        for field, value in (("proof_ready", False), ("blockers", ["already_recovered"]),
-                             ("base_sha", "a" * 40), ("proposal_allowed", True),
-                             ("proof_checked_at", (now - timedelta(seconds=61)).isoformat().replace("+00:00", "Z"))):
-            changed = {**proof, field: value}
-            with self.subTest(field=field), self.assertRaises(ValueError):
-                validate_live_preflight(changed, failure_revision="b" * 40, now=now)
+        started = (now - timedelta(seconds=30)).isoformat().replace("+00:00", "Z")
+        holder = "ci-" + hashlib.sha256(b"123:1").hexdigest()[:32]
+        app = {"metadata": {"name": "lab-target", "namespace": "argocd"},
+               "spec": {"project": "b6-lab", "source": {"repoURL": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+                        "path": "ai-ops/lab", "targetRevision": "a" * 40}},
+               "status": {"operationState": {"phase": "Succeeded", "startedAt": started,
+                          "operation": {"sync": {"revision": "b" * 40}},
+                          "syncResult": {"revision": "b" * 40}}}}
+        deployment = {"metadata": {"name": "lab-api", "namespace": "ai-ops-lab", "uid": "dep", "generation": 2},
+                      "spec": {"replicas": 1, "template": {"spec": {"containers": [{"name": "api", "image": BAD}]}}},
+                      "status": {"observedGeneration": 2, "readyReplicas": 0}}
+        replica_set = {"metadata": {"namespace": "ai-ops-lab", "uid": "rs",
+                                    "ownerReferences": [{"kind": "Deployment", "uid": "dep"}]}}
+        pod = {"metadata": {"namespace": "ai-ops-lab", "creationTimestamp": started,
+                            "ownerReferences": [{"kind": "ReplicaSet", "uid": "rs"}]},
+               "spec": {"containers": [{"name": "api", "image": BAD}]},
+               "status": {"containerStatuses": [{"name": "api", "image": BAD, "ready": False,
+                                                 "state": {"waiting": {"reason": "ErrImagePull"}}}]}}
+        lease = {"metadata": {"name": "b6-scenario-lock", "namespace": "ai-ops-lab"},
+                 "spec": {"holderIdentity": holder}}
+        items = [app, deployment, replica_set, [pod], lease]
+        def verify(values):
+            validate_s10_live_failure(*values, baseline_revision="a" * 40,
+                                      failure_revision="b" * 40, failure_image=BAD,
+                                      run_id=123, run_attempt=1, now=now)
+        verify(items)
+        for index, edit in ((0, lambda x: x["spec"]["source"].update(targetRevision="b" * 40)),
+                            (1, lambda x: x["status"].update(readyReplicas=1)),
+                            (3, lambda x: x[0]["status"]["containerStatuses"][0]["state"]["waiting"].update(reason="Running")),
+                            (4, lambda x: x["spec"].update(holderIdentity="other"))):
+            changed = deepcopy(items)
+            edit(changed[index])
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                verify(changed)
 
     def test_fixed_target_and_no_credential_or_network_mount(self):
-        job = build_live_capture_job(worker_deployment(), run_id=123, failure_revision="b" * 40)
+        job = build_live_capture_job(worker_deployment(), run_id=123, run_attempt=1, failure_revision="b" * 40)
         self.assertEqual(job["metadata"]["namespace"], "ai-ci")
-        self.assertEqual(job["metadata"]["name"], "c2-live-capture-123")
+        self.assertEqual(job["metadata"]["name"], "c2-live-capture-123-1")
         self.assertEqual(job["spec"]["activeDeadlineSeconds"], 180)
         self.assertEqual(job["spec"]["backoffLimit"], 0)
         pod = job["spec"]["template"]["spec"]
@@ -50,7 +74,7 @@ class C2LiveJobTest(unittest.TestCase):
         self.assertEqual(pod["containers"][0]["image"], IMAGE)
         args = pod["containers"][0]["args"]
         self.assertEqual(args[args.index("--target") + 1], "url-shortener-b6-lab")
-        self.assertEqual(args[args.index("--request-id") + 1], "c2-live-capture-123")
+        self.assertEqual(args[args.index("--request-id") + 1], "c2-live-capture-123-1")
         self.assertEqual(pod["affinity"]["podAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"][0]["labelSelector"]["matchLabels"], {"app": "ci-worker"})
 
     def test_other_namespace_image_pvc_and_service_account_are_rejected(self):
@@ -67,12 +91,12 @@ class C2LiveJobTest(unittest.TestCase):
                 deployment = worker_deployment()
                 mutate(deployment)
                 with self.assertRaises(ValueError):
-                    build_live_capture_job(deployment, run_id=123, failure_revision="b" * 40)
+                    build_live_capture_job(deployment, run_id=123, run_attempt=1, failure_revision="b" * 40)
 
     def test_invalid_run_and_revision_are_rejected(self):
         for run_id, revision in ((True, "b" * 40), (0, "b" * 40), (123, "short")):
             with self.assertRaises(ValueError):
-                build_live_capture_job(deepcopy(worker_deployment()), run_id=run_id, failure_revision=revision)
+                build_live_capture_job(deepcopy(worker_deployment()), run_id=run_id, run_attempt=1, failure_revision=revision)
 
 
 if __name__ == "__main__":

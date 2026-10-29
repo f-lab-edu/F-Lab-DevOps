@@ -49,3 +49,9 @@ S10 준비 [PR #53](https://github.com/f-lab-edu/F-Lab-DevOps/pull/53)의 원격
 전체 삭제 요청이 있는 정리에서는 Argo 종료 전에 `argocd/lab-target`의 Project·고정 경로·관리 대상 하나·finalizer 없음과 Project 토큰 부재를 확인한다. 해당 Application을 제거하고 실습 namespace를 지운 뒤, 실습 전용 Argo Role/RoleBinding·AppProject 및 `b6-lab-argo-deployment-scope` Policy/Binding도 정확한 이름과 목적 label을 대조해 제거한다. 정책을 제거하기 전 실습 Application이 더 이상 존재하지 않아야 한다. 운영 앱·기본 Project·다른 정책은 제거하지 않는다. 기존 전체 AWS 정리는 EKS까지 제거하므로 이 리소스도 사라지지만 실습만 정리하는 경우에는 namespace 밖의 구성도 확인한다. 이 문서 작성 중 삭제는 실행하지 않았다.
 
 다음 S10-03은 실습 전용 CI와 신뢰 identity를 연결하고 실패 배포 → 최초 실패 기록 → 원래 digest/revision 자동 복구 → 복구 기록을 구현하는 단계다. 이후 S10-04 이력 계약·가져오기, S10-05 보고서 설명 검증이 남는다. 장애 주입·CI 자동 롤백·외부 모델 호출은 이번 실행에서 모두 0회이며 B-06 전체 완료·C 단계 진입은 보류한다.
+
+## 2026-10-29 이후 재설치 기준: Helm 단일 소스
+
+위의 `deployment.json` 입력과 미구현 상태 설명은 2026-10-22 당시 기록이다. [PR #108](https://github.com/f-lab-edu/F-Lab-DevOps/pull/108) 이후 신규 `build_gitops` 계획과 현재 `argocd/lab-target`은 `ai-ops/lab`의 Helm chart를 읽는다. `values.yaml`의 `api.image.digest`가 배포 이미지의 유일한 가변 필드이고 Argo가 관리하는 리소스는 여전히 `ai-ops-lab/lab-api` Deployment 한 개다. `deployment.json`은 렌더 비교용 기준 파일이며 Argo source에 `directory`를 다시 넣으면 최신 S10과 정상 CI가 거부한다.
+
+재설치에서는 현재 ECR에 존재하는 정상 digest로 `values.yaml`을 고정하고 `helm lint` 및 `helm template`의 단일 Deployment 동등성을 확인한다. `prepare_b6_gitops.py`의 `source_matches`는 검토 SHA의 Chart·values·schema·template을 Git에서 읽어 Helm으로 다시 렌더하므로 실행기에 Helm CLI가 필요하다. Application은 **수동 동기화**로만 등록하고 UID·복제수·이미지·Ready를 대조한다. S10 실패 소스는 별도 미병합 커밋에서 `values.yaml`의 digest 한 필드만 바꾼다. 성공한 S10도 앱 Pod를 교체할 수 있으므로 정상 CI를 실행하기 전에 현재 앱·수집기 Pod UID로 `NORMAL_CI_BINDING`, 이름 제한 RBAC, `ai-ci/ci-normal-binding`을 다시 생성하고 전달기를 재시작한다. 실행기와 수집기 이미지의 `executor_hash()`가 같아야 한다.

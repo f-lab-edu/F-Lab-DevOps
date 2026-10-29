@@ -72,6 +72,8 @@ S10 실습 CI와 B-06 정상 관측 CI는 별도 선택 연결이다. 활성화�
 
 C-02 사건 조회가 필요하면 `ai-ci/ci-worker`와 `ci-queue` PVC가 복구된 **뒤에** [C-02 배포 기록](../../ai-ops/docs/C2-local-request-and-proposal.md)의 조회 sidecar를 별도 선택 연결로 복원한다. 로컬 원본 `c2-projection-identity-20261028`의 소유자 권한·인증서 SAN·만료일을 확인해 새 `ai-ci/ci-projection-identity` Secret을 만든다. 현재 설치의 worker 복제수·PVC·UID와 검증된 AI 이미지 digest를 대조하고 `projection-read` 컨테이너와 Secret 볼륨만 추가한다. `prepare_ci_service.py --projection-read` 출력은 기본 **복제수 0**이므로 활성 worker에 그대로 적용하지 않는다. sidecar Ready·실제 사건의 TLS 조회·잘못된 토큰 거부를 확인하며, 로컬 port-forward는 시험 후 종료한다. 재설치만으로 해결 승인·모델 캠페인을 켜지 않는다.
 
+운영자 조회에 관리자 kubeconfig를 남기지 않는다. sidecar Ready 뒤 [현재 Pod 한정 권한 생성](../../ai-ops/scripts/prepare_c2_portforward.py)으로 `ai-ci` ServiceAccount·Role·RoleBinding 세 개의 계획을 만들고 server dry-run 후 적용한다. [단기 kubeconfig 발급](../../ai-ops/scripts/issue_c2_portforward_kubeconfig.py)은 Role 규칙·현재 Pod UID를 재검사하고 1시간 TokenRequest를 개인 파일에만 기록한다. 실제 자격으로 현재 Pod `get`·`portforward create`와 다른 Pod·목록·exec·Secret의 거부를 확인한다. worker Pod가 교체되면 권한 계획과 토큰을 새 Pod에 다시 묶는다. 조회 자격과 Secret 원본은 설치·정리 과정에서 Git이나 공유 문서로 옮기지 않는다.
+
 현재 작업 checkout과 `origin/main`에 AI root 코드가 실제 포함됐는지 먼저 비교한다. PR이나 로컬 미추적 파일에만 있다면 main 기반 재설치 자동화에 아직 포함되지 않은 것이므로, 검토·병합 없이 생산 환경 설치를 진행하지 않는다. GitHub `ai-ops-image` environment의 네 변수는 재생성된 Terraform output과 비교한다. 저장소 재생성만으로 이미지가 복구되지 않으므로 이미지 등록은 별도 CI 후속 단계다. 두 Terraform root와 AI 이미지 등록 workflow를 동시에 실행하지 않는다.
 
 ## 2. kubeconfig와 노드

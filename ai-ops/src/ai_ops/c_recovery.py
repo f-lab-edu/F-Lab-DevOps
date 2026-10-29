@@ -370,7 +370,7 @@ def draft_verified_proposal(request: RecoveryRequest, projection: IncidentProjec
 
 
 class RecoveryDraftStore:
-    """개인 디스크의 초안만 원자 저장한다. 승인·실행 상태는 수용하지 않는다."""
+    """개인 디스크의 초안·취소·만료만 원자 기록한다. 승인·실행은 수용하지 않는다."""
 
     def __init__(self, root: Path):
         self.root = root.expanduser().absolute()
@@ -387,6 +387,8 @@ class RecoveryDraftStore:
         with self._connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, body BLOB NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, body BLOB NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS proposal_states (proposal_id TEXT PRIMARY KEY, state TEXT NOT NULL, version INTEGER NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS proposal_events (proposal_id TEXT NOT NULL, version INTEGER NOT NULL, from_state TEXT, to_state TEXT NOT NULL, at TEXT NOT NULL, actor_github_id INTEGER, PRIMARY KEY (proposal_id, version))")
 
     @contextmanager
     def _connect(self):
@@ -441,18 +443,126 @@ class RecoveryDraftStore:
             collision = db.execute("SELECT body FROM proposals WHERE id=?", (proposal.proposal_id,)).fetchone()
             if collision and collision[0] != pb:
                 raise ValueError("동일 변경안 ID의 내용이 다릅니다")
+            if previous:
+                state = self._state_locked(db, proposal.proposal_id, request.requester_github_id)
+                if state["state"] != "draft":
+                    raise ValueError("종료된 변경안을 다시 저장할 수 없습니다")
             db.execute("INSERT OR IGNORE INTO requests VALUES (?,?)", (request.request_id, rb))
             db.execute("INSERT OR IGNORE INTO proposals VALUES (?,?,?)", (proposal.proposal_id, request.request_id, pb))
+            db.execute("INSERT OR IGNORE INTO proposal_states VALUES (?,?,?)",
+                       (proposal.proposal_id, "draft", 1))
+            db.execute("INSERT OR IGNORE INTO proposal_events VALUES (?,?,?,?,?,?)",
+                       (proposal.proposal_id, 1, None, "draft",
+                        proposal.created_at.isoformat().replace("+00:00", "Z"), request.requester_github_id))
         return proposal
 
     def read(self, proposal_id: str) -> RecoveryProposal:
         if not re.fullmatch(r"cprop-[0-9a-f]{32}", proposal_id):
             raise ValueError("변경안 ID가 유효하지 않습니다")
         with self._connect() as db:
-            row = db.execute("SELECT body FROM proposals WHERE id=?", (proposal_id,)).fetchone()
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT p.body,r.body FROM proposals p JOIN requests r ON p.request_id=r.id "
+                             "WHERE p.id=?", (proposal_id,)).fetchone()
+            if row is not None:
+                proposal = RecoveryProposal.model_validate_json(row[0])
+                request = RecoveryRequest.model_validate_json(row[1])
+                state = self._state_locked(db, proposal_id, request.requester_github_id)
         if row is None:
             raise ValueError("변경안이 없습니다")
-        return RecoveryProposal.model_validate_json(row[0])
+        if state["state"] != "draft":
+            raise ValueError("종료된 변경안은 사용할 수 없습니다")
+        return proposal
+
+    def _state_locked(self, db, proposal_id: str, actor_github_id: int,
+                      *, now: datetime | None = None) -> dict:
+        """잠금 안에서 소유권·상태 이력·만료를 함께 검사한다."""
+        if (not re.fullmatch(r"cprop-[0-9a-f]{32}", proposal_id)
+                or type(actor_github_id) is not int or actor_github_id <= 0):
+            raise ValueError("변경안 조회 입력이 유효하지 않습니다")
+        row = db.execute("SELECT p.body, r.body FROM proposals p JOIN requests r ON p.request_id=r.id WHERE p.id=?",
+                         (proposal_id,)).fetchone()
+        if row is None:
+            raise ValueError("변경안이 없습니다")
+        proposal = RecoveryProposal.model_validate_json(row[0])
+        request = RecoveryRequest.model_validate_json(row[1])
+        if request.requester_github_id != actor_github_id:
+            raise ValueError("변경안 요청자와 현재 사용자가 다릅니다")
+        current = db.execute("SELECT state,version FROM proposal_states WHERE proposal_id=?",
+                             (proposal_id,)).fetchone()
+        if current is None:
+            db.execute("INSERT INTO proposal_states VALUES (?,?,?)", (proposal_id, "draft", 1))
+            db.execute("INSERT OR IGNORE INTO proposal_events VALUES (?,?,?,?,?,?)",
+                       (proposal_id, 1, None, "draft",
+                        proposal.created_at.isoformat().replace("+00:00", "Z"), actor_github_id))
+            current = ("draft", 1)
+        events = db.execute("SELECT version,from_state,to_state,at,actor_github_id FROM proposal_events "
+                            "WHERE proposal_id=? ORDER BY version", (proposal_id,)).fetchall()
+        if (not events or len(events) > 2 or events[0][:3] != (1, None, "draft")
+                or events[0][4] != request.requester_github_id
+                or _utc_datetime(events[0][3]) != proposal.created_at
+                or events[-1][0] != current[1] or events[-1][2] != current[0]
+                or any(event[0] != index + 1 or (index and event[1] != events[index-1][2])
+                       for index, event in enumerate(events))
+                or (len(events) == 2 and (
+                    events[1][2] not in {"cancelled", "expired"}
+                    or (events[1][2] == "expired" and (
+                        events[1][4] is not None or _utc_datetime(events[1][3]) != proposal.expires_at))
+                    or (events[1][2] == "cancelled" and (
+                        events[1][4] != request.requester_github_id
+                        or not proposal.created_at <= _utc_datetime(events[1][3]) < proposal.expires_at))))):
+            raise ValueError("변경안 상태 이력이 일치하지 않습니다")
+        moment = now or datetime.now(timezone.utc)
+        if moment.utcoffset() != timedelta(0) or moment < proposal.created_at:
+            raise ValueError("변경안 상태 시각은 생성 이후 UTC여야 합니다")
+        if current[0] == "draft" and moment >= proposal.expires_at:
+            self._transition_locked(db, proposal_id, current[1], "draft", "expired",
+                                    proposal.expires_at, None)
+            current = ("expired", current[1] + 1)
+            events.append((current[1], "draft", "expired",
+                           proposal.expires_at.isoformat().replace("+00:00", "Z"), None))
+        return {"proposal_id": proposal_id, "state": current[0], "version": current[1],
+                "expires_at": proposal.expires_at.isoformat().replace("+00:00", "Z"),
+                "events": [{"version": event[0], "from_state": event[1], "to_state": event[2],
+                            "at": event[3], "actor_github_id": event[4]} for event in events]}
+
+    @staticmethod
+    def _transition_locked(db, proposal_id: str, version: int, old: str, new: str,
+                           at: datetime, actor_github_id: int | None) -> None:
+        if new not in {"cancelled", "expired"} or old != "draft":
+            raise ValueError("허용되지 않은 변경안 상태 전이입니다")
+        updated = db.execute("UPDATE proposal_states SET state=?,version=? WHERE proposal_id=? "
+                             "AND state=? AND version=?",
+                             (new, version + 1, proposal_id, old, version))
+        if updated.rowcount != 1:
+            raise ValueError("변경안 상태가 변경됐습니다")
+        db.execute("INSERT INTO proposal_events VALUES (?,?,?,?,?,?)",
+                   (proposal_id, version + 1, old, new,
+                    at.isoformat().replace("+00:00", "Z"), actor_github_id))
+
+    def status(self, proposal_id: str, actor_github_id: int,
+               *, now: datetime | None = None) -> dict:
+        """요청자만 조회한다. 기한이 지났으면 만료 이력을 원자 기록한다."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            return self._state_locked(db, proposal_id, actor_github_id, now=now)
+
+    def cancel(self, proposal_id: str, actor_github_id: int,
+               *, now: datetime | None = None) -> dict:
+        """요청자의 초안만 취소한다. 이미 만료·취소됐으면 추가 기록을 만들지 않는다."""
+        moment = now or datetime.now(timezone.utc)
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            state = self._state_locked(db, proposal_id, actor_github_id, now=moment)
+            if state["state"] == "draft":
+                self._transition_locked(db, proposal_id, state["version"], "draft",
+                                        "cancelled", moment, actor_github_id)
+                state["state"] = "cancelled"
+                state["version"] += 1
+                state["events"].append({"version": state["version"], "from_state": "draft",
+                                        "to_state": "cancelled",
+                                        "at": moment.isoformat().replace("+00:00", "Z"),
+                                        "actor_github_id": actor_github_id})
+            return state
 
 
 def read_existing_request(root: Path, request_id: str) -> RecoveryRequest:

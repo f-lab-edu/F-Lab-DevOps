@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 import time
 import uuid
 
@@ -21,14 +22,27 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def source_matches(plan):
-    """검토한 커밋에 실제 고정 Deployment 파일이 있는지 로컬 Git으로 대조한다."""
-    result = subprocess.run(["git", "show", f"{plan['revision']}:{GITOPS_PATH}/deployment.json"],
-                            cwd=ROOT, capture_output=True, timeout=15)
-    if result.returncode or len(result.stdout) > 65536:
-        return False
+    """검토한 커밋의 Helm 파일만 렌더해 계획된 단일 Deployment와 비교한다."""
+    names = ("Chart.yaml", "values.yaml", "values.schema.json", "templates/deployment.yaml")
     try:
-        return json.loads(result.stdout) == plan["deployment"]
-    except ValueError:
+        with tempfile.TemporaryDirectory() as root:
+            chart = Path(root)
+            for name in names:
+                result = subprocess.run(["git", "show", f"{plan['revision']}:{GITOPS_PATH}/{name}"],
+                                        cwd=ROOT, capture_output=True, timeout=15)
+                if result.returncode or not 0 < len(result.stdout) <= 65536:
+                    return False
+                target = chart / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(result.stdout)
+            rendered = subprocess.run(["helm", "template", "lab-target", str(chart), "--namespace", NAMESPACE],
+                                      capture_output=True, timeout=15)
+            if rendered.returncode or not 0 < len(rendered.stdout) <= 65536:
+                return False
+            text = rendered.stdout.decode()
+            document = "\n".join(line for line in text.splitlines() if line.strip() != "---" and not line.startswith("#"))
+            return json.loads(document) == plan["deployment"]
+    except (OSError, UnicodeError, ValueError, subprocess.TimeoutExpired):
         return False
 
 

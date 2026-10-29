@@ -19,7 +19,7 @@ from ai_ops.path_policy import permitted_path
 
 REPO = "f-lab-edu/F-Lab-DevOps"
 WORKFLOW = ".github/workflows/ai-ops-lab-ci.yml"
-PATH = "ai-ops/lab/deployment.json"
+PATH = "ai-ops/lab/values.yaml"
 APP = "lab-target"
 NS = "ai-ops-lab"
 ECR = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
@@ -39,24 +39,25 @@ def command(args, *, timeout=45, allow_failure=False):
 
 
 def validate_sources(baseline: dict, failure: dict) -> tuple[str, str]:
-    """실패 revision에서 허용하는 차이는 실습 앱의 존재하지 않는 이미지뿐이다."""
+    """고정 Helm values의 이미지 digest 한 필드만 달라진 실패 소스를 허용한다."""
     expected = deepcopy(baseline)
-    container = baseline["spec"]["template"]["spec"]["containers"]
-    if (baseline["kind"] != "Deployment" or baseline["metadata"]["name"] != "lab-api"
-            or baseline["metadata"]["namespace"] != NS or len(container) != 1
-            or container[0]["name"] != "api" or baseline["spec"]["replicas"] != 1
-            or baseline["metadata"]["annotations"].get("ai-ops/b6-deployment-owner") != "gitops"):
-        raise ValueError("실습 기준 정의가 다릅니다")
-    good = container[0]["image"]
-    bad = failure["spec"]["template"]["spec"]["containers"][0]["image"]
-    if not re.fullmatch(re.escape(ECR) + r"@sha256:[a-f0-9]{64}", good):
-        raise ValueError("복구 이미지는 고정 digest여야 합니다")
-    if not re.fullmatch(re.escape(ECR) + r":b6-missing-[a-f0-9]{32}", bad):
-        raise ValueError("실패 이미지 형식이 다릅니다")
-    expected["spec"]["template"]["spec"]["containers"][0]["image"] = bad
+    try:
+        image = baseline["api"]["image"]
+        failed_image = failure["api"]["image"]
+        good_digest = image["digest"]
+        bad_digest = failed_image["digest"]
+    except (KeyError, TypeError):
+        raise ValueError("실습 values 구조가 다릅니다") from None
+    if (set(baseline) != {"api"} or set(baseline["api"]) != {"image"}
+            or set(image) != {"repository", "digest"} or image["repository"] != ECR
+            or not isinstance(good_digest, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", good_digest)
+            or not isinstance(bad_digest, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", bad_digest)
+            or good_digest == bad_digest):
+        raise ValueError("실습 이미지 digest가 유효하지 않습니다")
+    expected["api"]["image"]["digest"] = bad_digest
     if expected != failure:
-        raise ValueError("실패 소스에 이미지 외 변경이 있습니다")
-    return good, bad
+        raise ValueError("실패 소스에 digest 외 변경이 있습니다")
+    return ECR + "@" + good_digest, ECR + "@" + bad_digest
 
 
 class LabCI:
@@ -84,17 +85,9 @@ class LabCI:
     def app(self):
         app = json.loads(self.argo("app", "get", APP, "-o", "json").stdout)
         spec = app["spec"]
-        directory = spec["source"].get("directory")
-        allowed_directories = (
-            {"include": "deployment.json"},
-            {"include": "deployment.json", "recurse": False},
-            {"include": "deployment.json", "jsonnet": {}},
-            {"include": "deployment.json", "recurse": False, "jsonnet": {}},
-        )
         if (spec["project"] != "b6-lab" or spec["source"]["repoURL"] != "https://github.com/" + REPO + ".git"
                 or spec["source"]["path"] != "ai-ops/lab"
-                or set(spec["source"]) != {"repoURL", "path", "targetRevision", "directory"}
-                or directory not in allowed_directories
+                or set(spec["source"]) != {"repoURL", "path", "targetRevision"}
                 or spec["destination"] != {"server": "https://kubernetes.default.svc", "namespace": NS}
                 or spec.get("syncPolicy", {}).get("automated") is not None):
             raise ValueError("실습 Application 범위가 다릅니다")
@@ -119,9 +112,9 @@ class LabCI:
         if account["Account"] != "716174522908":
             raise ValueError("AWS 계정이 다릅니다")
         command(["aws", "ecr", "describe-images", "--region", "ap-northeast-2", "--repository-name", "urlshortener", "--image-ids", "imageDigest=" + good.split("@")[1]])
-        missing = command(["aws", "ecr", "describe-images", "--region", "ap-northeast-2", "--repository-name", "urlshortener", "--image-ids", "imageTag=" + bad.split(":")[-1]], allow_failure=True)
+        missing = command(["aws", "ecr", "describe-images", "--region", "ap-northeast-2", "--repository-name", "urlshortener", "--image-ids", "imageDigest=" + bad.split("@", 1)[1]], allow_failure=True)
         if not missing.returncode or "ImageNotFoundException" not in missing.stderr:
-            raise ValueError("실패 태그 부재를 확인하지 못했습니다")
+            raise ValueError("실패 digest 부재를 확인하지 못했습니다")
         app = self.app()
         deploy = self.client.get(NS, "deployment", "lab-api")
         if (app["spec"]["source"]["targetRevision"] != base

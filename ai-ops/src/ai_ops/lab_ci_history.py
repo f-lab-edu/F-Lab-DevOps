@@ -77,7 +77,7 @@ class LabRecord(StrictModel):
                     # Argo 집계 건강값은 동기화가 끝난 뒤에도 이전 Healthy가 남을 수 있다.
                     # 새 generation·Pod 취득 실패·Ready=0·실패 revision을 함께 요구한다.
                     or obs.operation_revision != self.failure_revision
-                    or not re.fullmatch(re.escape(REGISTRY) + r":b6-missing-[0-9a-f]{32}", obs.image)):
+                    or not re.fullmatch(re.escape(REGISTRY) + r"(?:@sha256:[0-9a-f]{64}|:b6-missing-[0-9a-f]{32})", obs.image)):
                 raise ValueError("lab CI failure conflict")
         elif (obs.operation_phase != "Succeeded"
                 or self.verification_result != "success" or obs.ready_replicas != 1
@@ -192,6 +192,7 @@ def verify_lab_ci_history(run_id: int, expected_head: str, *, reader=None) -> Ve
     failed, restored, result = records
     if (failed.observed_at > restored.started_at or restored.observed_at > result.started_at
             or failed.observed.application_uid != restored.observed.application_uid
-            or failed.observed.deployment_uid != restored.observed.deployment_uid):
+            or failed.observed.deployment_uid != restored.observed.deployment_uid
+            or failed.observed.image == restored.observed.image):
         raise ValueError("lab CI pair rejected")
     return history

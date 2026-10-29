@@ -7,6 +7,7 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -159,14 +160,18 @@ class B6GitOpsTest(unittest.TestCase):
     def test_source_readiness_requires_exact_committed_deployment(self):
         module = self.script("prepare_b6_gitops.py")
         plan = build_gitops(bundle(), "a" * 40)
-        with patch.object(module.subprocess, "run") as run:
-            run.return_value.returncode = 1
-            self.assertFalse(module.source_matches(plan))
-            run.return_value.returncode = 0
-            run.return_value.stdout = json.dumps(plan["deployment"]).encode()
+        plan["deployment"] = json.loads((Path(__file__).resolve().parents[1] / "lab/deployment.json").read_text())
+        original_run = subprocess.run
+        def committed_source(args, **kwargs):
+            if args[:2] == ["git", "show"]:
+                source = args[2].split(":", 1)[1]
+                return subprocess.CompletedProcess(args, 0, (module.ROOT / source).read_bytes(), b"")
+            return original_run(args, **kwargs)
+        with patch.object(module.subprocess, "run", side_effect=committed_source):
             self.assertTrue(module.source_matches(plan))
-            run.return_value.stdout = b'{}'
-            self.assertFalse(module.source_matches(plan))
+            altered = deepcopy(plan)
+            altered["deployment"]["spec"]["replicas"] = 2
+            self.assertFalse(module.source_matches(altered))
 
     def install_inputs(self):
         original = bundle()

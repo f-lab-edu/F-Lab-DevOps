@@ -40,7 +40,7 @@ def _eligible(item, entry) -> bool:
         return False
     if entry.ci_stage == "deployment":
         return (entry.ci_verification_result == "failure" and payload.get("status") == "failed"
-                and bool(re.fullmatch(re.escape(REGISTRY) + r":b6-missing-[0-9a-f]{32}", payload.get("image", ""))))
+                and bool(re.fullmatch(re.escape(REGISTRY) + r"(?:@sha256:[0-9a-f]{64}|:b6-missing-[0-9a-f]{32})", payload.get("image", ""))))
     return (entry.ci_stage == "rollback" and entry.ci_verification_result == "success"
             and payload.get("status") == "healthy_after_rollback"
             and payload.get("gitops_revision") == payload.get("rollback_revision")

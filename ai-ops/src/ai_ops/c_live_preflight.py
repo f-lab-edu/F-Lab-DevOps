@@ -34,7 +34,7 @@ def assess_live_preflight(application: dict, deployment: dict, lease: dict,
     image = deployment["spec"]["template"]["spec"]["containers"][0]["image"]
     values_image = IMAGE_REPOSITORY + "@" + values["api"]["image"]["digest"]
     blockers = []
-    if "directory" in source or "plugin" in source or "kustomize" in source:
+    if set(source) != {"repoURL", "path", "targetRevision"}:
         blockers.append("values_source_inactive")
     if image != values_image:
         blockers.append("values_stale")

@@ -85,6 +85,7 @@ class NormalCIClient(SequenceLabClient):
                 or application["spec"]["destination"]["namespace"] != NAMESPACE
                 or application["spec"]["source"]["repoURL"] != "https://github.com/f-lab-edu/F-Lab-DevOps.git"
                 or application["spec"]["source"]["path"] != "ai-ops/lab"
+                or set(application["spec"]["source"]) != {"repoURL", "path", "targetRevision"}
                 or application["status"]["sync"]["status"] != "Synced"
                 or application["status"]["health"]["status"] != "Healthy"
                 or application["status"].get("operationState", {}).get("phase") == "Running"):

@@ -198,6 +198,21 @@ class LabCI:
             self.record(state, "deployment", started, "failure" if state["deployment_verified_failure"] else "inconclusive", observed)
         return 1
 
+    def hold(self):
+        """검증된 실습 이미지 실패만 최대 5분 관측하고 원복 단계로 넘어간다."""
+        state = self.load()
+        if not state["injection_requested"] or not state["deployment_verified_failure"]:
+            return 0
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            observed = self.observe(state)
+            if (observed["image"] != state["bad_image"] or observed["ready_replicas"] != 0
+                    or not observed["generation_observed"] or not observed["image_pull_reasons"]
+                    or observed["operation_revision"] != state["failure_revision"]):
+                return 0
+            time.sleep(min(5, max(0, deadline - time.monotonic())))
+        return 0
+
     def rollback(self):
         state = self.load()
         started = now()
@@ -231,7 +246,7 @@ class LabCI:
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="S10 격리 실습 CI; 정상 복구 후에도 최초 실패 유지")
-    parser.add_argument("stage", choices=("prepare", "deploy", "rollback", "finish"))
+    parser.add_argument("stage", choices=("prepare", "deploy", "hold", "rollback", "finish"))
     args = parser.parse_args()
     try:
         result = getattr(LabCI(Path(os.environ["AI_OPS_FILES_ROOT"])), args.stage)()

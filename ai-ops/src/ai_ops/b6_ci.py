@@ -84,11 +84,17 @@ class LabCI:
     def app(self):
         app = json.loads(self.argo("app", "get", APP, "-o", "json").stdout)
         spec = app["spec"]
+        directory = spec["source"].get("directory")
+        allowed_directories = (
+            {"include": "deployment.json"},
+            {"include": "deployment.json", "recurse": False},
+            {"include": "deployment.json", "jsonnet": {}},
+            {"include": "deployment.json", "recurse": False, "jsonnet": {}},
+        )
         if (spec["project"] != "b6-lab" or spec["source"]["repoURL"] != "https://github.com/" + REPO + ".git"
                 or spec["source"]["path"] != "ai-ops/lab"
                 or set(spec["source"]) != {"repoURL", "path", "targetRevision", "directory"}
-                or spec["source"].get("directory") != {"include": "deployment.json"}
-                and spec["source"].get("directory") != {"include": "deployment.json", "recurse": False}
+                or directory not in allowed_directories
                 or spec["destination"] != {"server": "https://kubernetes.default.svc", "namespace": NS}
                 or spec.get("syncPolicy", {}).get("automated") is not None):
             raise ValueError("실습 Application 범위가 다릅니다")

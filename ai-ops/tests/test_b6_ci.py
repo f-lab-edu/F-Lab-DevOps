@@ -45,6 +45,19 @@ class B6CITest(unittest.TestCase):
                 with self.assertRaises(ValueError):self.ci.prepare()
                 cmd.assert_not_called()
 
+    def test_argo_empty_jsonnet_default_is_accepted_but_options_are_rejected(self):
+        app = {'spec': {'project': 'b6-lab',
+            'source': {'repoURL': 'https://github.com/f-lab-edu/F-Lab-DevOps.git',
+                       'path': 'ai-ops/lab', 'targetRevision': 'a'*40,
+                       'directory': {'include': 'deployment.json', 'jsonnet': {}}},
+            'destination': {'server': 'https://kubernetes.default.svc', 'namespace': 'ai-ops-lab'}}}
+        with patch.object(self.ci, 'argo', return_value=Mock(stdout=json.dumps(app))):
+            self.assertEqual(self.ci.app(), app)
+        app['spec']['source']['directory']['jsonnet']['extVars'] = [{'name': 'unsafe', 'value': 'x'}]
+        with patch.object(self.ci, 'argo', return_value=Mock(stdout=json.dumps(app))):
+            with self.assertRaises(ValueError):
+                self.ci.app()
+
     def failure_observation(self):
         return {'image':self.state['bad_image'],'ready_replicas':0,'image_pull_reasons':['ImagePullBackOff'],
                 'operation_revision':self.state['failure_revision'],'generation_observed':True}

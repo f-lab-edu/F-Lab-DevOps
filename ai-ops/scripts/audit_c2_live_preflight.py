@@ -6,8 +6,10 @@ from pathlib import Path
 import subprocess
 
 from ai_ops.c_live_preflight import SHA, assess_live_preflight
-from ai_ops.c_recovery_proof import assess_recovery_proof
-from ai_ops.c_recovery import IMAGE_REPOSITORY, _values
+from ai_ops.c_recovery_proof import assess_incident_request, assess_recovery_proof
+from ai_ops.c_recovery import (IMAGE_REPOSITORY, IncidentProjection, _values,
+                               read_existing_request)
+from ai_ops.c_operator import _client
 from ai_ops.contracts import sha256_json
 from ai_ops.normal_ci_contract import NormalCIBinding
 from ai_ops.normal_ci_history import verify_normal_ci_history
@@ -28,10 +30,19 @@ def main() -> int:
     parser.add_argument("--normal-binding", type=Path)
     parser.add_argument("--normal-run-id", type=int)
     parser.add_argument("--normal-head")
-    args = cli_paths(parser, parser.parse_args(), {"output": "output", "normal_binding": "input"})
+    parser.add_argument("--operator-state-root", type=Path)
+    parser.add_argument("--incident-id")
+    parser.add_argument("--incident-run-id")
+    parser.add_argument("--request-id")
+    args = cli_paths(parser, parser.parse_args(), {"output": "output", "normal_binding": "input",
+                                                  "operator_state_root": "store"})
     if any(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)) \
             and not all(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)):
         parser.error("정상 CI 근거의 결합값·실행 ID·head SHA를 함께 지정해야 합니다")
+    incident_fields = (args.operator_state_root, args.incident_id, args.incident_run_id, args.request_id)
+    if any(value is not None for value in incident_fields) and (not all(value is not None for value in incident_fields)
+                                                               or args.normal_binding is None):
+        parser.error("사건 연결에는 운영자 상태 폴더·사건/실행/요청 ID와 정상 CI 근거가 함께 필요합니다")
     kubeconfig = str(Path(args.kubeconfig).expanduser().absolute())
     def get(namespace: str, kind: str, name: str) -> dict:
         return json.loads(_run("kubectl", "--kubeconfig", kubeconfig, "-n", namespace,
@@ -83,6 +94,17 @@ def main() -> int:
             and owners[0].get("kind") == "ReplicaSet" else {}
         result = assess_recovery_proof(app, deployment, lease, values, replica_set, pods,
                                        binding, history, ecr, bad_absent)
+        if args.operator_state_root is not None and result["proof_ready"]:
+            shown = _client(args.operator_state_root / "operator.sock", "show",
+                            args.incident_id, args.incident_run_id)
+            if shown.get("status") != "ok":
+                raise ValueError("인증된 사건 조회가 거부됐습니다")
+            projection = IncidentProjection.model_validate(shown["projection"])
+            request = read_existing_request(args.operator_state_root, args.request_id)
+            github_id = _run("gh", "api", "user", "--jq", ".id").strip()
+            if not github_id.isdecimal() or request.requester_github_id != int(github_id):
+                raise ValueError("현재 운영자와 해결 요청의 GitHub ID가 다릅니다")
+            result = assess_incident_request(result, projection, request)
     write_private_json(args.output, result)
     print("C-02 실시간 근거를 읽기 전용으로 기록했습니다. 제안·승인·배포는 생성하지 않았습니다.")
     return 0

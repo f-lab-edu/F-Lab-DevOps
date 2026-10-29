@@ -5,7 +5,7 @@
 ## 구현한 처리 흐름
 
 1. 운영자 컴퓨터의 Unix socket 서비스가 **커널 peer UID**와 로컬 `gh api user`의 불변 GitHub ID를 허용 목록과 대조한다. 클라이언트가 적은 사용자 이름은 받지 않는다. 서비스는 `show`와 `request`만 지원하고 `approve`·`execute` 명령은 없다.
-2. `show`는 `incident_id`·`run_id`를 모두 요구한다. 기존 `IncidentStore`의 저장 계약을 **읽기 전용**으로 다시 검사하고 `urlshortener/ai-ops-lab/lab-api/practice` 대상만 통과시킨다. 반환 값은 대상·묶음/보고서/감사 해시, 상태·증거 종류별 수·인용 ID뿐이다. 질문·로그·보고서 문장·UID·토큰은 반환하지 않는다.
+2. `show`는 `incident_id`·`run_id`를 모두 요구한다. 기존 `IncidentStore`의 저장 계약을 **읽기 전용**으로 다시 검사하고 `urlshortener/ai-ops-lab/lab-api/practice` 대상만 통과시킨다. 반환 값은 대상·묶음/보고서/감사 해시, 상태·증거 종류별 수·인용 ID와 해당 v3 보고서가 뒷받침하는 이미지 장애 결합값이다. 질문·로그·보고서 문장·원본 UID·이미지·토큰은 반환하지 않는다.
 3. `request`는 위 조회를 통과한 사건과 인증 사용자 ID를 묶어 개인 SQLite에 기록한다. 이 단계의 결과는 **해결 요청**이며 변경안 승인이나 GitHub 쓰기가 아니다. 개인 디렉터리는 `0700`, DB는 `0600`; 동일 요청 ID의 다른 내용과 동일 요청의 다른 변경안을 거부한다.
 4. 변경안 초안 함수는 요청의 증거 묶음·보고서 해시, 고정 저장소·실습 대상·base SHA·현재 이미지와 `values.yaml`의 이미지가 일치하는지 확인한다. `api.image.digest` 한 필드만 바꾼 정확한 diff·해시·24시간 만료를 생성해 `draft`로만 저장한다. 현재 이미지·과거 정상 digest·ECR 존재성·Argo 상태의 **실시간 검증 입력은 아직 없다.** 따라서 이 함수는 오프라인 초안 계약이며 실제 제안 승인 경로에는 연결하지 않았다.
 
@@ -67,7 +67,13 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 [복구 근거 검증기](../src/ai_ops/c_recovery_proof.py)는 기존 [실시간 사전 판정](../src/ai_ops/c_live_preflight.py)이 Helm 소스·현재 이미지·Argo·Lease를 통과했을 때만 동작한다. [감사 명령](../scripts/audit_c2_live_preflight.py)에 정상 CI 결합값 파일, 실행 ID와 head SHA를 함께 주면 GitHub 원본 실행·artifact를 `verify_normal_ci_history`로 검증한다. 동일 EKS의 지문과 현재 kubeconfig, ECR 계정을 대조하고 이전 정상 digest의 ECR 존재 및 현재 실패 digest의 부재를 확인한다. 현재 Deployment의 단일 Pod와 ReplicaSet 소유 UID, 관측 generation, 이미지 취득 실패 이유, Argo의 현재 revision·동기화 시각이 정상 CI 완료 이후인지 검사한다. 확인되지 않은 값은 `blockers`에 남긴다.
 
-이 검증이 모두 통과해도 결과는 `proof_ready=true`, `proposal_allowed=false`, `incident_correlation_and_request_required`다. 특정 사건의 보고서·증거 해시와 인증된 해결 요청을 현재 실패에 연결하는 단계가 아직 없기 때문이다. 정상 CI #40818314394의 GitHub 원본 실행·artifact와 당시 결합값은 별도 읽기 검증을 통과했다. 현재 실습 앱은 정상 이미지로 Ready 1/1이라 실시간 감사 결과는 `already_recovered`, `proof_ready=false`, `proposal_allowed=false`였다. 정상 CI 기록만으로 과거 실패를 현재 장애로 취급하지 않는다. 변경안·PR·배포는 0건이다.
+이 검증만 통과하면 결과는 `proof_ready=true`, `proposal_allowed=false`, `incident_correlation_and_request_required`다. 정상 CI #40818314394의 GitHub 원본 실행·artifact와 당시 결합값은 별도 읽기 검증을 통과했다. 현재 실습 앱은 정상 이미지로 Ready 1/1이라 실시간 감사 결과는 `already_recovered`, `proof_ready=false`, `proposal_allowed=false`였다. 정상 CI 기록만으로 과거 실패를 현재 장애로 취급하지 않는다. 변경안·PR·배포는 0건이다.
+
+## 2026-10-29 사건·요청과 현재 실패의 연결 구현
+
+[사건 투영](../src/ai_ops/c_recovery.py)은 저장 계약을 재검증한 `rules-captured-v3` 보고서에서 같은 원인 후보가 인용한 **Pending Pod 상태·이미지 취득 실패 Event·Deployment 이미지** 세 자료를 확인한다. 수집 감사의 available/collected 상태, Pod·Deployment UID, 이미지, Event 대상 UID, 120초 이내 시각 관계가 맞을 때에만 `image_failure` 결합값을 만든다. 외부 응답에는 원본 UID·이미지 대신 SHA-256 해시와 세 근거 ID·UTC 관측 시각만 담는다. 자료가 누락되거나 후보가 둘 이상이면 결합값을 만들지 않는다. `request`는 이 결합값의 해시를 개인 DB에 고정한다.
+
+[읽기 전용 감사 명령](../scripts/audit_c2_live_preflight.py)에 `--operator-state-root`, `--incident-id`, `--incident-run-id`, `--request-id`를 정상 CI 근거 인자와 함께 주면, 현재 이미지 실패 근거를 새로 조회한 뒤 인증된 운영자 socket의 `show`와 개인 DB의 기존 요청을 읽는다. `gh api user`의 GitHub ID가 요청자와 같아야 한다. [연결 검증기](../src/ai_ops/c_recovery_proof.py)는 현재 Pod·Deployment·이미지 해시, 사건/실행 ID, 묶음·보고서·장애 결합 해시, 관측 시각과 60초 이내의 실시간 재조회 시각을 대조한다. 맞으면 `incident_ready=true`이지만 `proposal_allowed=false`와 `fresh_recheck_and_proposal_contract_required`를 유지한다. 이 값은 사건과 요청을 같은 장애에 연결했다는 뜻이며, 승인 가능한 변경안을 뜻하지 않는다. 현재 앱이 복구된 상태에서는 이 연결 단계에 들어가지 않는다. 현재 클러스터에서 양성 경로는 검증하지 않았고, 합성 사건 시험만 통과했다.
 
 재현 시 `--normal-binding`에는 성공한 정상 CI 실행 당시의 개인 결합값 파일을, `--normal-run-id`와 `--normal-head`에는 그 실행의 GitHub ID와 전체 SHA를 넣는다. `--kubeconfig`는 현재 클러스터, `--output`은 개인 폴더의 새 JSON 파일이어야 한다. 예: `AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py --kubeconfig "$INSTALL_DIR/kubeconfig" --normal-binding "$INSTALL_DIR/normal-binding.json" --normal-run-id 40818314394 --normal-head 85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d --output "$INSTALL_DIR/c2-proof-new.json"`. 앱이 이미 복구됐으면 GitHub·ECR 조회 전에 중단한다. 관련 거부 시험 4개와 기존 사전 판정 시험 3개가 통과했다.
 
@@ -86,7 +92,7 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 ## C-02 종료까지 남은 연결
 
 1. **조회 경로 자격 회전·재설치 마무리:** 현재 Pod 한정 RBAC·1시간 자격과 실제 TLS 조회는 확인했다. 다음 Pod 교체에서 권한을 새 이름·UID로 재생성하고 이전 자격 만료·거부를 재검증해야 한다. 인증서 만료 전 Secret·로컬 CA의 묶음 회전도 남아 있다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **검증된 변경안 입력:** 이전 정상 CI·ECR과 현재 이미지 취득 실패를 대조하는 읽기 계약은 추가했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 다음에는 원본 사건 증거 ID·보고서 해시·인증 요청을 현재 장애에 연결하고 영향·검증/복구 조건을 제안 계약에 넣는다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 제안·취소·만료 상태를 실제 저장소와 연결한다.
+2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청을 대조하는 읽기 계약은 추가했다. 실제 장애가 없어 양성 경로는 합성 시험만 통과했다. 다음에는 초안 직전 재조회, 영향·검증/복구 조건을 제안 계약에 넣고 제안·취소·만료 상태를 실제 저장소에 연결한다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

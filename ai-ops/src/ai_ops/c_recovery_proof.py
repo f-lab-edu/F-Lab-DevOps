@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ai_ops.c_live_preflight import assess_live_preflight
-from ai_ops.c_recovery import DIGEST, IMAGE_REPOSITORY, _values
+from ai_ops.c_recovery import (DIGEST, IMAGE_REPOSITORY, IncidentProjection,
+                               RecoveryRequest, _values)
 from ai_ops.contracts import _utc_datetime, sha256_json
 from ai_ops.normal_ci_contract import NormalCIBinding
 from ai_ops.normal_ci_history import VerifiedNormalHistory
@@ -35,6 +36,9 @@ def assess_recovery_proof(application: dict, deployment: dict, lease: dict,
               "proposal_allowed": False, "cluster_or_github_write_performed": False}
     if blockers:
         return result
+    moment = now or datetime.now(timezone.utc)
+    if moment.utcoffset() != timedelta(0):
+        raise ValueError("복구 근거 확인 시각은 UTC여야 합니다")
 
     if (not isinstance(binding, NormalCIBinding)
             or not isinstance(history, VerifiedNormalHistory)
@@ -61,7 +65,7 @@ def assess_recovery_proof(application: dict, deployment: dict, lease: dict,
     if (not DIGEST.fullmatch(old_digest)
             or old_digest == bad_digest
             or binding.app.deployment_uid != deployment_uid
-            or receipt.finished_at >= (now or datetime.now(timezone.utc))
+            or receipt.finished_at >= moment
             or operation.get("phase") != "Succeeded"
             or operation.get("syncResult", {}).get("revision") != revision
             or application.get("status", {}).get("sync", {}).get("revision") != revision
@@ -76,6 +80,8 @@ def assess_recovery_proof(application: dict, deployment: dict, lease: dict,
             or not _owner(pods[0], "ReplicaSet", replica_set.get("metadata", {}).get("uid"))
             or pod_owners[0].get("name") != replica_set.get("metadata", {}).get("name")
             or pods[0].get("metadata", {}).get("namespace") != "ai-ops-lab"
+            or not isinstance(pods[0].get("metadata", {}).get("uid"), str)
+            or not pods[0]["metadata"]["uid"]
             or pods[0].get("metadata", {}).get("deletionTimestamp")
             or len(containers) != 1 or containers[0].get("name") != "api"
             or containers[0].get("image") != IMAGE_REPOSITORY + "@" + bad_digest
@@ -112,5 +118,58 @@ def assess_recovery_proof(application: dict, deployment: dict, lease: dict,
     result["normal_ci_run_id"] = history.run_id
     result["normal_ci_artifact_digest"] = history.archive_digest
     result["application_uid"] = app_uid
+    result["pod_uid_hash"] = sha256_json(pods[0]["metadata"]["uid"])
+    result["deployment_uid_hash"] = sha256_json(deployment_uid)
+    result["image_hash"] = sha256_json(IMAGE_REPOSITORY + "@" + bad_digest)
+    result["pod_created_at"] = pods[0]["metadata"]["creationTimestamp"]
+    result["proof_checked_at"] = moment.isoformat().replace("+00:00", "Z")
     result["blockers"] = ["incident_correlation_and_request_required"]
+    return result
+
+
+def assess_incident_request(live: dict, projection: IncidentProjection,
+                            request: RecoveryRequest, *, now: datetime | None = None) -> dict:
+    """인증된 조회·요청의 불변 해시를 현재 장애 근거에 묶는다.
+
+    ``live``는 같은 실행에서 방금 재조회한 결과여야 한다. 저장된 JSON이나
+    호출자가 만든 ``RecoveryRequest``만으로는 인증·현재 상태를 증명하지 못한다.
+    """
+    result = {**live, "incident_ready": False, "proposal_allowed": False,
+              "cluster_or_github_write_performed": False}
+    if live.get("proof_ready") is not True or live.get("blockers") != [
+            "incident_correlation_and_request_required"]:
+        return result
+    if not isinstance(projection, IncidentProjection) or not isinstance(request, RecoveryRequest):
+        raise ValueError("인증된 사건 조회와 해결 요청이 필요합니다")
+    moment = now or datetime.now(timezone.utc)
+    if moment.utcoffset() != timedelta(0):
+        raise ValueError("사건 연결 시각은 UTC여야 합니다")
+    failure = projection.image_failure
+    if (failure is None or projection.diagnosis_status != "suspected_cause"
+            or projection.current_state != "unknown"
+            or request.incident_id != projection.incident_id or request.run_id != projection.run_id
+            or request.target != projection.target or request.bundle_hash != projection.bundle_hash
+            or request.report_hash != projection.report_hash
+            or request.failure_binding_hash != sha256_json(failure.model_dump(mode="json"))
+            or not set(failure.evidence_ids) <= set(projection.cited_evidence_ids)
+            or failure.pod_uid_hash != live.get("pod_uid_hash")
+            or failure.deployment_uid_hash != live.get("deployment_uid_hash")
+            or failure.image_hash != live.get("image_hash")):
+        result["blockers"] = ["incident_or_request_mismatch"]
+        return result
+    created = _utc_datetime(live["pod_created_at"])
+    checked = _utc_datetime(live["proof_checked_at"])
+    if (not created <= failure.observed_at <= checked <= moment
+            or moment - checked > timedelta(seconds=60)
+            or not failure.observed_at <= request.requested_at <= moment):
+        result["blockers"] = ["incident_or_live_proof_stale"]
+        return result
+    result["incident_ready"] = True
+    result["incident_id"] = projection.incident_id
+    result["run_id"] = projection.run_id
+    result["request_id"] = request.request_id
+    result["bundle_hash"] = projection.bundle_hash
+    result["report_hash"] = projection.report_hash
+    result["failure_binding_hash"] = request.failure_binding_hash
+    result["blockers"] = ["fresh_recheck_and_proposal_contract_required"]
     return result

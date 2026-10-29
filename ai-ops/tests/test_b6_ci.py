@@ -19,23 +19,23 @@ class B6CITest(unittest.TestCase):
         self.ci = LabCI(self.root)
         self.state = {"run_id": "123", "run_attempt": "1", "source_revision": "a"*40,
             "baseline_revision": "b"*40, "failure_revision": "c"*40, "good_image": ECR+"@sha256:"+"1"*64,
-            "bad_image": ECR+":b6-missing-"+"2"*32, "deployment_uid": "deployment", "application_uid": "application",
+            "bad_image": ECR+"@sha256:"+"2"*64, "deployment_uid": "deployment", "application_uid": "application",
             "normal_template": {"spec": {"containers": [{"image": ECR+"@sha256:"+"1"*64}]}},
             "holder": "ci-"+"d"*32, "lease": {"uid": "lease"}, "injection_requested": False,
             "deployment_verified_failure": False, "rollback_verified": False}
         self.ci.save(self.state)
 
     def sources(self):
-        baseline=json.loads((Path(__file__).resolve().parents[1]/"lab/deployment.json").read_text())
-        failure=deepcopy(baseline);failure['spec']['template']['spec']['containers'][0]['image']=self.state['bad_image']
+        baseline=json.loads((Path(__file__).resolve().parents[1]/"lab/values.yaml").read_text())
+        failure=deepcopy(baseline);failure['api']['image']['digest']=self.state['bad_image'].split('@', 1)[1]
         return baseline,failure
 
     def test_only_missing_image_change_is_accepted(self):
         baseline,failure=self.sources();self.assertEqual(validate_sources(baseline,failure)[1],self.state['bad_image'])
-        for mutate in (lambda x:x['metadata'].update(namespace='url-shortener'),
-                       lambda x:x['spec'].update(replicas=0),
-                       lambda x:x['spec']['template']['spec'].update(serviceAccountName='other'),
-                       lambda x:x['spec']['template']['spec']['containers'][0].update(image=ECR+':v1')):
+        for mutate in (lambda x:x.update(other='unsafe'),
+                       lambda x:x['api'].update(replicas=0),
+                       lambda x:x['api']['image'].update(repository='other'),
+                       lambda x:x['api']['image'].update(digest='sha256:'+'3'*64, other='unsafe')):
             changed=deepcopy(failure);mutate(changed)
             with self.assertRaises(ValueError):validate_sources(baseline,changed)
 
@@ -45,15 +45,14 @@ class B6CITest(unittest.TestCase):
                 with self.assertRaises(ValueError):self.ci.prepare()
                 cmd.assert_not_called()
 
-    def test_argo_empty_jsonnet_default_is_accepted_but_options_are_rejected(self):
+    def test_argo_helm_source_is_accepted_but_extra_options_are_rejected(self):
         app = {'spec': {'project': 'b6-lab',
             'source': {'repoURL': 'https://github.com/f-lab-edu/F-Lab-DevOps.git',
-                       'path': 'ai-ops/lab', 'targetRevision': 'a'*40,
-                       'directory': {'include': 'deployment.json', 'jsonnet': {}}},
+                       'path': 'ai-ops/lab', 'targetRevision': 'a'*40},
             'destination': {'server': 'https://kubernetes.default.svc', 'namespace': 'ai-ops-lab'}}}
         with patch.object(self.ci, 'argo', return_value=Mock(stdout=json.dumps(app))):
             self.assertEqual(self.ci.app(), app)
-        app['spec']['source']['directory']['jsonnet']['extVars'] = [{'name': 'unsafe', 'value': 'x'}]
+        app['spec']['source']['directory'] = {'include': 'deployment.json'}
         with patch.object(self.ci, 'argo', return_value=Mock(stdout=json.dumps(app))):
             with self.assertRaises(ValueError):
                 self.ci.app()

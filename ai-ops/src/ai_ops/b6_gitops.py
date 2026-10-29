@@ -43,7 +43,7 @@ def build_gitops(bundle: dict, revision: str) -> dict:
     })
     application = _object("Application", APPLICATION, ARGO_NAMESPACE, spec={
         "project": PROJECT, "source": {"repoURL": REPOSITORY, "path": GITOPS_PATH,
-            "targetRevision": revision, "directory": {"recurse": False, "include": "deployment.json"}},
+            "targetRevision": revision},
         "destination": {"server": "https://kubernetes.default.svc", "namespace": NAMESPACE},
         "syncPolicy": {"syncOptions": ["CreateNamespace=false", "FailOnSharedResource=true"]},
     })

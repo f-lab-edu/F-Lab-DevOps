@@ -2,7 +2,10 @@
 
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import importlib.util
+from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from ai_ops.c2_rollback_guard import rollback_decision, validate_plan
 
@@ -32,6 +35,16 @@ def fixture():
 
 
 class RollbackGuardTest(unittest.TestCase):
+    def test_application_read_uses_existing_argo_scope(self):
+        script = Path(__file__).parents[1] / "scripts/run_c2_rollback_guard.py"
+        spec = importlib.util.spec_from_file_location("c2_rollback_runner", script)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with patch.object(module, "call", return_value=b'{"metadata":{"name":"lab-target"}}') as command:
+            self.assertEqual(module.get_application()["metadata"]["name"], "lab-target")
+        command.assert_called_once_with("argocd", "--server", "argocd.bidservice.store",
+                                        "--grpc-web", "app", "get", "lab-target", "-o", "json")
+
     def test_deadline_and_three_allowed_states(self):
         plan, app, deployment = fixture()
         self.assertEqual(validate_plan(plan, now=NOW), NOW + timedelta(minutes=10))

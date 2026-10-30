@@ -1,0 +1,92 @@
+name: C-02 격리 실습 독립 기한 원복
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_revision:
+        required: true
+        type: string
+      failure_revision:
+        required: true
+        type: string
+      application_uid:
+        required: true
+        type: string
+      deployment_uid:
+        required: true
+        type: string
+      normal_image:
+        required: true
+        type: string
+      failure_image:
+        required: true
+        type: string
+      deadline_utc:
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ai-ops-c2-rollback
+  cancel-in-progress: false
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ai-ops-lab-ci
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      PYTHONPATH: ai-ops/src
+      C2_BASELINE: ${{ inputs.baseline_revision }}
+      C2_FAILURE: ${{ inputs.failure_revision }}
+      C2_APP_UID: ${{ inputs.application_uid }}
+      C2_DEP_UID: ${{ inputs.deployment_uid }}
+      C2_NORMAL_IMAGE: ${{ inputs.normal_image }}
+      C2_FAILURE_IMAGE: ${{ inputs.failure_image }}
+      C2_DEADLINE: ${{ inputs.deadline_utc }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
+        with:
+          role-to-assume: ${{ vars.S10_CI_ROLE_ARN }}
+          aws-region: ap-northeast-2
+          role-duration-seconds: 1800
+      - name: 고정 실행 도구와 개인 계획 준비
+        run: |
+          set -euo pipefail
+          umask 077
+          export AI_OPS_FILES_ROOT="$RUNNER_TEMP/c2-rollback"
+          echo "AI_OPS_FILES_ROOT=$AI_OPS_FILES_ROOT" >> "$GITHUB_ENV"
+          mkdir -m 700 "$AI_OPS_FILES_ROOT"
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
+          curl -fsSL -o "$RUNNER_TEMP/argocd" https://github.com/argoproj/argo-cd/releases/download/v3.5.3/argocd-linux-amd64
+          echo "b860f73f57cbddd993cd446f5236d797c1b1ac8554857b2683d2669f17e765b4  $RUNNER_TEMP/argocd" | sha256sum --check --status
+          curl -fsSL -o "$RUNNER_TEMP/kubectl" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl
+          curl -fsSL -o "$RUNNER_TEMP/kubectl.sha256" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl.sha256
+          echo "$(cat "$RUNNER_TEMP/kubectl.sha256")  $RUNNER_TEMP/kubectl" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/argocd" "$RUNNER_TEMP/kubectl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          aws eks update-kubeconfig --region ap-northeast-2 --name urlshortener
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import json, os
+          from pathlib import Path
+          from ai_ops.c2_rollback_guard import validate_plan
+          from datetime import datetime, timezone
+          plan = dict(schema_version=1, target='urlshortener/ai-ops-lab/lab-api/practice',
+                      application_uid=os.environ['C2_APP_UID'], deployment_uid=os.environ['C2_DEP_UID'],
+                      baseline_revision=os.environ['C2_BASELINE'], failure_revision=os.environ['C2_FAILURE'],
+                      normal_image=os.environ['C2_NORMAL_IMAGE'], failure_image=os.environ['C2_FAILURE_IMAGE'],
+                      deadline_utc=os.environ['C2_DEADLINE'])
+          validate_plan(plan, now=datetime.now(timezone.utc))
+          (Path(os.environ['AI_OPS_FILES_ROOT']) / 'plan.json').write_text(json.dumps(plan))
+          PY
+      - name: 별도 기한 원복과 정상 상태 검증
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" ai-ops/scripts/run_c2_rollback_guard.py \
+            --plan "$AI_OPS_FILES_ROOT/plan.json" --kubeconfig "$HOME/.kube/config"

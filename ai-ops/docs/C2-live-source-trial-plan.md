@@ -17,7 +17,7 @@
 
 ## 승인 후 제한된 실행 순서
 
-1. 독립 원복 주체가 정상 revision·현재 Application UID·Deployment UID와 시간 제한을 고정한다. 원복 주체가 준비되지 않으면 시작하지 않는다.
+1. 별도 [C-02 기한 원복 workflow](../../.github/workflows/ai-ops-c2-rollback.yml)가 정상 revision·현재 Application UID·Deployment UID·두 이미지와 UTC 기한을 고정한다. GitHub 환경 승인을 거쳐 실제 Job이 실행 중임을 확인한 뒤에만 장애 주입을 검토한다. 원복 Job이 대기·실패·취소 상태면 시작하지 않는다. 원복 실행기는 대상 UID·namespace·수동 Argo 소스와 이미지 두 개만 허용하며 기한이 되면 정상 revision으로 되돌려 `Synced/Healthy`·Ready 1/1을 확인한다.
 2. Argo Application의 `targetRevision`을 승인된 실패 커밋으로 전환하고 **그 커밋만** 수동 동기화한다. 운영 앱이나 다른 실습 Deployment는 변경하지 않는다. 이미지 취득 실패·Ready 0, Argo sync revision·operation 성공, 공유 Lease가 비어 있음을 확인한다.
 3. 기존 `prepare_c2_live_job.py`는 S10 실행 ID와 Lease에 결합돼 있어 이 실습에 그대로 재사용하지 않는다. 별도 접수 경로가 현재 활성 revision·Pod/ReplicaSet 소유 관계·실패 이미지를 확인한 뒤 한 건만 접수하도록 구현·검증한다.
 4. `ai-ci/ci-worker`의 v3 사건을 TLS로 읽고, 새 정상 CI 영수증·ECR·현재 실패 Pod·인증된 해결 요청을 `audit_c2_live_preflight.py`로 결합한다. 초안 직전 30초 이내 재조회가 성공할 때만 v2 `draft`를 개인 저장소에 기록한다. 어느 근거든 불일치하면 제안을 만들지 않는다.
@@ -25,7 +25,7 @@
 
 ## 구현 전 차단 조건
 
-- 독립 원복 주체, 활성 revision 전용 조사 접수, 장애 중 사건·요청 연결이 아직 준비되지 않았다. 따라서 현재는 이 실습의 실패 전환을 실행하지 않는다.
+- 별도 기한 원복 workflow와 대상 검증 코드는 구현했지만 **실제 실행·권한·만료 토큰 복원 검증은 아직 없다.** GitHub Actions 자체가 중지되거나 자격이 만료되면 원복이 실패할 수 있으므로 이 workflow 하나만으로 실패 주입을 시작하지 않는다. 활성 revision 전용 조사 접수와 장애 중 사건·요청 연결도 아직 준비되지 않았다.
 - C-02의 성공 기준은 **v2 초안의 근거·diff 해시를 저장하는 것까지**다. 사람의 특정 변경 승인, PR 병합, 클러스터 복구 실행은 포함하지 않는다.
 - 자동 원복 전에 초안을 만들지 못하면 실패 원인을 기록하고 정상 상태만 복구한다. 시간 제한을 늘리거나 검사 조건을 느슨하게 하지 않는다.
 

@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -28,22 +29,54 @@ def fixture():
            "spec": {"project": "b6-lab", "source": {
                "repoURL": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
                "path": "ai-ops/lab", "targetRevision": BASE},
-               "destination": {"server": "https://kubernetes.default.svc", "namespace": "ai-ops-lab"}}}
+               "destination": {"server": "https://kubernetes.default.svc", "namespace": "ai-ops-lab"}},
+           "status": {"sync": {"status": "Synced"}, "health": {"status": "Healthy"}}}
     deployment = {"metadata": {"name": "lab-api", "namespace": "ai-ops-lab", "uid": "dep-uid"},
-                  "spec": {"replicas": 1, "template": {"spec": {"containers": [{"image": GOOD}]}}}}
+                  "spec": {"replicas": 1, "template": {"spec": {"containers": [{"image": GOOD}]}}},
+                  "status": {"readyReplicas": 1}}
     return plan, app, deployment
 
 
 class RollbackGuardTest(unittest.TestCase):
-    def test_application_read_uses_existing_argo_scope(self):
+    @staticmethod
+    def runner():
         script = Path(__file__).parents[1] / "scripts/run_c2_rollback_guard.py"
         spec = importlib.util.spec_from_file_location("c2_rollback_runner", script)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        return module
+
+    def test_application_read_uses_existing_argo_scope(self):
+        module = self.runner()
         with patch.object(module, "call", return_value=b'{"metadata":{"name":"lab-target"}}') as command:
             self.assertEqual(module.get_application()["metadata"]["name"], "lab-target")
         command.assert_called_once_with("argocd", "--server", "argocd.bidservice.store",
                                         "--grpc-web", "app", "get", "lab-target", "-o", "json")
+
+    def test_local_read_uses_core_and_requires_private_argocd_context(self):
+        module = self.runner()
+        with patch.object(module, "call", return_value=b'{"metadata":{"name":"lab-target"}}') as command:
+            module.get_application(module.CORE_ARGO)
+        command.assert_called_once_with("argocd", "--core", "app", "get", "lab-target", "-o", "json")
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "kubeconfig"
+            path.write_text("test")
+            path.chmod(0o600)
+            with patch.object(module, "call", return_value=b"argocd"):
+                module.verify_local_kubeconfig(str(path))
+            with patch.object(module, "call", return_value=b"default"), self.assertRaises(ValueError):
+                module.verify_local_kubeconfig(str(path))
+            path.chmod(0o644)
+            with self.assertRaises(ValueError):
+                module.verify_local_kubeconfig(str(path))
+
+    def test_preflight_requires_healthy_ready_baseline(self):
+        module = self.runner()
+        plan, app, deployment = fixture()
+        module.verify_normal(plan, app, deployment)
+        deployment["status"]["readyReplicas"] = 0
+        with self.assertRaises(ValueError):
+            module.verify_normal(plan, app, deployment)
 
     def test_deadline_and_three_allowed_states(self):
         plan, app, deployment = fixture()

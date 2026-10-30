@@ -135,6 +135,14 @@ worker는 사건 `inc-38255794fd52414ea4e5ce428990f606`/실행 `run-e114984db243
 
 [정상 관측 CI #40828027673](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40828027673)은 같은 실습 앱의 자기 아이템 네 번 읽기에서 `miss→hit→miss→hit`와 HTTP 200을 기록하고 성공했다. 영수증은 기준선 유지·실습 소유 자료 삭제·공유 잠금 해제·외부 모델 호출 0건을 기록했다. 전달기는 영수증 한 건을 자동 접수했고 worker의 정제 요약 상태는 `ready`였다. 최종 재조회에서 Argo는 기준선 `Synced/Healthy`, 앱은 원래 digest로 Ready 1/1, `ci-worker`와 `ci-relay`는 각각 Ready 1/1, 공유 Lease는 빈 상태였다.
 
+### 2026-10-30 재설치 후 C-02 조회 재검증
+
+새 클러스터에 C-02 TLS 조회 sidecar와 현재 worker Pod만 허용하는 포트 전달 권한을 복원했다. 승인된 [S10 실행 #41001016263](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/41001016263)은 정상 revision `0fd3e2e4b2cd00d8684b94e83c9b7b0abdf75a09`에서 `values.yaml`의 digest 한 값만 다른 실패 커밋 `a71eba53368f5ecb8ad1fe730f04537f8e50925d`를 적용했다. 실패 digest가 ECR에 없는 것을 먼저 확인했다. 최대 5분 관측 창에서 일회성 `c2-live-capture-41001016263-1` Job이 완료되고 큐 작업 `job-85eb13f017b84108985bb1e58012c8ad`가 접수됐다.
+
+worker는 사건 `inc-84f996db483f425ab71bb92a7bc166f4`와 실행 `run-9c55e9ae65fb43b1bedcba60594372b0`를 `partial`로 저장했다. 현재 worker Pod 한 개로 제한된 포트 전달과 TLS 인증 조회는 `suspected_cause`와 Pod 상태·Event·Deployment 근거 ID 세 개의 `image_failure` 결합을 반환했다. 조회 응답에는 원문 로그나 보고서 문장이 없었다. 이 결과는 장애 조사 근거를 확인한 것이며 원인 확정이나 변경안 승인을 뜻하지 않는다.
+
+S10 artifact는 `deployment=failure`, `rollback=success`, `result=recovered_after_failure`였다. 종료 뒤 Argo는 정상 revision에서 `Synced/Healthy`, Deployment는 원래 digest·Ready 1/1, 공유 Lease는 비어 있었다. CI 최종 `failure`는 최초 이미지 실패를 보존한 결과다. 모델 호출이나 운영 앱 변경은 없었다. 자동 원복으로 실습 앱 Pod 이름이 바뀌어 정상 관측 CI의 Pod 한정 권한·결합값은 새 Pod에 맞춰 회전해야 한다.
+
 1. **조회 경로의 장기 자격 관리:** Pod 교체 뒤 RBAC 재결합·단기 토큰 재발급·이전 Pod 거부와 실제 TLS 조회는 검증했다. 인증서 만료일인 2026-11-27 18:22 KST 전에 Secret·로컬 CA를 함께 회전하고 구 자격 거부를 확인해야 한다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
 2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 S10 실패에서 v3 사건의 이미지 장애 결합은 확인했지만, 활성 GitOps 소스 revision과 공유 잠금 조건 때문에 v2 초안 양성 경로는 여전히 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 다음 실습은 실패 revision을 활성 GitOps 소스로 전환하고 반드시 정상 기준선으로 원복하는 별도 절차를 준비해야 한다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.

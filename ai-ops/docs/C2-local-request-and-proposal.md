@@ -143,6 +143,8 @@ worker는 사건 `inc-84f996db483f425ab71bb92a7bc166f4`와 실행 `run-9c55e9ae6
 
 S10 artifact는 `deployment=failure`, `rollback=success`, `result=recovered_after_failure`였다. 종료 뒤 Argo는 정상 revision에서 `Synced/Healthy`, Deployment는 원래 digest·Ready 1/1, 공유 Lease는 비어 있었다. CI 최종 `failure`는 최초 이미지 실패를 보존한 결과다. 모델 호출이나 운영 앱 변경은 없었다. 자동 원복으로 실습 앱 Pod 이름이 바뀌어 정상 관측 CI의 Pod 한정 권한·결합값은 새 Pod에 맞춰 회전해야 한다.
 
+이후 앱 Pod `lab-api-6c9cbdc496-mzph7`에 맞춰 정상 관측 CI Role의 `pods get`·`pods/exec create` 대상 이름을 교체하고 이전 Pod 이름을 제거했다. GitHub 환경의 `NORMAL_CI_BINDING`과 `ai-ci/ci-normal-binding` ConfigMap은 같은 새 결합값으로 갱신했으며 relay·worker를 순서대로 재시작해 Ready를 확인했다. worker 재시작 뒤 C-02 조회 Role도 현재 Pod `ci-worker-75754b4758-wfpvs` 한 개로 회전하고 1시간 자격을 새로 발급했다. 새 자격은 현재 Pod 조회를 허용하고 이전 Pod·Secret 조회를 거부했다. 새 Pod의 TLS sidecar에서 위 사건의 `partial`·`suspected_cause`와 이미지 실패 근거 ID 세 개를 재조회한 뒤 포트 전달을 종료했다. 정상 관측 CI의 새 실행은 이 회전 과정에서 반복하지 않았다.
+
 1. **조회 경로의 장기 자격 관리:** Pod 교체 뒤 RBAC 재결합·단기 토큰 재발급·이전 Pod 거부와 실제 TLS 조회는 검증했다. 인증서 만료일인 2026-11-27 18:22 KST 전에 Secret·로컬 CA를 함께 회전하고 구 자격 거부를 확인해야 한다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
 2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 S10 실패에서 v3 사건의 이미지 장애 결합은 확인했지만, 활성 GitOps 소스 revision과 공유 잠금 조건 때문에 v2 초안 양성 경로는 여전히 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 다음 실습은 실패 revision을 활성 GitOps 소스로 전환하고 반드시 정상 기준선으로 원복하는 별도 절차를 준비해야 한다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.

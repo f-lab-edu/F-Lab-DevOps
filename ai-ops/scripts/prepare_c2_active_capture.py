@@ -67,4 +67,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (ValueError, KeyError, IndexError, TypeError, OSError, subprocess.SubprocessError):
+        raise SystemExit("C-02 활성 실패 확인에 실패했습니다. Job은 준비·적용되지 않았습니다.") from None

@@ -8,6 +8,8 @@
 
 ## 실행 전 준비
 
+첫 읽기 검사에는 `prepare_c2_source_trial.py`를 사용한다. 관리자 kubeconfig, 고정 정상·실패 커밋 SHA, 개인 전용 출력 경로를 입력하면 현재 Argo·Deployment·Lease, 두 커밋의 단일 values 변경, AWS 계정과 ECR의 정상 이미지 존재·실패 이미지 부재를 확인한다. 출력의 `ready_to_inject=false`는 의도된 결과다. 이 명령은 독립 원복 주체나 활성 revision 전용 조사 접수를 설치하지 않는다.
+
 1. 현재 ECR에 존재하는 정상 digest, 고정 정상 revision, 실습 앱 UID·Deployment UID·Ready 1/1, Argo `Synced/Healthy`, 빈 공유 Lease를 기록한다. 모델 gateway·egress proxy는 복제수 0으로 둔다.
 2. 정상 관측 CI의 현재 Pod 결합값·Role·GitHub 환경 변수·`ai-ci/ci-normal-binding`이 일치하는지 확인하고, **새 정상 CI 한 건**의 성공 영수증을 확보한다. 이전 Pod에 결합된 영수증을 새 실습의 정상 근거로 재사용하지 않는다.
 3. 정상 커밋과 `ai-ops/lab/values.yaml`의 digest 한 값만 다른 실패 커밋을 준비한다. ECR에 실패 digest가 없고 정상 digest가 있음을 재확인한다. 실패 커밋은 `main`에 병합하지 않는다.

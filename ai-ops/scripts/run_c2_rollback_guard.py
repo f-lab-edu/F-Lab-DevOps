@@ -18,6 +18,12 @@ def call(*args: str, timeout: int = 30) -> bytes:
     return result.stdout
 
 
+def get_application() -> dict:
+    """기존 실습 전용 Argo 자격으로 고정 Application을 조회한다."""
+    return json.loads(call("argocd", "--server", "argocd.bidservice.store", "--grpc-web",
+                           "app", "get", "lab-target", "-o", "json"))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="C-02 별도 기한 원복 실행")
     parser.add_argument("--plan", type=Path, required=True)
@@ -32,10 +38,10 @@ def main() -> int:
         return json.loads(call("kubectl", "--kubeconfig", args.kubeconfig,
                                "-n", namespace, "get", kind, name, "-o", "json"))
 
-    app = get("argocd", "application", "lab-target")
+    argo = ("argocd", "--server", "argocd.bidservice.store", "--grpc-web", "app")
+    app = get_application()
     deployment = get("ai-ops-lab", "deployment", "lab-api")
     decision = rollback_decision(plan, app, deployment)
-    argo = ("argocd", "--server", "argocd.bidservice.store", "--grpc-web", "app")
     if decision == "set_and_sync_baseline":
         call(*argo, "set", "lab-target", "--revision", plan["baseline_revision"], timeout=45)
     if decision != "verify_normal":
@@ -43,7 +49,7 @@ def main() -> int:
              "--timeout", "150", timeout=165)
     call(*argo, "wait", "lab-target", "--sync", "--health", "--operation",
          "--timeout", "150", timeout=165)
-    app = get("argocd", "application", "lab-target")
+    app = get_application()
     deployment = get("ai-ops-lab", "deployment", "lab-api")
     if (rollback_decision(plan, app, deployment) != "verify_normal"
             or app["status"]["sync"]["status"] != "Synced"

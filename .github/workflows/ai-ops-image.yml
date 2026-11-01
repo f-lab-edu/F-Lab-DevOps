@@ -94,7 +94,7 @@ jobs:
           IMAGE_RECORD_PATH: ${{ runner.temp }}/ai-ops-image/image-registration.json
         run: python3 .github/scripts/write-ai-ops-image-record.py
       - name: 등록 기록 보존
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 버전 7.0.2
         with:
           name: ai-ops-image-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/ai-ops-image/image-registration.json

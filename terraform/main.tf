@@ -334,7 +334,7 @@ module "eks" {
   # 클러스터 생성자에게 AWS 리소스에 접근할 수 있는 Role을 부여하기 위한 코드
   access_entries = {
     admin = {
-      principal_arn = "arn:aws:iam::716174522908:user/IAM-jounghyeon"
+      principal_arn = var.eks_admin_principal_arn
       policy_associations = {
         admin = {
           policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"

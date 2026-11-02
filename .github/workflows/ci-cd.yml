@@ -26,7 +26,7 @@ on:
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: urlshortener
-  AWS_ACCOUNT_ID: "716174522908"
+  AWS_ACCOUNT_ID: ${{ vars.APP_AWS_ACCOUNT_ID }}
   ARGOCD_APPLICATION: url-shortener
   ARGOCD_WAIT_TIMEOUT: "300"
 
@@ -64,12 +64,17 @@ jobs:
           REQUESTED_MODE: ${{ inputs.mode || 'image-only' }}
         run: python3 .github/scripts/app-image.py mode
 
+      - name: AWS 계정 입력 확인
+        run: |
+          [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]
+
       # 2. AWS OIDC 인증 (IAM Access Key 없이 임시 자격증명 획득)
       - name: AWS OIDC 인증
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/urlshortener-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
 
       # 3. ECR 로그인
       - name: ECR 로그인

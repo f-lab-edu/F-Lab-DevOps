@@ -6,6 +6,34 @@ variable "aws_region" {
   default     = "ap-northeast-2"
 }
 
+variable "expected_account_id" {
+  description = "Terraform 실행을 허용할 AWS 계정 ID"
+  type        = string
+  default     = "716174522908"
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.expected_account_id))
+    error_message = "expected_account_id는 숫자 12자리여야 합니다."
+  }
+}
+
+variable "eks_admin_principal_arn" {
+  description = "EKS 관리자 접근 항목에 등록할 같은 계정의 IAM 사용자 또는 역할 ARN"
+  type        = string
+  default     = "arn:aws:iam::716174522908:user/IAM-jounghyeon"
+
+  validation {
+    condition     = can(regex("^arn:aws:iam::${var.expected_account_id}:(user|role)/[A-Za-z0-9+=,.@_/-]+$", var.eks_admin_principal_arn))
+    error_message = "eks_admin_principal_arn은 expected_account_id와 같은 계정의 IAM 사용자 또는 역할이어야 합니다."
+  }
+}
+
+variable "enable_project_operator" {
+  description = "새 계정에서 프로젝트 전용 IAM 사용자와 EKS 관리자 접근 항목 생성 여부"
+  type        = bool
+  default     = false
+}
+
 variable "project_name" {
   description = "프로젝트 이름 - 리소스의 prefix로 사용"
   type        = string
@@ -70,18 +98,41 @@ variable "node_max_size" {
 }
 
 variable "db_password" {
-  description = "RDS master(user=postgres) password (manage_master_user_password=false 사용 시 필수)"
+  description = "신규 RDS 생성 시 필요한 master(user=postgres) 비밀번호. 스냅샷 복원 시에는 전달하지 않음"
   type        = string
   sensitive   = true
   ephemeral   = true
+  default     = null
+
+  validation {
+    condition     = var.rds_restore_snapshot_identifier == null ? var.db_password != null : var.db_password == null
+    error_message = "신규 DB 생성에는 db_password가 필요하고 스냅샷 복원에는 지정하면 안 됩니다."
+  }
 }
 
 variable "db_password_rotation_version" {
-  description = "RDS master 비밀번호 회전 버전 (초기 배포는 1, 변경 시 증가; 매 실행마다 지정)"
+  description = "신규 RDS 생성 시 필요한 master 비밀번호 회전 버전. 스냅샷 복원 시에는 전달하지 않음"
   type        = number
+  default     = null
 
   validation {
-    condition     = var.db_password_rotation_version >= 1 && floor(var.db_password_rotation_version) == var.db_password_rotation_version
-    error_message = "db_password_rotation_version은 1 이상의 정수여야 합니다."
+    condition     = var.db_password_rotation_version == null || (var.db_password_rotation_version >= 1 && floor(var.db_password_rotation_version) == var.db_password_rotation_version)
+    error_message = "db_password_rotation_version은 null 또는 1 이상의 정수여야 합니다."
+  }
+
+  validation {
+    condition     = var.rds_restore_snapshot_identifier == null ? var.db_password_rotation_version != null : var.db_password_rotation_version == null
+    error_message = "신규 DB 생성에는 회전 버전이 필요하고 스냅샷 복원에는 지정하면 안 됩니다."
+  }
+}
+
+variable "rds_restore_snapshot_identifier" {
+  description = "새 계정에서 이미 복사해 소유한 RDS 수동 스냅샷 이름. null이면 신규 DB 생성"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.rds_restore_snapshot_identifier == null || can(regex("^[a-z][a-z0-9-]{0,254}$", var.rds_restore_snapshot_identifier))
+    error_message = "rds_restore_snapshot_identifier는 같은 계정의 스냅샷 이름만 허용합니다."
   }
 }

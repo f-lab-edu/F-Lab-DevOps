@@ -52,6 +52,9 @@ module "rds" {
 
   identifier = "${var.project_name}-postgres"
 
+  # 계정 이전에서는 새 계정이 소유한 복사본 스냅샷으로만 복원한다.
+  snapshot_identifier = var.rds_restore_snapshot_identifier
+
   # 엔진
   engine         = "postgres"
   engine_version = "17.9"
@@ -64,13 +67,13 @@ module "rds" {
   storage_encrypted     = true
 
   # DB
-  db_name  = "urldb"
-  username = "postgres"
+  db_name  = var.rds_restore_snapshot_identifier == null ? "urldb" : null
+  username = var.rds_restore_snapshot_identifier == null ? "postgres" : null
   port     = 5432
   # Read Replica를 사용하기 위해 Secrets Manager 자동관리(ManageMasterUserPassword)는 비활성화
   manage_master_user_password = false
-  password_wo                 = var.db_password
-  password_wo_version         = var.db_password_rotation_version
+  password_wo                 = var.rds_restore_snapshot_identifier == null ? var.db_password : null
+  password_wo_version         = var.rds_restore_snapshot_identifier == null ? var.db_password_rotation_version : null
 
   iam_database_authentication_enabled = true # IAM 인증 -> 일반 계정 사용자를 위한 접근 방법
 

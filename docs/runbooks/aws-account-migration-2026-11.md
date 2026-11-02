@@ -77,7 +77,7 @@ AWS_PROFILE=urlshortener-terraform terraform -chdir=terraform plan \
 
 `admin-user-pjh`는 2026-03-25에 만들어졌고 MFA·관리자 그룹·활성 액세스 키가 있으나 사용자는 생성 경위와 초기 비밀번호를 알지 못한다. 소유 관계를 확인하기 전에는 이 사용자의 비밀번호·키·권한을 바꾸지 않는다. 대신 사용자가 새 프로젝트 전용 사용자와 현재 EKS 클러스터 관리자 권한을 명시적으로 승인했다. `enable_project_operator=true` 계획의 **6개 추가·변경 0·삭제 0**을 적용해 IAM 사용자 `urlshortener-operator`와 EKS 접근 항목을 만들었다. AWS 권한은 `SignInLocalDevelopmentAccess`, 본인 비밀번호 변경, 현재 EKS 클러스터 `DescribeCluster`로 제한된다. EKS 접근 항목에는 현재 클러스터에만 `AmazonEKSClusterAdminPolicy`가 연결돼 있다. 이 정책은 Kubernetes 안에서는 전체 관리 권한이므로 계정 이전을 마친 뒤 유지 필요성을 검토한다. 사용자의 장기 액세스 키는 0개다. Terraform state 밖의 소유자 전용 파일에 초기 콘솔 비밀번호를 생성하고 첫 로그인에서 비밀번호 변경을 강제했다. CLI 요청 JSON은 적용 후 삭제했다.
 
-사용자가 첫 콘솔 로그인과 비밀번호 변경을 완료했고, AWS API에서 `PasswordResetRequired=false`를 확인했다. 사용이 끝난 초기 비밀번호 파일을 삭제했다. `aws login` 임시 세션은 새 계정의 `arn:aws:iam::764428911194:user/urlshortener-operator`로 확인됐으며, 별도 kubeconfig로 EKS 노드 **3대가 모두 Ready**임을 조회했다. **MFA는 아직 0개**다. 현재 IAM 정책에 MFA 자가 등록 권한이 없어 새 계정 루트 세션의 사용자 MFA 할당 화면을 준비하고 사용자의 기기 등록을 기다린다. MFA를 실제로 확인하기 전에는 완료로 기록하지 않는다. [AWS CLI 임시 로그인](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html)은 만료 후 갱신해야 한다.
+사용자가 첫 콘솔 로그인과 비밀번호 변경을 완료했고, AWS API에서 `PasswordResetRequired=false`를 확인했다. 사용이 끝난 초기 비밀번호 파일을 삭제했다. `aws login` 임시 세션은 새 계정의 `arn:aws:iam::764428911194:user/urlshortener-operator`로 확인됐으며, 별도 kubeconfig로 EKS 노드 **3대가 모두 Ready**임을 조회했다. 사용자는 새 계정 루트 세션에서 이 IAM 사용자에 MFA를 직접 등록했다. AWS API에 MFA 디바이스 1개가 나타나고 콘솔 유형은 **가상 인증 앱**이다. 디바이스 이름에는 등록 준비 중 입력한 `passkey`가 남아 있으나 실제 유형은 패스키가 아니다. IAM 사용자의 MFA 자가 등록 권한은 추가하지 않았다. [AWS CLI 임시 로그인](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html)은 만료 후 갱신해야 한다.
 
 AI root는 `terraform/ai-ops-registry/account.new.tfvars.example`과 전용 새 계정 backend를 사용한다. 운영 root가 GitHub OIDC provider를 만든 뒤 AI root의 plan을 계산했고 **ECR 저장소·수명주기 정책·GitHub 이미지 등록 IAM 역할·정책 4개 생성, 변경·삭제 0**으로 적용했다. ECR `urlshortener-practice-ai-ops`는 새 계정 URI, 불변 태그, AES256 암호화, 푸시 검사를 확인했다. 이미지 자체는 아직 이전하지 않았다. 두 root의 계획 파일은 비밀 산출물로 취급하고 Git에 추가하지 않는다.
 
@@ -111,7 +111,7 @@ EKS의 [표준 지원 클러스터 요금](https://aws.amazon.com/eks/pricing/)�
 ## 다음 순서
 
 1. 새 계정 비용 단가·크레딧 검토, 월간·일간 예산 생성, 수신 이메일 경보 연결은 완료했다. 실제 메일 도착은 기준 초과 시 확인한다. state bucket과 최초 plan 검증도 완료했다.
-2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root를 설치하고 실패한 임시 역할 3개를 제거했다. 전용 `urlshortener-operator` 생성·첫 로그인·비밀번호 변경·임시 CLI 로그인과 EKS 노드 3대 Ready 확인까지 완료했다. DB Primary·Replica의 기존 비밀번호 인증과 예상한 `items` 0행을 확인했다. MFA 등록 후 앱·모니터링·AI 리소스를 복원한다.
+2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root를 설치하고 실패한 임시 역할 3개를 제거했다. 전용 `urlshortener-operator` 생성·첫 로그인·비밀번호 변경·MFA·임시 CLI 로그인과 EKS 노드 3대 Ready 확인까지 완료했다. DB Primary·Replica의 기존 비밀번호 인증과 예상한 `items` 0행을 확인했다. 다음은 앱·모니터링·AI 리소스 복원이다.
 3. 새 계정의 ECR/OIDC와 GitHub 환경 변수·자격, Route53 Hosted Zone 및 Gabia NS 이전, 외부 HTTPS를 검증한다. DNS 이전 중에는 기존 zone을 유지하고 새 zone의 레코드를 대조한다.
 4. 새 계정에서 주요 기능, AI 수집·보고서, 설치/정리 경로를 검증한 뒤 기존 계정 잔여 리소스를 목록으로 대조해 삭제한다. 기존 계정의 RDS 스냅샷·S3 state 버전·Route53 zone은 복원과 DNS 전환 검증 전에는 삭제하지 않는다.
 5. 기존 계정의 과금 가능한 리소스가 0인지 서비스별 조회와 Billing/Cost Explorer로 재확인한다. 이미 발생한 사용료는 청구에 늦게 반영될 수 있으므로 확인 시각을 기록한다.

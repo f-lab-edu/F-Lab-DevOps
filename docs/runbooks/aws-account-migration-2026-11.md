@@ -16,7 +16,7 @@
 4. 이전 완료 후 기존 계정의 임시 공유 권한을 회수하고 임시 공유 스냅샷을 삭제했다. 이전 전부터 있던 최종 스냅샷과 과거 수동 스냅샷은 DB 복원 검증 전까지 유지한다.
 5. 임시 고객 관리형 KMS 키 `126f4ced-3727-496a-8f6c-87f16e1bdf54`는 이를 쓰는 RDS 스냅샷이 없음을 확인한 뒤 삭제 예약했다. 상태는 `PendingDeletion`, 예정 시각은 2026-11-09 12:04 KST다.
 
-새 계정에는 **스냅샷만 존재한다. DB 인스턴스와 프로젝트 인프라는 아직 복원하지 않았다.**
+스냅샷 복사 직후에는 새 계정에 DB 인스턴스가 없었다. 이후 아래 Terraform 적용으로 DB와 클러스터를 만들었다.
 
 ## 새 계정 Terraform 입력 준비
 
@@ -27,10 +27,11 @@
 | 운영 backend | `terraform/backend.new-account.production.hcl` | 새 S3 버킷과 새 계정 ID만 허용한다. 기존 state를 복사하지 않는다. 기존 운영·실습 backend도 기존 계정 ID만 허용한다. |
 | 운영 provider | `account.new.tfvars.example`의 `expected_account_id` | 다른 계정 자격이면 plan 단계에서 거부한다. |
 | EKS 관리자 | 새 계정의 기존 IAM 사용자 `admin-user-pjh` | 루트 계정을 EKS 접근 항목에 넣지 않는다. |
+| 이전 중 Kubernetes 작업자 | 기존 `admin-user-pjh`의 임시 AWS CLI 로그인 | EKS 접근 항목에 이미 등록된 사용자다. 루트 계정은 역할을 맡을 수 없어 Kubernetes 작업에는 이 IAM 사용자 세션이 필요하다. |
 | RDS Primary | `urlshortener-migrated-final-20261102` | 신규 DB 이름·마스터 사용자·비밀번호 생성 입력을 복원 호출에 전달하지 않는다. |
 | AI backend | `terraform/ai-ops-registry/backend.new-account.practice.hcl` | 운영과 별도 key를 쓰며 새 계정만 허용한다. |
 
-새 계정 state 버킷 `urlshortener-tfstate-764428911194-ap-northeast-2`를 만들고 버전 관리·SSE-S3 암호화·퍼블릭 접근 차단을 확인했다. 아직 state 객체는 없다. 다른 작업 디렉터리에서 새 backend를 초기화해야 하며 **기존 작업 디렉터리에서 `-migrate-state`를 사용하지 않는다.** DB를 스냅샷으로 복원하면 당시의 마스터 비밀번호가 이어진다. 복원 후 보관된 자격으로 실제 접속을 확인하고 필요한 경우 별도의 비밀번호 회전 절차를 계획한다. 스냅샷 식별자는 최초 복원 이후의 plan에도 계속 유지해 예기치 않은 DB 교체를 피한다.
+새 계정 state 버킷 `urlshortener-tfstate-764428911194-ap-northeast-2`를 만들고 버전 관리·SSE-S3 암호화·퍼블릭 접근 차단을 확인했다. 운영·AI root 각각의 state는 아래 적용으로 새로 생성했다. 기존 계정 state를 복사하거나 이전하지 않았다. **기존 작업 디렉터리에서 `-migrate-state`를 사용하지 않는다.** DB를 스냅샷으로 복원하면 당시의 마스터 비밀번호가 이어진다. 복원 후 보관된 자격으로 실제 접속을 확인하고 필요한 경우 별도의 비밀번호 회전 절차를 계획한다. 스냅샷 식별자는 최초 복원 이후의 plan에도 계속 유지해 예기치 않은 DB 교체를 피한다.
 
 현재 Terraform CLI 1.14.7의 S3 backend는 AWS CLI `aws login` 프로필을 직접 읽지 못했다. AWS의 [프로세스 자격 증명 절차](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html#cli-configure-sign-in-process)를 따라 별도의 임시 설정 파일을 만든다. 이 파일에는 키 자체가 없고, AWS CLI가 로그인 세션에서 단기 자격을 꺼내 Terraform에 전달하는 명령만 있다. 아래 파일은 Git에 넣지 않고 소유자만 읽을 수 있게 한다.
 
@@ -68,9 +69,19 @@ AWS_PROFILE=urlshortener-terraform terraform -chdir=terraform plan \
   -var-file=account.new.tfvars.example -out=/private/tmp/urlshortener-new-account.plan
 ```
 
-운영 root는 새 계정 backend 초기화와 `terraform validate`를 통과했다. 비어 있는 새 state에서 `-refresh=false`로 계산한 최초 plan은 **생성 102건·조회 10건·삭제 0건**이며, 계획된 리소스 값에 기존 계정 ID는 없었다. RDS Primary는 복사된 스냅샷을 사용하고 신규 DB 이름·사용자·비밀번호 입력은 null이며, EKS 관리자 접근 항목은 새 계정의 `admin-user-pjh`를 가리킨다. 이 plan은 **아직 적용하지 않았으며**, 적용 직전 새 AWS 상태로 다시 계산해야 한다.
+운영 root는 새 계정 backend 초기화와 `terraform validate`를 통과했다. 비어 있는 새 state에서 실제 AWS를 조회한 plan은 **생성 102건·변경 0건·삭제 0건**이며, 계획된 리소스 값에 기존 계정 ID는 없었다. RDS Primary는 복사된 스냅샷을 사용하고 신규 DB 이름·사용자·비밀번호 입력은 null이며, EKS 관리자 접근 항목은 새 계정의 `admin-user-pjh`를 가리킨다. 이 계획을 새 계정에서 적용해 **102개 생성·변경 0·삭제 0**으로 완료했다. EKS `urlshortener`는 `ACTIVE`(1.35), 노드 그룹은 3대 `ACTIVE`, EBS CSI 애드온은 `ACTIVE`다. RDS Primary는 `available`·Multi-AZ·암호화, Replica는 `available`·암호화·Primary 복제 원본을 확인했다. **DB 데이터와 비밀번호의 실제 접속 검증은 아직 남았다.**
 
-AI root는 `terraform/ai-ops-registry/account.new.tfvars.example`과 전용 새 계정 backend를 사용한다. backend 초기화와 정적 `validate`는 통과했다. GitHub OIDC provider가 아직 없으므로 운영 root 설치 후 AI root의 원격 plan을 계산한다. 두 root의 plan에서 삭제 또는 기존 계정 ID가 보이면 적용을 중단한다. 계획 파일은 비밀 산출물로 취급하고 Git에 추가하지 않는다.
+새 계정 루트 세션으로 최초 EKS를 만든 뒤, 해당 세션의 `kubectl` 인증은 거부됐다. EKS 관리자 접근 항목에 IAM 사용자 `admin-user-pjh`만 등록돼 있기 때문이다. 사용자가 승인한 `urlshortener-migration-operator` IAM 역할·EKS 접근 항목·정책 연결 3개를 적용했지만, 실제 `kubectl` 시험에서 AWS가 **`Roles may not be assumed by root accounts`**라고 거부했다. 루트가 AssumeRole할 수 있다는 설계 가정이 잘못됐다. Terraform 계획에서 이 세 리소스의 삭제만 확인한 뒤 제거했고, 역할 `NoSuchEntity`와 기존 `admin-user-pjh` 접근 항목 유지를 검증했다. 이후에는 이미 EKS 관리자 접근 항목이 있고 `admin-group`의 `AdministratorAccess`를 받는 `admin-user-pjh`로 AWS CLI 임시 로그인을 해야 한다. 이 IAM 사용자는 현재 콘솔 비밀번호 변경이 필요하고 MFA가 등록돼 있다. 비밀번호와 MFA 값은 사용자가 직접 입력하며 채팅·Git에 남기지 않는다. [AWS CLI 임시 로그인](https://docs.aws.amazon.com/signin/latest/userguide/command-line-sign-in.html)을 사용하고 장기 액세스 키는 만들지 않는다.
+
+AI root는 `terraform/ai-ops-registry/account.new.tfvars.example`과 전용 새 계정 backend를 사용한다. 운영 root가 GitHub OIDC provider를 만든 뒤 AI root의 plan을 계산했고 **ECR 저장소·수명주기 정책·GitHub 이미지 등록 IAM 역할·정책 4개 생성, 변경·삭제 0**으로 적용했다. ECR `urlshortener-practice-ai-ops`는 새 계정 URI, 불변 태그, AES256 암호화, 푸시 검사를 확인했다. 이미지 자체는 아직 이전하지 않았다. 두 root의 계획 파일은 비밀 산출물로 취급하고 Git에 추가하지 않는다.
+
+`ai-ops-image` GitHub 환경의 `AI_OPS_AWS_ACCOUNT_ID`와 `AI_OPS_IMAGE_ROLE_ARN`을 새 계정 값으로 바꾸고, `AI_OPS_AWS_REGION`·`AI_OPS_ECR_REPOSITORY`를 포함한 네 변수가 새 ECR/IAM 출력과 일치하는지 확인했다. **이미지 등록 workflow는 아직 실행하지 않았고 ECR에는 이미지가 없다.** 앱 CI의 기존 계정 고정값은 저장소 변수 `APP_AWS_ACCOUNT_ID`를 읽도록 코드에 바꾸고 새 계정 값을 GitHub 변수에 저장했다. 이 코드가 `main`에 반영되기 전까지 `main` workflow는 기존 계정을 가리킨다. 이미지 등록 후에 앱 Helm 값의 ECR URI·태그를 새 계정 이미지로 전환해야 한다.
+
+AI 실습·모델 코드와 `ai-ops/lab/values.yaml`에도 이전 계정의 EKS ARN·ECR URI가 고정된 곳이 있다. 이를 새 계정 기준으로 수정·검증하기 전에는 해당 이미지를 클러스터에 배포하거나 모델 캠페인을 재개하지 않는다.
+
+## 기존 계정 잔여물 중간 점검
+
+새 계정 검증 전에는 기존 계정 `716174522908`의 복구 자료와 DNS를 삭제하지 않는다. 2026-11-02 중간 조회에서 프로젝트 EKS 클러스터·RDS 인스턴스·ECR 저장소는 없었고, `urlshortener` 이름의 수동 RDS 스냅샷 **21개**와 `bidservice.store.` Hosted Zone `/hostedzone/Z01710062CSM40Z2TLTGS`는 남아 있었다. S3 state 버킷과 다른 서비스 잔여물은 최종 정리 전에 별도 목록으로 대조한다. 스냅샷·Hosted Zone·S3 저장은 계정 이전이 완료되기 전까지 비용이 생길 수 있으므로, 새 계정 데이터·DNS 전환 검증 후 순서대로 정리하고 과금 항목을 재확인한다.
 
 ## 새 계정 비용 사전 점검
 
@@ -94,13 +105,13 @@ EKS의 [표준 지원 클러스터 요금](https://aws.amazon.com/eks/pricing/)�
 ## 다음 순서
 
 1. 새 계정 비용 단가·크레딧 검토, 월간·일간 예산 생성, 수신 이메일 경보 연결은 완료했다. 실제 메일 도착은 기준 초과 시 확인한다. state bucket과 최초 plan 검증도 완료했다.
-2. VPC·EKS·스냅샷 복원 RDS를 설치한다. 복원된 DB의 데이터·연결·비밀번호를 확인한 뒤 앱·모니터링·AI 리소스를 복원한다.
+2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root는 설치했고 실패한 임시 역할 3개도 제거했다. IAM 사용자 `admin-user-pjh`의 임시 로그인으로 Kubernetes 노드와 복원된 DB의 데이터·연결·비밀번호를 확인한 뒤 앱·모니터링·AI 리소스를 복원한다.
 3. 새 계정의 ECR/OIDC와 GitHub 환경 변수·자격, Route53 Hosted Zone 및 Gabia NS 이전, 외부 HTTPS를 검증한다. DNS 이전 중에는 기존 zone을 유지하고 새 zone의 레코드를 대조한다.
 4. 새 계정에서 주요 기능, AI 수집·보고서, 설치/정리 경로를 검증한 뒤 기존 계정 잔여 리소스를 목록으로 대조해 삭제한다. 기존 계정의 RDS 스냅샷·S3 state 버전·Route53 zone은 복원과 DNS 전환 검증 전에는 삭제하지 않는다.
 5. 기존 계정의 과금 가능한 리소스가 0인지 서비스별 조회와 Billing/Cost Explorer로 재확인한다. 이미 발생한 사용료는 청구에 늦게 반영될 수 있으므로 확인 시각을 기록한다.
 
 ## 주의
 
-- `terraform/rds.tf`의 기존 신규 DB 생성 경로는 그대로 두고 스냅샷 복원 경로를 조건으로 추가했다. 실제 AWS 적용과 복원 검증은 아직 하지 않았다.
+- `terraform/rds.tf`의 기존 신규 DB 생성 경로는 그대로 두고 스냅샷 복원 경로를 조건으로 추가했다. AWS 생성은 완료했지만 DB 데이터·자격 증명 검증은 아직 하지 않았다.
 - 새 계정의 크레딧은 전체 EKS 상시 운영비를 무한히 보장하지 않는다. 설치 전 예상 일일 비용과 운영 기간을 다시 검토한다.
 - 비밀번호, API 키, Slack·Watchdog URL, GitHub 토큰은 이 문서와 Git에 기록하지 않는다. 기존 소유자 전용 로컬 자격 파일을 설치 절차에서 재사용한다.

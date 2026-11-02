@@ -69,7 +69,9 @@ AWS_PROFILE=urlshortener-terraform terraform -chdir=terraform plan \
   -var-file=account.new.tfvars.example -out=/private/tmp/urlshortener-new-account.plan
 ```
 
-운영 root는 새 계정 backend 초기화와 `terraform validate`를 통과했다. 비어 있는 새 state에서 실제 AWS를 조회한 plan은 **생성 102건·변경 0건·삭제 0건**이며, 계획된 리소스 값에 기존 계정 ID는 없었다. RDS Primary는 복사된 스냅샷을 사용하고 신규 DB 이름·사용자·비밀번호 입력은 null이며, EKS 관리자 접근 항목은 새 계정의 `admin-user-pjh`를 가리킨다. 이 계획을 새 계정에서 적용해 **102개 생성·변경 0·삭제 0**으로 완료했다. EKS `urlshortener`는 `ACTIVE`(1.35), 노드 그룹은 3대 `ACTIVE`, EBS CSI 애드온은 `ACTIVE`다. RDS Primary는 `available`·Multi-AZ·암호화, Replica는 `available`·암호화·Primary 복제 원본을 확인했다. **DB 데이터와 비밀번호의 실제 접속 검증은 아직 남았다.**
+운영 root는 새 계정 backend 초기화와 `terraform validate`를 통과했다. 비어 있는 새 state에서 실제 AWS를 조회한 plan은 **생성 102건·변경 0건·삭제 0건**이며, 계획된 리소스 값에 기존 계정 ID는 없었다. RDS Primary는 복사된 스냅샷을 사용하고 신규 DB 이름·사용자·비밀번호 입력은 null이며, EKS 관리자 접근 항목은 새 계정의 `admin-user-pjh`를 가리킨다. 이 계획을 새 계정에서 적용해 **102개 생성·변경 0·삭제 0**으로 완료했다. EKS `urlshortener`는 `ACTIVE`(1.35), 노드 그룹은 3대 `ACTIVE`, EBS CSI 애드온은 `ACTIVE`다. RDS Primary는 `available`·Multi-AZ·암호화, Replica는 `available`·암호화·Primary 복제 원본을 확인했다.
+
+전용 IAM 사용자로 EKS에 일회성 `migration-check` namespace를 만들고, 보존된 로컬 DB 비밀번호의 줄 끝 개행을 제거한 소유자 전용 임시 복사본으로 Secret을 생성했다. PostgreSQL 17 클라이언트 Job이 TLS를 요구하는 연결에서 **Primary와 Read Replica 모두 기존 비밀번호로 인증**했다. `urldb`의 `items` 테이블이 있고, Primary `pg_is_in_recovery()=false`·Replica `true`이며 **두 곳 모두 0행**이다. 일회성 로컬 복사본, namespace, Secret, Job을 삭제했고 원본 자격 파일은 보존했다. 기존 DB 인스턴스는 이미 없어 복원 전 행 수를 직접 대조할 수 없으므로, 0행이 기대한 데이터인지 사용자 확인 전까지 **데이터 이전 완료로 판정하거나 기존 스냅샷을 삭제하지 않는다.**
 
 새 계정 루트 세션으로 최초 EKS를 만든 뒤, 해당 세션의 `kubectl` 인증은 거부됐다. EKS 관리자 접근 항목에 IAM 사용자 `admin-user-pjh`만 등록돼 있기 때문이다. 사용자가 승인한 `urlshortener-migration-operator` IAM 역할·EKS 접근 항목·정책 연결 3개를 적용했지만, 실제 `kubectl` 시험에서 AWS가 **`Roles may not be assumed by root accounts`**라고 거부했다. 루트가 AssumeRole할 수 있다는 설계 가정이 잘못됐다. Terraform 계획에서 이 세 리소스의 삭제만 확인한 뒤 제거했고, 역할 `NoSuchEntity`와 기존 `admin-user-pjh` 접근 항목 유지를 검증했다.
 
@@ -109,13 +111,13 @@ EKS의 [표준 지원 클러스터 요금](https://aws.amazon.com/eks/pricing/)�
 ## 다음 순서
 
 1. 새 계정 비용 단가·크레딧 검토, 월간·일간 예산 생성, 수신 이메일 경보 연결은 완료했다. 실제 메일 도착은 기준 초과 시 확인한다. state bucket과 최초 plan 검증도 완료했다.
-2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root를 설치하고 실패한 임시 역할 3개를 제거했다. 전용 `urlshortener-operator` 생성·첫 로그인·비밀번호 변경·임시 CLI 로그인과 EKS 노드 3대 Ready 확인까지 완료했다. MFA 등록과 복원된 DB의 데이터·연결·비밀번호를 확인한 뒤 앱·모니터링·AI 리소스를 복원한다.
+2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root를 설치하고 실패한 임시 역할 3개를 제거했다. 전용 `urlshortener-operator` 생성·첫 로그인·비밀번호 변경·임시 CLI 로그인과 EKS 노드 3대 Ready 확인까지 완료했다. DB Primary·Replica의 기존 비밀번호 인증과 `items` 0행을 확인했다. MFA 등록과 0행이 기대한 데이터인지 확인한 뒤 앱·모니터링·AI 리소스를 복원한다.
 3. 새 계정의 ECR/OIDC와 GitHub 환경 변수·자격, Route53 Hosted Zone 및 Gabia NS 이전, 외부 HTTPS를 검증한다. DNS 이전 중에는 기존 zone을 유지하고 새 zone의 레코드를 대조한다.
 4. 새 계정에서 주요 기능, AI 수집·보고서, 설치/정리 경로를 검증한 뒤 기존 계정 잔여 리소스를 목록으로 대조해 삭제한다. 기존 계정의 RDS 스냅샷·S3 state 버전·Route53 zone은 복원과 DNS 전환 검증 전에는 삭제하지 않는다.
 5. 기존 계정의 과금 가능한 리소스가 0인지 서비스별 조회와 Billing/Cost Explorer로 재확인한다. 이미 발생한 사용료는 청구에 늦게 반영될 수 있으므로 확인 시각을 기록한다.
 
 ## 주의
 
-- `terraform/rds.tf`의 기존 신규 DB 생성 경로는 그대로 두고 스냅샷 복원 경로를 조건으로 추가했다. AWS 생성은 완료했지만 DB 데이터·자격 증명 검증은 아직 하지 않았다.
+- `terraform/rds.tf`의 기존 신규 DB 생성 경로는 그대로 두고 스냅샷 복원 경로를 조건으로 추가했다. AWS 생성과 기존 비밀번호를 이용한 Primary·Replica 접속은 검증했다. 복원 전 `items` 행 수 대조는 불가능하므로 0행의 기대 여부를 확인해야 한다.
 - 새 계정의 크레딧은 전체 EKS 상시 운영비를 무한히 보장하지 않는다. 설치 전 예상 일일 비용과 운영 기간을 다시 검토한다.
 - 비밀번호, API 키, Slack·Watchdog URL, GitHub 토큰은 이 문서와 Git에 기록하지 않는다. 기존 소유자 전용 로컬 자격 파일을 설치 절차에서 재사용한다.

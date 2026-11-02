@@ -85,7 +85,7 @@ def prepare_export(capture, *, execute=command, client=None):
     validate_capture(capture)
     client = client or SequenceLabClient()
     image = capture["baseline"]["lab"]["lab-collector"]["image"]
-    if not re.fullmatch(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}", image):
+    if not re.fullmatch(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}", image):
         raise ValueError("sequence collector image rejected")
     before = current_identity(image, execute=execute)
     if client.pin_app() != capture["baseline"]["app"] or before["deployment_uid"] != capture["baseline"]["app"]["deployment_uid"]:

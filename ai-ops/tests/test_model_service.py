@@ -6,7 +6,7 @@ import unittest
 from ai_ops.model_service import build_service, build_prepared_service
 
 
-IMAGE = ("716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+IMAGE = ("764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
          "urlshortener-practice-ai-ops@sha256:" + "a" * 64)
 
 
@@ -55,7 +55,7 @@ class ModelServiceTests(unittest.TestCase):
 
     def test_mutable_or_other_registry_image_rejected(self):
         for image in ("python:latest", IMAGE.replace("@sha256:", ":"),
-                      IMAGE.replace("716174522908", "000000000000")):
+                      IMAGE.replace("764428911194", "000000000000")):
             with self.assertRaises(ValueError):
                 build_service(image)
 

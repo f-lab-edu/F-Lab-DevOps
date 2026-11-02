@@ -38,7 +38,7 @@ def main() -> int:
     changed = command("git", "diff", "--name-only", args.baseline_revision,
                       args.failure_revision).decode().splitlines()
     account = json.loads(command("aws", "sts", "get-caller-identity"))
-    if changed != ["ai-ops/lab/values.yaml"] or account.get("Account") != "716174522908":
+    if changed != ["ai-ops/lab/values.yaml"] or account.get("Account") != "764428911194":
         raise ValueError("실습 소스 변경 범위 또는 AWS 계정이 다릅니다")
     from ai_ops.b6_ci import validate_sources
     good, bad = validate_sources(json.loads(baseline), json.loads(failure))

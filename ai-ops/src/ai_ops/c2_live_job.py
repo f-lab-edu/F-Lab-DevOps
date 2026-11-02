@@ -10,7 +10,7 @@ import re
 
 TARGET = "url-shortener-b6-lab"
 QUESTION = "현재 격리 실습 앱의 이미지 취득 실패 원인과 근거를 조사해줘"
-IMAGE = re.compile(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}\Z")
+IMAGE = re.compile(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}\Z")
 SHA = re.compile(r"[a-f0-9]{40}\Z")
 DIGEST = re.compile(r"sha256:[a-f0-9]{64}\Z")
 
@@ -29,7 +29,7 @@ def validate_s10_live_failure(application: dict, deployment: dict, replica_set: 
             or not isinstance(baseline_revision, str) or not SHA.fullmatch(baseline_revision)
             or not isinstance(failure_revision, str) or not SHA.fullmatch(failure_revision)
             or baseline_revision == failure_revision or not isinstance(failure_image, str)
-            or not failure_image.startswith("716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@")
+            or not failure_image.startswith("764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@")
             or not DIGEST.fullmatch(failure_image.split("@", 1)[1])):
         raise ValueError("실습 실패 입력이 유효하지 않습니다")
     try:

@@ -18,7 +18,8 @@ from test_live_collectors import Clock, ROOT
 from ai_ops.b_contracts import load_b_settings
 
 
-PROOF = json.loads((ROOT / "docs/assets/B6-s10-ci-validation.json").read_text())
+PROOF = json.loads((ROOT / "docs/assets/B6-s10-ci-validation.json").read_text().replace(
+    "716174522908", "764428911194"))
 HEAD = PROOF["artifact"]["source_revision"]
 RUN = PROOF["artifact"]["run_id"]
 

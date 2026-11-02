@@ -101,7 +101,7 @@ def exporter_hash():
 
 
 def prepare_export(identity: SourceIdentity, expected_image, *, execute=command):
-    if not re.fullmatch(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}", expected_image):
+    if not re.fullmatch(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}", expected_image):
         raise ValueError("projection_export_image_rejected")
     source = (ROOT / "src/ai_ops/model_projection.py").read_text()
     code_hash = exporter_hash()

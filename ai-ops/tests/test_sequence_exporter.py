@@ -34,7 +34,7 @@ def fixture():
         "raw_log_sha256": probe.raw_log_sha256, "log_source_hash": probe.log_source_hash,
         "recorded_at": probe.recorded_at.isoformat(),
         "baseline": {"app": app, "lab": {"lab-collector": {"image":
-            "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:"+"a"*64}}},
+            "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:"+"a"*64}}},
         "investigation": {"incident_id": base.identity.incident_id, "run_id": base.identity.run_id,
                           "bundle_hash": base.source_bundle_hash}}
     current = {"cluster_fingerprint": base.identity.cluster_fingerprint,

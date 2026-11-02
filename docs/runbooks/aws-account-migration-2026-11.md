@@ -83,7 +83,7 @@ AI root는 `terraform/ai-ops-registry/account.new.tfvars.example`과 전용 새 
 
 `ai-ops-image` GitHub 환경의 `AI_OPS_AWS_ACCOUNT_ID`와 `AI_OPS_IMAGE_ROLE_ARN`을 새 계정 값으로 바꾸고, `AI_OPS_AWS_REGION`·`AI_OPS_ECR_REPOSITORY`를 포함한 네 변수가 새 ECR/IAM 출력과 일치하는지 확인했다. **AI 이미지 등록 workflow는 아직 실행하지 않았고 AI ECR에는 이미지가 없다.** 앱 CI의 기존 계정 고정값은 저장소 변수 `APP_AWS_ACCOUNT_ID`를 읽도록 바꿨고 새 계정 값을 GitHub 변수에 저장했다. 해당 코드가 [PR #136](https://github.com/f-lab-edu/F-Lab-DevOps/pull/136)에서 `main`에 병합된 뒤 수동 앱 CI [#41393985677](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/41393985677)를 `image-only` 모드로 실행했다. 새 계정 ECR `urlshortener`에 `sha-8ea1673` 이미지가 등록됐고 digest `sha256:22f0d8d9ca2c06b83f93e2a5acff51dbf20fbd9382652f54a3c7fb6c4c7aab57`을 artifact와 AWS 조회로 대조했다. 이 실행은 앱을 배포하지 않았다. 운영 Helm 값의 ECR URI·태그를 이 이미지로 전환한 뒤 앱 설치를 진행한다.
 
-AI 실습·모델 코드와 `ai-ops/lab/values.yaml`에도 이전 계정의 EKS ARN·ECR URI가 고정된 곳이 있다. 이를 새 계정 기준으로 수정·검증하기 전에는 해당 이미지를 클러스터에 배포하거나 모델 캠페인을 재개하지 않는다.
+AI 실습·모델·C-02 코드와 `ai-ops/lab/values.yaml`의 이전 계정 EKS ARN·ECR URI를 새 계정 기준으로 바꾸고, 실습 앱의 고정 digest를 앞서 검증한 새 앱 이미지로 전환했다. 역사적 검증 자료의 원본은 수정하지 않고 시험에서만 새 계정용 합성 입력을 만들었다. AI 단위 시험 574개와 GitHub 스크립트 시험 19개가 통과했다. **이 변경이 `main`에 반영되고 새 AI 이미지가 ECR에 등록되기 전에는 AI 서비스를 배포하거나 모델 캠페인을 재개하지 않는다.**
 
 ## 기존 계정 잔여물 중간 점검
 

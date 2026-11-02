@@ -15,7 +15,7 @@ image = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(image)
 SHA = "a" * 40
 DIGEST = "sha256:" + "b" * 64
-REGISTRY = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com"
+REGISTRY = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com"
 
 
 class ImageTests(unittest.TestCase):

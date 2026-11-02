@@ -52,7 +52,7 @@ class NormalPod(StrictModel):
 
 class NormalCIBinding(StrictModel):
     schema_version: Literal[1] = 1
-    cluster_arn: Literal["arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener"]
+    cluster_arn: Literal["arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener"]
     cluster_fingerprint: Sha256
     config_hash: Sha256
     executor_sha256: Sha256
@@ -67,7 +67,7 @@ class NormalCIBinding(StrictModel):
             (self.collector, "lab-collector", "urlshortener-practice-ai-ops"),
         ):
             if (not pod.name.startswith(deployment+"-") or not re.fullmatch(
-                re.escape("716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"+
+                re.escape("764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"+
                     repository)+r"@sha256:[a-f0-9]{64}", pod.image)):
                 raise ValueError("normal_ci_pinned_pod_rejected")
         if self.app.name == self.collector.name or self.app.uid == self.collector.uid:

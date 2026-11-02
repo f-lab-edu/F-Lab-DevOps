@@ -14,7 +14,7 @@ from test_live_collectors import AT
 from test_model_projection import example_projection
 
 
-IMAGE = ("716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+IMAGE = ("764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
          "urlshortener-practice-ai-ops@sha256:" + "d" * 64)
 
 

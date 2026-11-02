@@ -13,7 +13,7 @@ from ai_ops.c2_rollback_guard import rollback_decision, validate_plan
 
 BASE = "a" * 40
 FAIL = "b" * 40
-REPO = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:"
+REPO = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:"
 GOOD = REPO + "1" * 64
 BAD = REPO + "0" * 64
 NOW = datetime(2026, 10, 30, 5, tzinfo=timezone.utc)

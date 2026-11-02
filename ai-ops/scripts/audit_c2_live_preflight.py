@@ -52,7 +52,7 @@ def _collect(args):
         connection = kube["clusters"][0]["cluster"]
         fingerprint = sha256_json({"arn": cluster["arn"], "endpoint": cluster["endpoint"],
                                    "ca": cluster["certificateAuthority"]["data"]})
-        if (account["Account"] != "716174522908" or cluster["status"] != "ACTIVE"
+        if (account["Account"] != "764428911194" or cluster["status"] != "ACTIVE"
                 or cluster["arn"] != binding.cluster_arn or fingerprint != binding.cluster_fingerprint
                 or connection.get("server") != cluster["endpoint"]
                 or connection.get("certificate-authority-data") != cluster["certificateAuthority"]["data"]):

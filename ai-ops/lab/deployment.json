@@ -45,7 +45,7 @@
         "containers": [
           {
             "name": "api",
-            "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:db0022dbc03199cddf5d7bc802977a9380e3dc5859511f7821014e869307082e",
+            "image": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:22f0d8d9ca2c06b83f93e2a5acff51dbf20fbd9382652f54a3c7fb6c4c7aab57",
             "imagePullPolicy": "IfNotPresent",
             "securityContext": {
               "allowPrivilegeEscalation": false,

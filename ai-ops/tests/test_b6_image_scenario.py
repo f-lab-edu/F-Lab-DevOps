@@ -10,7 +10,7 @@ from ai_ops.b6_lab import PURPOSE
 from ai_ops.b6_scenarios import LabClient, execute
 
 
-REPOSITORY = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
+REPOSITORY = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
 RUN = "1" * 32
 IMAGE = REPOSITORY + "@sha256:" + "a" * 64
 BAD = REPOSITORY + ":b6-missing-" + RUN

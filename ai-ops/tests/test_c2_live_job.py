@@ -8,8 +8,8 @@ import unittest
 from ai_ops.c2_live_job import build_live_capture_job, validate_s10_live_failure
 
 
-IMAGE = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:" + "a" * 64
-BAD = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:" + "c" * 64
+IMAGE = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:" + "a" * 64
+BAD = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:" + "c" * 64
 
 
 def worker_deployment() -> dict:

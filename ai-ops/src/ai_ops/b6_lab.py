@@ -16,10 +16,10 @@ from ai_ops.contracts import StrictModel
 
 NAMESPACE = "ai-ops-lab"
 CLUSTER = "urlshortener"
-CONTEXT = "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener"
+CONTEXT = "arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener"
 PURPOSE = {"ai-ops-purpose": "b6-isolated-lab"}
 ROOT = Path(__file__).resolve().parents[2]
-ECR = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+ECR = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
 
 
 class LabInputs(StrictModel):

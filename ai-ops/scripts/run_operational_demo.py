@@ -13,7 +13,7 @@ import uuid
 from ai_ops.path_policy import cli_paths, write_private_json
 
 
-CONTEXT = "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener"
+CONTEXT = "arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener"
 IDENTITY = "system:serviceaccount:ai-ops:ai-ops-investigator"
 TERMINAL = {"completed", "partial", "failed", "cancelled", "needs_review"}
 

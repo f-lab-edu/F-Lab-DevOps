@@ -52,7 +52,7 @@ class RecoveryProofTest(unittest.TestCase):
                       "status": {"containerStatuses": [{"name": "api", "image": self.image,
                                                          "ready": False, "state": {"waiting": {
                                                              "reason": "ImagePullBackOff"}}}]}}]
-        self.ecr = {"imageDetails": [{"registryId": "716174522908",
+        self.ecr = {"imageDetails": [{"registryId": "764428911194",
                                       "repositoryName": "urlshortener",
                                       "imageDigest": self.binding.app.image.split("@", 1)[1]}]}
 

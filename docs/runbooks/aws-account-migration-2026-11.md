@@ -81,7 +81,7 @@ AWS_PROFILE=urlshortener-terraform terraform -chdir=terraform plan \
 
 AI root는 `terraform/ai-ops-registry/account.new.tfvars.example`과 전용 새 계정 backend를 사용한다. 운영 root가 GitHub OIDC provider를 만든 뒤 AI root의 plan을 계산했고 **ECR 저장소·수명주기 정책·GitHub 이미지 등록 IAM 역할·정책 4개 생성, 변경·삭제 0**으로 적용했다. ECR `urlshortener-practice-ai-ops`는 새 계정 URI, 불변 태그, AES256 암호화, 푸시 검사를 확인했다. 이미지 자체는 아직 이전하지 않았다. 두 root의 계획 파일은 비밀 산출물로 취급하고 Git에 추가하지 않는다.
 
-`ai-ops-image` GitHub 환경의 `AI_OPS_AWS_ACCOUNT_ID`와 `AI_OPS_IMAGE_ROLE_ARN`을 새 계정 값으로 바꾸고, `AI_OPS_AWS_REGION`·`AI_OPS_ECR_REPOSITORY`를 포함한 네 변수가 새 ECR/IAM 출력과 일치하는지 확인했다. **이미지 등록 workflow는 아직 실행하지 않았고 ECR에는 이미지가 없다.** 앱 CI의 기존 계정 고정값은 저장소 변수 `APP_AWS_ACCOUNT_ID`를 읽도록 코드에 바꾸고 새 계정 값을 GitHub 변수에 저장했다. 이 코드가 `main`에 반영되기 전까지 `main` workflow는 기존 계정을 가리킨다. 이미지 등록 후에 앱 Helm 값의 ECR URI·태그를 새 계정 이미지로 전환해야 한다.
+`ai-ops-image` GitHub 환경의 `AI_OPS_AWS_ACCOUNT_ID`와 `AI_OPS_IMAGE_ROLE_ARN`을 새 계정 값으로 바꾸고, `AI_OPS_AWS_REGION`·`AI_OPS_ECR_REPOSITORY`를 포함한 네 변수가 새 ECR/IAM 출력과 일치하는지 확인했다. **AI 이미지 등록 workflow는 아직 실행하지 않았고 AI ECR에는 이미지가 없다.** 앱 CI의 기존 계정 고정값은 저장소 변수 `APP_AWS_ACCOUNT_ID`를 읽도록 바꿨고 새 계정 값을 GitHub 변수에 저장했다. 해당 코드가 [PR #136](https://github.com/f-lab-edu/F-Lab-DevOps/pull/136)에서 `main`에 병합된 뒤 수동 앱 CI [#41393985677](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/41393985677)를 `image-only` 모드로 실행했다. 새 계정 ECR `urlshortener`에 `sha-8ea1673` 이미지가 등록됐고 digest `sha256:22f0d8d9ca2c06b83f93e2a5acff51dbf20fbd9382652f54a3c7fb6c4c7aab57`을 artifact와 AWS 조회로 대조했다. 이 실행은 앱을 배포하지 않았다. 운영 Helm 값의 ECR URI·태그를 이 이미지로 전환한 뒤 앱 설치를 진행한다.
 
 AI 실습·모델 코드와 `ai-ops/lab/values.yaml`에도 이전 계정의 EKS ARN·ECR URI가 고정된 곳이 있다. 이를 새 계정 기준으로 수정·검증하기 전에는 해당 이미지를 클러스터에 배포하거나 모델 캠페인을 재개하지 않는다.
 
@@ -111,7 +111,7 @@ EKS의 [표준 지원 클러스터 요금](https://aws.amazon.com/eks/pricing/)�
 ## 다음 순서
 
 1. 새 계정 비용 단가·크레딧 검토, 월간·일간 예산 생성, 수신 이메일 경보 연결은 완료했다. 실제 메일 도착은 기준 초과 시 확인한다. state bucket과 최초 plan 검증도 완료했다.
-2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root를 설치하고 실패한 임시 역할 3개를 제거했다. 전용 `urlshortener-operator` 생성·첫 로그인·비밀번호 변경·MFA·임시 CLI 로그인과 EKS 노드 3대 Ready 확인까지 완료했다. DB Primary·Replica의 기존 비밀번호 인증과 예상한 `items` 0행을 확인했다. 다음은 앱·모니터링·AI 리소스 복원이다.
+2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root를 설치하고 실패한 임시 역할 3개를 제거했다. 전용 `urlshortener-operator` 생성·첫 로그인·비밀번호 변경·MFA·임시 CLI 로그인과 EKS 노드 3대 Ready 확인까지 완료했다. DB Primary·Replica의 기존 비밀번호 인증과 예상한 `items` 0행을 확인했다. 새 계정 ECR에 앱 이미지도 등록했다. 다음은 운영 Helm 값의 이미지 전환과 앱·모니터링·AI 리소스 복원이다.
 3. 새 계정의 ECR/OIDC와 GitHub 환경 변수·자격, Route53 Hosted Zone 및 Gabia NS 이전, 외부 HTTPS를 검증한다. DNS 이전 중에는 기존 zone을 유지하고 새 zone의 레코드를 대조한다.
 4. 새 계정에서 주요 기능, AI 수집·보고서, 설치/정리 경로를 검증한 뒤 기존 계정 잔여 리소스를 목록으로 대조해 삭제한다. 기존 계정의 RDS 스냅샷·S3 state 버전·Route53 zone은 복원과 DNS 전환 검증 전에는 삭제하지 않는다.
 5. 기존 계정의 과금 가능한 리소스가 0인지 서비스별 조회와 Billing/Cost Explorer로 재확인한다. 이미 발생한 사용료는 청구에 늦게 반영될 수 있으므로 확인 시각을 기록한다.

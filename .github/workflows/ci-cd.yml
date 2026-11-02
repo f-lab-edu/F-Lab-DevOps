@@ -153,7 +153,7 @@ jobs:
         run: python3 .github/scripts/app-image.py image
 
       - name: 이미지 확보 결과 보존
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 버전 7.0.2
         with:
           name: app-image-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/app-image/image-registration.json
@@ -230,7 +230,7 @@ jobs:
         if: always() && steps.execution.outputs.deploy == 'true' && (steps.verify-deployment.outcome == 'success' || steps.verify-deployment.outcome == 'failure')
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 버전 7.0.2
         with:
           name: deployment-observation-${{ github.run_id }}-${{ github.run_attempt }}-deployment
           path: ${{ runner.temp }}/deployment-observation/deployment.json
@@ -326,7 +326,7 @@ jobs:
         if: always() && steps.execution.outputs.deploy == 'true' && (steps.rollback-deployment.outcome == 'success' || steps.rollback-deployment.outcome == 'failure')
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 버전 7.0.2
         with:
           name: deployment-observation-${{ github.run_id }}-${{ github.run_attempt }}-rollback
           path: ${{ runner.temp }}/deployment-observation/rollback.json

@@ -19,7 +19,7 @@ from ai_ops.ci_history import GitHubReader, MAX_RECORD_BYTES, PREFIX, REPOSITORY
 HEAD = "a" * 40
 BEFORE = "b" * 40
 AFTER = "c" * 40
-IMAGE = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:sha-"
+IMAGE = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:sha-"
 
 
 def archive(filename, record):

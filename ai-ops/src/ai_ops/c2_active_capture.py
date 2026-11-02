@@ -9,7 +9,7 @@ from ai_ops.c2_live_job import build_live_capture_job
 
 
 SHA = re.compile(r"[a-f0-9]{40}\Z")
-IMAGE = re.compile(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}\Z")
+IMAGE = re.compile(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}\Z")
 
 
 def validate_active_failure(application: dict, deployment: dict, replica_set: dict,

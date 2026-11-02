@@ -7,7 +7,7 @@ import ipaddress
 
 
 NAMESPACE = "ai-model"
-IMAGE_PATTERN = re.compile(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}\Z")
+IMAGE_PATTERN = re.compile(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}\Z")
 
 
 def build_service(image: str) -> dict:

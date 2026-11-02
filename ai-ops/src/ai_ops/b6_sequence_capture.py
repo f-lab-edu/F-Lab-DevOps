@@ -86,7 +86,7 @@ class SequenceLabClient(LabClient):
             raise ValueError("probe deployment not ready")
         containers = deployment["spec"]["template"]["spec"]["containers"]
         if (len(containers) != 1 or containers[0]["name"] != "api" or not re.fullmatch(
-                r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}",
+                r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}",
                 containers[0]["image"])):
             raise ValueError("probe app container rejected")
         replicasets = json.loads(self.command("-n", NAMESPACE, "get", "replicasets", "-l", "app=lab-api", "-o", "json"))["items"]

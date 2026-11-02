@@ -10,7 +10,7 @@ NAMESPACE = 'ai-ci'
 
 def build_service(image, config, api_cidrs, *, projection_secret_name=None):
     """검증 이미지를 사용하며 토큰 값 없이 Secret 이름만 참조한다."""
-    if not re.fullmatch(r'716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}', image):
+    if not re.fullmatch(r'764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener-practice-ai-ops@sha256:[a-f0-9]{64}', image):
         raise ValueError('전용 digest 이미지 필요')
     for cidr in api_cidrs:
         n = ipaddress.ip_network(cidr, strict=True)

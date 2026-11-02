@@ -7,7 +7,7 @@ import unittest
 from ai_ops.c2_source_trial import prepare_source_trial
 
 
-REPO = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
+REPO = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
 BASE = "a" * 40
 FAIL = "b" * 40
 GOOD = "sha256:" + "1" * 64

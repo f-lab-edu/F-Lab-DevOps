@@ -9,7 +9,7 @@ from test_c2_live_job import worker_deployment
 
 
 REVISION = "b" * 40
-BAD = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:" + "0" * 64
+BAD = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener@sha256:" + "0" * 64
 NOW = datetime(2026, 10, 30, 5, tzinfo=timezone.utc)
 STARTED = (NOW - timedelta(seconds=30)).isoformat().replace("+00:00", "Z")
 

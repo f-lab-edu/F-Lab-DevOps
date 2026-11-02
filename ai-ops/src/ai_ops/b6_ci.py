@@ -22,7 +22,7 @@ WORKFLOW = ".github/workflows/ai-ops-lab-ci.yml"
 PATH = "ai-ops/lab/values.yaml"
 APP = "lab-target"
 NS = "ai-ops-lab"
-ECR = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
+ECR = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
 SHA = re.compile(r"[a-f0-9]{40}")
 
 
@@ -109,7 +109,7 @@ class LabCI:
         broken = json.loads(command(["git", "show", fail + ":" + PATH]).stdout)
         good, bad = validate_sources(normal, broken)
         account = json.loads(command(["aws", "sts", "get-caller-identity"]).stdout)
-        if account["Account"] != "716174522908":
+        if account["Account"] != "764428911194":
             raise ValueError("AWS 계정이 다릅니다")
         command(["aws", "ecr", "describe-images", "--region", "ap-northeast-2", "--repository-name", "urlshortener", "--image-ids", "imageDigest=" + good.split("@")[1]])
         missing = command(["aws", "ecr", "describe-images", "--region", "ap-northeast-2", "--repository-name", "urlshortener", "--image-ids", "imageDigest=" + bad.split("@", 1)[1]], allow_failure=True)
@@ -170,7 +170,7 @@ class LabCI:
         record = {"schema_version": 2, "record_type": "b6_lab_ci_observation", "repository": REPO,
             "workflow": WORKFLOW, "run_id": state["run_id"], "run_attempt": state["run_attempt"],
             "source_revision": state["source_revision"], "stage": stage, "started_at": started, "observed_at": now(),
-            "cluster_arn": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener", "namespace": NS,
+            "cluster_arn": "arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener", "namespace": NS,
             "application": "argocd/lab-target", "baseline_revision": state["baseline_revision"],
             "failure_revision": state["failure_revision"], "verification_result": result, "observed": observed,
             "user_path_recovery_verified": False, "evidence_import_enabled": False}

@@ -17,7 +17,7 @@ class PrepareReinstallTest(unittest.TestCase):
         text = (ROOT / "config/b3-values.preflight.yaml").read_text()
         self.base = json.loads("\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#")))
         self.base["network"]["apiServerCIDRs"] = ["10.99.99.99/32"]
-        self.registration = {"published": True, "repository": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
+        self.registration = {"published": True, "repository": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
                              "registry_digest": "sha256:" + "a" * 64, "image_id": "sha256:" + "b" * 64, "source_revision": "c" * 40}
         self.service = {"spec": {"clusterIP": "172.20.0.1", "ports": [{"port": 443, "protocol": "TCP"}]}}
         self.endpoints = {"items": [{"addressType": "IPv4", "ports": [{"port": 443}],

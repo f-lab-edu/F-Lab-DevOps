@@ -133,7 +133,7 @@ class ModelProjectionTest(unittest.TestCase):
             execute = unittest.mock.Mock()
             with self.assertRaises(ValueError):
                 module.prepare_export(example_snapshot()[2],
-                    "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:"+"a"*64,
+                    "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:"+"a"*64,
                     execute=execute)
             execute.assert_not_called()
         program = module.exporter_program("pass", example_snapshot()[2].model_dump(mode="json"))
@@ -154,7 +154,7 @@ class ModelProjectionTest(unittest.TestCase):
             executed.append(args)
             self.assertIn("lab-collector-safe", args)
             return canonical_json_bytes(projection.model_dump(mode="json"))
-        image = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:"+"a"*64
+        image = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:"+"a"*64
         with patch.object(module, "current_identity", side_effect=[current, current]):
             self.assertEqual(module.prepare_export(identity, image, execute=execute), projection)
         with patch.object(module, "current_identity", side_effect=[current, {**current, "pod_name": "replacement"}]), self.assertRaises(ValueError):

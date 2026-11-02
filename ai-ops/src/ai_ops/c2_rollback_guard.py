@@ -7,7 +7,7 @@ import re
 
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
-IMAGE = re.compile(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[0-9a-f]{64}\Z")
+IMAGE = re.compile(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[0-9a-f]{64}\Z")
 
 
 def validate_plan(plan: dict, *, now: datetime) -> datetime:

@@ -14,7 +14,7 @@ from ai_ops.b_contracts import BindingRegistry, BRuntime
 from ai_ops.path_policy import permitted_path, write_private_json
 
 ROOT = Path(__file__).resolve().parents[2]
-ACCOUNT = "716174522908"
+ACCOUNT = "764428911194"
 REGION = "ap-northeast-2"
 CLUSTER = "urlshortener"
 REPOSITORY = "urlshortener-practice-ai-ops"

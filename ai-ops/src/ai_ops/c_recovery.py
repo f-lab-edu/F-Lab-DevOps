@@ -23,7 +23,7 @@ from ai_ops.incidents import IncidentStore, REPO_ROOT
 
 REPOSITORY = "f-lab-edu/F-Lab-DevOps"
 VALUES_PATH = "ai-ops/lab/values.yaml"
-IMAGE_REPOSITORY = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
+IMAGE_REPOSITORY = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
 DIGEST = re.compile(r"sha256:[a-f0-9]{64}\Z")
 COMMIT = re.compile(r"[a-f0-9]{40}\Z")
 TARGET = Target(cluster_id="urlshortener", namespace="ai-ops-lab", workload="lab-api",

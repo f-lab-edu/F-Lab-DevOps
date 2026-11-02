@@ -132,7 +132,7 @@ class CIModelConnectionTest(unittest.TestCase):
         self.assertEqual(send.call_args.args[2]["schema_version"], 2)
         self.assertNotIn(SENTINEL, str(send.call_args.args[2]))
         patches = build_activation_patches(self.store.campaign(campaign),
-            image="716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+            image="764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
                   "urlshortener-practice-ai-ops@" + self.digest,
             cluster_ca_sha256="a" * 64, exporter_sha256="b" * 64,
             clock=lambda: AT.timestamp())

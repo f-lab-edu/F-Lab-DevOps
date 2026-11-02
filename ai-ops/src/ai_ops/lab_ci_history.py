@@ -20,8 +20,8 @@ from ai_ops.contracts import StrictModel, UTCDateTime, _utc_datetime
 from ai_ops.evidence import _json_object
 
 WORKFLOW = ".github/workflows/ai-ops-lab-ci.yml"
-CLUSTER = "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener"
-REGISTRY = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
+CLUSTER = "arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener"
+REGISTRY = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
 Uid = Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9-]{1,80}$")]
 
 
@@ -46,7 +46,7 @@ class LabRecord(StrictModel):
     run_id: Identity
     run_attempt: Identity
     source_revision: Revision
-    cluster_arn: Literal["arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener"]
+    cluster_arn: Literal["arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener"]
     namespace: Literal["ai-ops-lab"]
     application: Literal["argocd/lab-target"]
     baseline_revision: Revision

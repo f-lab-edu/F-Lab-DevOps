@@ -52,7 +52,7 @@ class ModelLiveProbeTest(unittest.TestCase):
             "/api/v1/namespaces/ai-ci/configmaps/ci-config": {"data": self.files},
             "/apis/apps/v1/namespaces/ai-model/deployments/model-gateway": {
                 "spec": {"replicas": 1, "template": {"spec": {"containers": [{"name": "model-gateway",
-                    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+                    "image": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
                              "urlshortener-practice-ai-ops@" + self.binding["image_digest"]}]}}}},
         }
 
@@ -90,17 +90,17 @@ class ModelLiveProbeTest(unittest.TestCase):
     def test_v3_uses_collector_config_and_current_normal_binding(self):
         approved = dict(self.binding, policy=SEQUENCE_POLICY)
         normal = NormalCIBinding.model_validate({
-            "cluster_arn": "arn:aws:eks:ap-northeast-2:716174522908:cluster/urlshortener",
+            "cluster_arn": "arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener",
             "cluster_fingerprint": approved["cluster_fingerprint"],
             "config_hash": approved["config_hash"],
             "executor_sha256": executor_hash(),
             "app": {"name": "lab-api-abcde-abcde", "uid": "pod-1",
                     "deployment_uid": approved["deployment_uid"],
-                    "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+                    "image": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
                              "urlshortener@sha256:" + "c" * 64},
             "collector": {"name": "lab-collector-abcde-abcde", "uid": "pod-2",
                           "deployment_uid": "collector-1",
-                          "image": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/"
+                          "image": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
                                    "urlshortener-practice-ai-ops@sha256:" + "d" * 64},
         })
         current = copy.deepcopy(self.responses)

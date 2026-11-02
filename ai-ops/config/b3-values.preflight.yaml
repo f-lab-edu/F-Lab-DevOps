@@ -5,7 +5,7 @@
   "mode": "diagnostics",
   "replicaCount": 1,
   "image": {
-    "repository": "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
+    "repository": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops",
     "digest": ""
   },
   "config": {

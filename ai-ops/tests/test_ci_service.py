@@ -9,7 +9,7 @@ from test_normal_ci import fixture as normal_fixture
 
 class CIServiceTests(unittest.TestCase):
     def setUp(self):
-        self.image = '716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:' + 'a'*64
+        self.image = '764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener-practice-ai-ops@sha256:' + 'a'*64
         inputs = LabInputs(app_image=self.image.replace('-practice-ai-ops', ''), collector_image=self.image,
                            postgres_image='docker.io/library/postgres@sha256:'+'b'*64,
                            redis_image='docker.io/library/redis@sha256:'+'c'*64, api_server_cidrs=['10.0.0.1/32'])

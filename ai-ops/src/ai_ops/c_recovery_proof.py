@@ -103,7 +103,7 @@ def assess_recovery_proof(application: dict, deployment: dict, lease: dict,
 
     details = ecr_response.get("imageDetails", [])
     if (not isinstance(details, list) or len(details) != 1
-            or details[0].get("registryId") != "716174522908"
+            or details[0].get("registryId") != "764428911194"
             or details[0].get("repositoryName") != "urlshortener"
             or details[0].get("imageDigest") != old_digest):
         blockers.append("prior_digest_not_found_in_ecr")

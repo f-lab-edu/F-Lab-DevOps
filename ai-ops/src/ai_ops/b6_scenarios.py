@@ -287,7 +287,7 @@ class LabClient:
         if not re.fullmatch(r"[a-f0-9]{32}", run_id):
             raise ValueError("이미지 실습 ID가 유효하지 않습니다")
         result = subprocess.run(["aws", "ecr", "batch-get-image", "--region", "ap-northeast-2",
-            "--registry-id", "716174522908", "--repository-name", "urlshortener",
+            "--registry-id", "764428911194", "--repository-name", "urlshortener",
             "--image-ids", "imageTag=b6-missing-" + run_id, "--output", "json"],
             capture_output=True, text=True, timeout=45)
         if result.returncode:
@@ -298,11 +298,11 @@ class LabClient:
                 or failures[0].get("failureCode") != "ImageNotFound"
                 or failures[0].get("imageId", {}).get("imageTag") != "b6-missing-" + run_id):
             raise ValueError("명시적으로 부재가 확인된 실습 태그가 아닙니다")
-        return "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:b6-missing-" + run_id
+        return "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener:b6-missing-" + run_id
 
     def replace_image(self, baseline, old_image, new_image):
         """UID·resourceVersion·기존 이미지가 일치할 때만 api 컨테이너 이미지를 바꾼다."""
-        repository = "716174522908.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
+        repository = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
         for image in (old_image, new_image):
             if not re.fullmatch(re.escape(repository) + r"(?:@sha256:[a-f0-9]{64}|:b6-missing-[a-f0-9]{32})", image):
                 raise ValueError("실습용 앱 저장소 밖의 이미지는 사용할 수 없습니다")
@@ -592,7 +592,7 @@ def execute_image(client, run_id, *, event=None, checkpoint=None, recovery_plan=
         before = client.production()
         identity = client.guard()
         baseline = identity["lab-api"]
-        if not re.fullmatch(r"716174522908\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}", baseline["image"]):
+        if not re.fullmatch(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}", baseline["image"]):
             raise ValueError("복구용 이미지가 고정 digest가 아닙니다")
         bad_image = client.missing_image(run_id)
         result.update(baseline=identity, bad_image=bad_image, image_absence_confirmed=True)

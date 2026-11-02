@@ -27,7 +27,7 @@
 | 운영 backend | `terraform/backend.new-account.production.hcl` | 새 S3 버킷과 새 계정 ID만 허용한다. 기존 state를 복사하지 않는다. 기존 운영·실습 backend도 기존 계정 ID만 허용한다. |
 | 운영 provider | `account.new.tfvars.example`의 `expected_account_id` | 다른 계정 자격이면 plan 단계에서 거부한다. |
 | EKS 관리자 | 새 계정의 기존 IAM 사용자 `admin-user-pjh` | 루트 계정을 EKS 접근 항목에 넣지 않는다. |
-| 이전 중 Kubernetes 작업자 | 기존 `admin-user-pjh`의 임시 AWS CLI 로그인 | EKS 접근 항목에 이미 등록된 사용자다. 루트 계정은 역할을 맡을 수 없어 Kubernetes 작업에는 이 IAM 사용자 세션이 필요하다. |
+| 이전 중 Kubernetes 작업자 | 새 프로젝트 전용 `urlshortener-operator`의 임시 AWS CLI 로그인 | 기존 `admin-user-pjh`의 생성 경위와 비밀번호를 사용자가 알지 못해 이를 변경하지 않는다. 새 사용자의 권한은 현재 EKS 클러스터 관리와 로그인에 필요한 범위로 제한한다. |
 | RDS Primary | `urlshortener-migrated-final-20261102` | 신규 DB 이름·마스터 사용자·비밀번호 생성 입력을 복원 호출에 전달하지 않는다. |
 | AI backend | `terraform/ai-ops-registry/backend.new-account.practice.hcl` | 운영과 별도 key를 쓰며 새 계정만 허용한다. |
 
@@ -71,7 +71,9 @@ AWS_PROFILE=urlshortener-terraform terraform -chdir=terraform plan \
 
 운영 root는 새 계정 backend 초기화와 `terraform validate`를 통과했다. 비어 있는 새 state에서 실제 AWS를 조회한 plan은 **생성 102건·변경 0건·삭제 0건**이며, 계획된 리소스 값에 기존 계정 ID는 없었다. RDS Primary는 복사된 스냅샷을 사용하고 신규 DB 이름·사용자·비밀번호 입력은 null이며, EKS 관리자 접근 항목은 새 계정의 `admin-user-pjh`를 가리킨다. 이 계획을 새 계정에서 적용해 **102개 생성·변경 0·삭제 0**으로 완료했다. EKS `urlshortener`는 `ACTIVE`(1.35), 노드 그룹은 3대 `ACTIVE`, EBS CSI 애드온은 `ACTIVE`다. RDS Primary는 `available`·Multi-AZ·암호화, Replica는 `available`·암호화·Primary 복제 원본을 확인했다. **DB 데이터와 비밀번호의 실제 접속 검증은 아직 남았다.**
 
-새 계정 루트 세션으로 최초 EKS를 만든 뒤, 해당 세션의 `kubectl` 인증은 거부됐다. EKS 관리자 접근 항목에 IAM 사용자 `admin-user-pjh`만 등록돼 있기 때문이다. 사용자가 승인한 `urlshortener-migration-operator` IAM 역할·EKS 접근 항목·정책 연결 3개를 적용했지만, 실제 `kubectl` 시험에서 AWS가 **`Roles may not be assumed by root accounts`**라고 거부했다. 루트가 AssumeRole할 수 있다는 설계 가정이 잘못됐다. Terraform 계획에서 이 세 리소스의 삭제만 확인한 뒤 제거했고, 역할 `NoSuchEntity`와 기존 `admin-user-pjh` 접근 항목 유지를 검증했다. 이후에는 이미 EKS 관리자 접근 항목이 있고 `admin-group`의 `AdministratorAccess`를 받는 `admin-user-pjh`로 AWS CLI 임시 로그인을 해야 한다. 이 IAM 사용자는 현재 콘솔 비밀번호 변경이 필요하고 MFA가 등록돼 있다. 비밀번호와 MFA 값은 사용자가 직접 입력하며 채팅·Git에 남기지 않는다. [AWS CLI 임시 로그인](https://docs.aws.amazon.com/signin/latest/userguide/command-line-sign-in.html)을 사용하고 장기 액세스 키는 만들지 않는다.
+새 계정 루트 세션으로 최초 EKS를 만든 뒤, 해당 세션의 `kubectl` 인증은 거부됐다. EKS 관리자 접근 항목에 IAM 사용자 `admin-user-pjh`만 등록돼 있기 때문이다. 사용자가 승인한 `urlshortener-migration-operator` IAM 역할·EKS 접근 항목·정책 연결 3개를 적용했지만, 실제 `kubectl` 시험에서 AWS가 **`Roles may not be assumed by root accounts`**라고 거부했다. 루트가 AssumeRole할 수 있다는 설계 가정이 잘못됐다. Terraform 계획에서 이 세 리소스의 삭제만 확인한 뒤 제거했고, 역할 `NoSuchEntity`와 기존 `admin-user-pjh` 접근 항목 유지를 검증했다.
+
+`admin-user-pjh`는 2026-03-25에 만들어졌고 MFA·관리자 그룹·활성 액세스 키가 있으나 사용자는 생성 경위와 초기 비밀번호를 알지 못한다. 소유 관계를 확인하기 전에는 이 사용자의 비밀번호·키·권한을 바꾸지 않는다. 대신 `enable_project_operator=true`일 때 별도 IAM 사용자 `urlshortener-operator`를 생성한다. AWS 권한은 `SignInLocalDevelopmentAccess`, 본인 비밀번호 변경, 현재 EKS 클러스터 `DescribeCluster`로 제한한다. EKS 접근 항목에는 현재 클러스터에만 `AmazonEKSClusterAdminPolicy`를 연결한다. 이 정책은 Kubernetes 안에서는 전체 관리 권한이므로 계정 이전을 마친 뒤 유지 필요성을 검토한다. 장기 액세스 키는 만들지 않는다. 초기 콘솔 비밀번호는 Terraform state에 넣지 않고 소유자 전용 로컬 파일로만 전달하며, 첫 로그인에서 변경하도록 설정한다. 사용자가 직접 비밀번호 변경과 MFA 등록을 마친 뒤 [AWS CLI 임시 로그인](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html)으로 `kubectl` 접속을 검증한다.
 
 AI root는 `terraform/ai-ops-registry/account.new.tfvars.example`과 전용 새 계정 backend를 사용한다. 운영 root가 GitHub OIDC provider를 만든 뒤 AI root의 plan을 계산했고 **ECR 저장소·수명주기 정책·GitHub 이미지 등록 IAM 역할·정책 4개 생성, 변경·삭제 0**으로 적용했다. ECR `urlshortener-practice-ai-ops`는 새 계정 URI, 불변 태그, AES256 암호화, 푸시 검사를 확인했다. 이미지 자체는 아직 이전하지 않았다. 두 root의 계획 파일은 비밀 산출물로 취급하고 Git에 추가하지 않는다.
 
@@ -105,7 +107,7 @@ EKS의 [표준 지원 클러스터 요금](https://aws.amazon.com/eks/pricing/)�
 ## 다음 순서
 
 1. 새 계정 비용 단가·크레딧 검토, 월간·일간 예산 생성, 수신 이메일 경보 연결은 완료했다. 실제 메일 도착은 기준 초과 시 확인한다. state bucket과 최초 plan 검증도 완료했다.
-2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root는 설치했고 실패한 임시 역할 3개도 제거했다. IAM 사용자 `admin-user-pjh`의 임시 로그인으로 Kubernetes 노드와 복원된 DB의 데이터·연결·비밀번호를 확인한 뒤 앱·모니터링·AI 리소스를 복원한다.
+2. VPC·EKS·스냅샷 복원 RDS와 AI ECR/IAM root는 설치했고 실패한 임시 역할 3개도 제거했다. 전용 `urlshortener-operator`의 생성·첫 로그인·MFA·임시 CLI 로그인을 완료한 뒤 Kubernetes 노드와 복원된 DB의 데이터·연결·비밀번호를 확인하고 앱·모니터링·AI 리소스를 복원한다.
 3. 새 계정의 ECR/OIDC와 GitHub 환경 변수·자격, Route53 Hosted Zone 및 Gabia NS 이전, 외부 HTTPS를 검증한다. DNS 이전 중에는 기존 zone을 유지하고 새 zone의 레코드를 대조한다.
 4. 새 계정에서 주요 기능, AI 수집·보고서, 설치/정리 경로를 검증한 뒤 기존 계정 잔여 리소스를 목록으로 대조해 삭제한다. 기존 계정의 RDS 스냅샷·S3 state 버전·Route53 zone은 복원과 DNS 전환 검증 전에는 삭제하지 않는다.
 5. 기존 계정의 과금 가능한 리소스가 0인지 서비스별 조회와 Billing/Cost Explorer로 재확인한다. 이미 발생한 사용료는 청구에 늦게 반영될 수 있으므로 확인 시각을 기록한다.

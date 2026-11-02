@@ -28,6 +28,12 @@ variable "eks_admin_principal_arn" {
   }
 }
 
+variable "enable_project_operator" {
+  description = "새 계정에서 프로젝트 전용 IAM 사용자와 EKS 관리자 접근 항목 생성 여부"
+  type        = bool
+  default     = false
+}
+
 variable "project_name" {
   description = "프로젝트 이름 - 리소스의 prefix로 사용"
   type        = string

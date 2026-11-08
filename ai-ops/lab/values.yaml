@@ -2,7 +2,7 @@
   "api": {
     "image": {
       "repository": "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener",
-      "digest": "sha256:feb0d20efdef7460e1268b8b61624521a28077ccf629c388e900571c7aa3a3e6"
+      "digest": "sha256:1770fc51af43c7f0dabea9ed9280e64e755eaef23d95dcf2451dff4db8402b60"
     }
   }
 }

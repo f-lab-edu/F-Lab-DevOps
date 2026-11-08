@@ -43,3 +43,5 @@ Docker Desktop containerd의 로컬 descriptor는 OCI index이며 archive의 con
 ## 2026-11-08 재설치 빌드 갱신
 
 Alpine 3.24 공식 x86_64 APKINDEX가 zlib `1.4-r0`을 제공하고 과거 고정 버전의 설치가 실패하는 것을 확인해 Dockerfile의 설치·검증 고정값을 함께 갱신했다. 위 과거 검사 결과는 당시 기록이며 이번 이미지의 검사 결과로 재사용하지 않는다. 새 이미지 빌드와 ECR 검사를 별도로 확인한다.
+
+이번 재설치 ECR 검사에서 `musl 1.2.6-r2`의 `CVE-2026-107891` HIGH 1건을 확인했다. Alpine 3.24 공식 security DB가 수정 버전으로 명시한 `1.2.6-r3`을 설치하고 빌드 중 버전을 검증한다. 재등록 후 검사 지적 0건을 확인해야 AI 배포를 진행한다.

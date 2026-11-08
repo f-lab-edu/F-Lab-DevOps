@@ -332,7 +332,8 @@ module "eks" {
   }
 
   # 클러스터 생성자에게 AWS 리소스에 접근할 수 있는 Role을 부여하기 위한 코드
-  access_entries = {
+  # 전용 작업자를 켜면 project_operator.tf에서 접근 항목을 관리한다.
+  access_entries = var.enable_project_operator ? {} : {
     admin = {
       principal_arn = var.eks_admin_principal_arn
       policy_associations = {

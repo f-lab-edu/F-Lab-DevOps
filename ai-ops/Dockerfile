@@ -1,5 +1,5 @@
 # AI 실행에 필요한 라이브러리만 제공하는 공식 Alpine 베이스를 고정한다.
-FROM python:3.11.17-alpine3.24@sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929 AS base
+FROM python:3.11.17-alpine3.24@sha256:5fb4bc53dd0180955e31e5245b648bbb24a4ac4ab03a1de81513642325220bcd AS base
 # 고정 베이스에 남아 있는 zlib 지적을 배포판의 보안 수정 패키지로 해결한다.
 RUN apk add --no-cache --upgrade zlib=1.4-r0 musl=1.2.6-r3
 # 패키지 제거·수정 버전과 Python 필수 기능을 빌드 중에도 확인한다.

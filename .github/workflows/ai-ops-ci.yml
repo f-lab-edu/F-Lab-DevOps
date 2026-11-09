@@ -2,17 +2,7 @@ name: AI 운영 조사 로컬 검사
 
 on:
   pull_request:
-    paths:
-      - 'ai-ops/**'
-      - 'cluster-addons/ai-ops/**'
-      - '.github/workflows/ai-ops-ci.yml'
-      - '.github/workflows/ai-ops-image.yml'
-      - '.github/workflows/ai-ops-lab-ci.yml'
-      - '.github/workflows/ai-ops-normal-ci.yml'
-      - '.github/workflows/ci-cd.yml'
-      - '.github/scripts/**'
-      - 'url-shortener/app/**'
-      - 'url-shortener/url-shortener-chart/**'
+    types: [opened, reopened, synchronize, edited, ready_for_review]
   push:
     branches:
       - main
@@ -33,7 +23,45 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    outputs:
+      ai_changes: ${{ steps.scope.outputs.ai_changes }}
+    steps:
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@d23441a48e516c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == push ]]; then
+            echo "ai_changes=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [[ "$BASE_SHA" =~ ^[a-f0-9]{40}$ && "$HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]
+          changed_files=$(mktemp)
+          trap 'rm -f "$changed_files"' EXIT
+          git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" > "$changed_files"
+          ai_changes=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              ai-ops/*|cluster-addons/ai-ops/*|.github/scripts/*|url-shortener/app/*|url-shortener/url-shortener-chart/*|.github/workflows/ai-ops-ci.yml|.github/workflows/ai-ops-image.yml|.github/workflows/ai-ops-lab-ci.yml|.github/workflows/ai-ops-normal-ci.yml|.github/workflows/ci-cd.yml)
+                ai_changes=true
+                break
+                ;;
+            esac
+          done < "$changed_files"
+          echo "ai_changes=$ai_changes" >> "$GITHUB_OUTPUT"
+
   contracts:
+    needs: scope
+    if: needs.scope.outputs.ai_changes == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
@@ -73,3 +101,29 @@ jobs:
             --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=64m \
             --entrypoint python ai-ops:ci -c \
             'import os, pydantic; from ai_ops.replay_tools import _runbook; assert os.getuid() == 10001; assert pydantic.__version__ == "2.13.5"; [_runbook(name) for name in ("cache", "database", "deployment")]'
+
+
+  main-gate:
+    name: C03 Main PR Gate
+    if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' }}
+    needs: [scope, contracts, image]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 적용 범위에 맞는 검사 결과 확인
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          AI_CHANGES: ${{ needs.scope.outputs.ai_changes }}
+          CONTRACTS_RESULT: ${{ needs.contracts.result }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+        run: |
+          [[ "$SCOPE_RESULT" == success ]] || exit 1
+          case "$AI_CHANGES" in
+            true)
+              [[ "$CONTRACTS_RESULT" == success && "$IMAGE_RESULT" == success ]]
+              ;;
+            false)
+              [[ "$CONTRACTS_RESULT" == skipped && "$IMAGE_RESULT" == skipped ]]
+              ;;
+            *) exit 1 ;;
+          esac

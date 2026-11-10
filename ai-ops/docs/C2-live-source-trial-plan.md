@@ -1,6 +1,6 @@
 # C-02 활성 GitOps 소스 전환 실습 준비
 
-상태: **정상 기준·두 원복 경로의 정상 상태 점검 완료, 실패 주입 미실행.** 대상은 `ai-ops-lab/lab-api` 한 개다. C-02의 v2 변경안 초안을 실제 장애에서 검증하기 위한 실습이며, PR 생성·승인·병합·AI의 복구 실행은 C-03 범위로 남긴다.
+상태: **격리 실패 주입·v2 초안 저장·정상 원복·실습 후 자격 회전 완료.** 대상은 `ai-ops-lab/lab-api` 한 개다. PR 생성·승인·병합·AI의 복구 실행은 C-03 범위로 남긴다.
 
 ## 왜 별도 실습이 필요한가
 
@@ -30,10 +30,18 @@
 4. `ai-ci/ci-worker`의 v3 사건을 TLS로 읽고, 새 정상 CI 영수증·ECR·현재 실패 Pod·인증된 해결 요청을 `audit_c2_live_preflight.py`로 결합한다. 초안 직전 30초 이내 재조회가 성공할 때만 v2 `draft`를 개인 저장소에 기록한다. 어느 근거든 불일치하면 제안을 만들지 않는다.
 5. 성공 여부와 관계없이 제한 시간 안에 정상 revision으로 Application을 되돌려 수동 동기화한다. Argo `Synced/Healthy`, 정상 digest, Ready 1/1, 빈 Lease, 변경안이 `draft` 이상으로 진행되지 않았음을 확인한다. 앱 Pod 교체 후 정상 CI와 C-02의 Pod 한정 권한·자격을 새 Pod에 맞춰 회전한다.
 
-## 구현 전 차단 조건
+## 2026-10-30 실제 실패 실습 결과
 
-- GitHub·로컬 원복 경로는 **정상 상태에서만** 점검했다. 실제 실패 revision에서 두 경로의 복구 경쟁·자격·기한 동작은 아직 검증되지 않았다. 로컬 컴퓨터와 GitHub Actions가 함께 중단되면 자동 원복도 실패할 수 있으므로, 실행별 수동 원복 명령과 접근 수단을 확인하고 두 감시 실행이 준비된 뒤에만 실패 주입을 검토한다.
-- 활성 revision 전용 조사 Job은 준비 코드만 있다. 실제 적용과 장애 중 사건·요청 연결, v2 초안 저장은 아직 수행하지 않았다.
+- 실행별 검토안 `c2-v2-trial-review.md`의 SHA-256 `e0789ff99321b05d78d47fe0a40b257015aaab6bf31e9ba8545825fbcf09c396`에 대한 사용자 승인을 받은 뒤, GitHub와 로컬의 독립 원복 감시가 모두 준비된 것을 확인했다. 실패 커밋 `a71eba53368f5ecb8ad1fe730f04537f8e50925d`를 실습 앱에만 적용했고, 없는 이미지 digest 때문에 Pod가 `ErrImagePull`이 됐다.
+- 일회성 조사 Job이 사건 `inc-1370fb8b96f2432590fb86c45a55fec2`와 실행 `run-07d09905752c401aa1330a56ae14cd2d`를 만들었다. TLS 조회, 정상 CI 영수증, ECR과 활성 GitOps 소스, 현재 실패 Pod의 대조와 초안 직전 재조회가 모두 통과했다. 인증된 해결 요청 `creq-888f8b8789704d2ca4efa7a7a678a08a`에 연결된 v2 초안 `cprop-c9195485990648cfa48dea420a8d4d04`가 `draft`로 저장됐다. 제안 해시는 `afd5fb3440b0a7787d3b8c4a0ded581445e37444bd66db27f0b68e047fc83c74`, diff 해시는 `9882bb6db0b6d9dc88b13a8799883d10a5017740c9baaac0384350c11d10d2f8`이다.
+- 목표 확인 직후 정상 커밋 `0fd3e2e4b2cd00d8684b94e83c9b7b0abdf75a09`로 원복했다. Argo `Synced/Healthy`, 정상 이미지 digest `sha256:db0022dbc03199cddf5d7bc802977a9380e3dc5859511f7821014e869307082e`, Ready 1/1, 빈 Lease를 확인했다. [GitHub 기한 원복 감시](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/41018858403)는 `success`로 끝났고 로컬 감시도 정상 기준선 복구를 확인했다.
+- 초안 작성 감사 결과는 `proposal_allowed=false`, `draft_only_c3_approval_required`, `cluster_or_github_write_performed=false`다. 이 값은 **초안 작성 코드의 변경 없음**을 뜻하며, 실습 주입과 원복은 별도 승인된 작업으로 실행됐다. 실제 복구 변경·PR 생성·유료 모델 호출은 수행하지 않았다. 교체된 앱 Pod `lab-api-6c9cbdc496-vxkvj`의 정상 CI Role 이름 권한, GitHub `NORMAL_CI_BINDING`, 클러스터 `ci-normal-binding`을 같은 결합값으로 갱신하고 relay·worker를 순서대로 재시작해 Ready를 확인했다. Prometheus의 이전 Pod 시계열이 정리된 뒤 정상 관측 CI 준비 검사가 통과했다.
+- 새 worker Pod `ci-worker-5d874746df-dvpht` 한 개의 `pods get`·`pods/portforward create`만 남기도록 C-02 Role·Binding을 회전하고, 1시간 단기 자격을 재발급했다. 이 자격으로 새 Pod 조회와 사건 요약 TLS 조회는 성공했고 이전 Pod·Secret 조회와 무인증 HTTP 요청은 거부됐다. 로컬 포트 전달과 운영자 조회 서버는 검증 뒤 종료했다.
+
+## 남은 조건
+
+- GitHub·로컬 원복 경로는 실제 실패 실습에서도 정상 상태를 확인했다. 이번에는 목표 확인 직후 수동 원복했고 두 기한 감시는 정상 복구를 검증했다. 두 감시가 동시에 중단되는 경우의 자동 원복은 검증하지 않았다.
+- 활성 revision 전용 조사 Job의 실제 적용과 장애 중 사건·요청 연결, v2 초안 저장까지 확인했다. 실습 후 Pod 결합값·단기 조회 자격 회전도 완료했다.
 - C-02의 성공 기준은 **v2 초안의 근거·diff 해시를 저장하는 것까지**다. 사람의 특정 변경 승인, PR 병합, 클러스터 복구 실행은 포함하지 않는다.
 - 자동 원복 전에 초안을 만들지 못하면 실패 원인을 기록하고 정상 상태만 복구한다. 시간 제한을 늘리거나 검사 조건을 느슨하게 하지 않는다.
 

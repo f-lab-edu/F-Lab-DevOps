@@ -89,6 +89,26 @@ S10은 이제 `values.yaml`의 `api.image.digest` 한 필드만 다른 실패 �
 
 재현 시 `--normal-binding`에는 성공한 정상 CI 실행 당시의 개인 결합값 파일을, `--normal-run-id`와 `--normal-head`에는 그 실행의 GitHub ID와 전체 SHA를 넣는다. `--kubeconfig`는 현재 클러스터, `--output`은 개인 폴더의 새 JSON 파일이어야 한다. 예: `AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py --kubeconfig "$INSTALL_DIR/kubeconfig" --normal-binding "$INSTALL_DIR/normal-binding.json" --normal-run-id 40818314394 --normal-head 85549a8ee12b48bfd1d8da9d71e5ebe31b043d7d --output "$INSTALL_DIR/c2-proof-new.json"`. 앱이 이미 복구됐으면 GitHub·ECR 조회 전에 중단한다. 관련 거부 시험 4개와 기존 사전 판정 시험 3개가 통과했다.
 
+### 다음 활성 장애에서 요청·초안 연속 확인
+
+첫 활성 소스 실습에서는 이미지 실패 사건이 생성됐지만, 인증된 해결 요청과 두 번째 실시간 조회 전에 앱을 원복해 `already_recovered`로 초안이 차단됐다. 다음 실행을 위해 감사 명령에 `--create-request`를 추가했다. 이 옵션은 **현재 이미지 실패·정상 CI 영수증·ECR·Pod 소유 관계의 첫 검증이 `proof_ready`인 경우에만** 로컬 운영자 소켓으로 사건을 조회하고 인증된 해결 요청을 만든다. 사건의 진단 상태·인용 근거·Pod/Deployment/이미지 해시가 첫 검증과 맞지 않으면 요청을 만들지 않는다. 요청 뒤 원본을 다시 조회하고 30초 이내 재확인을 통과해야 개인 저장소에 v2 `draft`를 남긴다. PR 생성·변경 승인·클러스터 복구 실행은 하지 않는다.
+
+로컬 운영자 서비스와 현재 worker Pod 한정 TLS 포트 전달을 먼저 기동한 뒤, 새 실습 사건 ID·실행 ID와 **그 실습 전에 성공한 최신 정상 CI** 실행 ID·head SHA·당시 결합값 파일을 입력한다. 아래의 출력 경로 두 개는 실행마다 새 파일이어야 한다. `--create-request`는 `--request-id`와 함께 사용할 수 없다.
+
+```bash
+AI_OPS_FILES_ROOT="$INSTALL_DIR" PYTHONPATH=ai-ops/src python ai-ops/scripts/audit_c2_live_preflight.py \
+  --kubeconfig "$INSTALL_DIR/kubeconfig" \
+  --normal-binding "$INSTALL_DIR/normal-binding.json" \
+  --normal-run-id "$NORMAL_RUN_ID" --normal-head "$NORMAL_HEAD_SHA" \
+  --operator-state-root "$HOME/.local/share/url-shortener-ai-ops/c-approvals" \
+  --incident-id "$INCIDENT_ID" --incident-run-id "$INCIDENT_RUN_ID" \
+  --create-request --proposal-recheck \
+  --output "$INSTALL_DIR/c2-audit-new.json" \
+  --proposal-output "$INSTALL_DIR/c2-draft-new.json"
+```
+
+실패 주입과 해결 요청은 실행별 승인 범위에서만 수행한다. 첫 검증이 거부되거나 원복이 먼저 끝나면 감사 결과만 저장하고 요청·초안은 만들지 않으며 종료 코드 2를 반환한다. 이 연속 경로는 로컬 경계 시험을 통과했으며 실제 장애 창에서의 성공 여부는 아직 확인하지 않았다.
+
 ## 2026-10-29 새 이미지 배포와 Pod 한정 자격 갱신
 
 [AI 이미지 등록 실행 #40822529008](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/40822529008)의 시험·빌드·ECR 게시가 통과했고 `main`의 C-02 코드를 담은 digest `sha256:850dc9d53ebf5a41f047615a7c6c20be5566b895b22204e571fd7f7da02ef5ef`를 ECR 원본에서 확인했다. 현재 `ai-ci/ci-worker` Deployment의 UID·resourceVersion·복제수 1·두 컨테이너의 이전 이미지·`ci-queue` PVC를 검사한 조건부 패치를 server dry-run한 다음, worker와 `projection-read` 이미지만 이 digest로 교체했다. 새 Pod `ci-worker-69dc5ff957-6ll7f`의 두 컨테이너는 Ready, 재시작은 0회였다. 실습 앱 `ai-ops-lab/lab-api`는 기존 digest와 Ready 1/1을 유지했다.
@@ -146,7 +166,7 @@ S10 artifact는 `deployment=failure`, `rollback=success`, `result=recovered_afte
 이후 앱 Pod `lab-api-6c9cbdc496-mzph7`에 맞춰 정상 관측 CI Role의 `pods get`·`pods/exec create` 대상 이름을 교체하고 이전 Pod 이름을 제거했다. GitHub 환경의 `NORMAL_CI_BINDING`과 `ai-ci/ci-normal-binding` ConfigMap은 같은 새 결합값으로 갱신했으며 relay·worker를 순서대로 재시작해 Ready를 확인했다. worker 재시작 뒤 C-02 조회 Role도 현재 Pod `ci-worker-75754b4758-wfpvs` 한 개로 회전하고 1시간 자격을 새로 발급했다. 새 자격은 현재 Pod 조회를 허용하고 이전 Pod·Secret 조회를 거부했다. 새 Pod의 TLS sidecar에서 위 사건의 `partial`·`suspected_cause`와 이미지 실패 근거 ID 세 개를 재조회한 뒤 포트 전달을 종료했다. 정상 관측 CI의 새 실행은 이 회전 과정에서 반복하지 않았다.
 
 1. **조회 경로의 장기 자격 관리:** Pod 교체 뒤 RBAC 재결합·단기 토큰 재발급·이전 Pod 거부와 실제 TLS 조회는 검증했다. 인증서 만료일인 2026-11-27 18:22 KST 전에 Secret·로컬 CA를 함께 회전하고 구 자격 거부를 확인해야 한다. 운영자 CLI에 `kubectl exec`나 클러스터 Secret 조회 권한을 추가하지 않는다.
-2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 S10 실패에서 v3 사건의 이미지 장애 결합은 확인했지만, 활성 GitOps 소스 revision과 공유 잠금 조건 때문에 v2 초안 양성 경로는 여전히 합성 시험만 통과했다. 자료가 없거나 기존 CI가 이미 원복했으면 새 제안을 만들지 않는다. 다음 실습은 [활성 GitOps 소스 전환 실습 준비](C2-live-source-trial-plan.md)에 따라 실패 revision을 활성 소스로 전환하고 반드시 정상 기준선으로 원복한다.
+2. **검증된 변경안 입력:** 이전 정상 CI·ECR·현재 이미지 취득 실패와 저장된 사건·인증 요청의 대조, 초안 직전 두 번째 조회, 근거·영향·검증 조건을 담은 v2 초안 및 취소·만료 이력은 구현했다. 실제 S10 실패에서는 활성 GitOps 소스 revision과 공유 잠금 조건 때문에 초안이 차단됐으나, 이후 [활성 GitOps 소스 격리 실습](C2-live-source-trial-plan.md)에서 실패 revision을 활성화해 사건·인증 요청·v2 `draft` 저장과 정상 원복을 확인했다. 자료가 없거나 이미 원복됐으면 새 제안을 만들지 않는다.
 3. **승인·실행은 C-03:** GitHub review의 사용자/commit/diff 검증과 `main` 보호 규칙 적용 뒤에만 승인 상태를 허용한다. 현재 C-02 DB와 API는 `draft` 이상 상태를 수용하지 않는다.
 
 다음 작업 권장 추론 깊이: **GPT-6 SOL high**.

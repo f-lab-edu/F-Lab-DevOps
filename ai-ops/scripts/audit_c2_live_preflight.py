@@ -9,6 +9,7 @@ from ai_ops.c_live_preflight import SHA, assess_live_preflight
 from ai_ops.c_recovery_proof import (assess_incident_request, assess_proposal_recheck,
                                      assess_recovery_proof)
 from ai_ops.c_recovery import (IMAGE_REPOSITORY, IncidentProjection, RecoveryDraftStore,
+                               RecoveryRequest,
                                _values, draft_verified_proposal, read_existing_request)
 from ai_ops.c_operator import _client
 from ai_ops.contracts import sha256_json
@@ -103,6 +104,7 @@ def main() -> int:
     parser.add_argument("--incident-id")
     parser.add_argument("--incident-run-id")
     parser.add_argument("--request-id")
+    parser.add_argument("--create-request", action="store_true")
     parser.add_argument("--proposal-recheck", action="store_true")
     parser.add_argument("--proposal-output", type=Path)
     args = cli_paths(parser, parser.parse_args(), {"output": "output", "normal_binding": "input",
@@ -112,16 +114,50 @@ def main() -> int:
             and not all(value is not None for value in (args.normal_binding, args.normal_run_id, args.normal_head)):
         parser.error("정상 CI 근거의 결합값·실행 ID·head SHA를 함께 지정해야 합니다")
     incident_fields = (args.operator_state_root, args.incident_id, args.incident_run_id, args.request_id)
-    if any(value is not None for value in incident_fields) and (not all(value is not None for value in incident_fields)
-                                                               or args.normal_binding is None):
+    if args.create_request:
+        if (not all(value is not None for value in incident_fields[:3]) or args.request_id is not None
+                or args.normal_binding is None or not args.proposal_recheck
+                or args.proposal_output is None):
+            parser.error("해결 요청 생성에는 사건·정상 CI 근거와 초안 재조회 출력이 필요합니다")
+    elif any(value is not None for value in incident_fields) and (not all(value is not None for value in incident_fields)
+                                                                   or args.normal_binding is None):
         parser.error("사건 연결에는 운영자 상태 폴더·사건/실행/요청 ID와 정상 CI 근거가 함께 필요합니다")
     if args.proposal_output is not None and not args.proposal_recheck:
         parser.error("변경안 출력에는 실시간 재조회가 필요합니다")
     if args.proposal_output is not None and args.proposal_output == args.output:
         parser.error("감사 결과와 변경안은 서로 다른 파일에 기록해야 합니다")
-    if args.proposal_recheck and not all(value is not None for value in incident_fields):
+    if args.proposal_recheck and not args.create_request and not all(value is not None for value in incident_fields):
         parser.error("재조회에는 인증된 사건과 해결 요청이 필요합니다")
-    result, _, _, _ = _collect(args)
+    if args.create_request:
+        # 현장 장애의 원본 근거가 먼저 맞아야 사용자 요청을 생성한다.
+        preliminary = argparse.Namespace(**{**vars(args), "operator_state_root": None})
+        result, _, _, _ = _collect(preliminary)
+        if result.get("proof_ready"):
+            shown = _client(args.operator_state_root / "operator.sock", "show",
+                            args.incident_id, args.incident_run_id)
+            if shown.get("status") != "ok":
+                result["blockers"] = ["incident_lookup_rejected"]
+            else:
+                projection = IncidentProjection.model_validate(shown["projection"])
+                failure = projection.image_failure
+                if (failure is None or projection.diagnosis_status != "suspected_cause"
+                        or projection.current_state != "unknown"
+                        or not set(failure.evidence_ids) <= set(projection.cited_evidence_ids)
+                        or failure.pod_uid_hash != result.get("pod_uid_hash")
+                        or failure.deployment_uid_hash != result.get("deployment_uid_hash")
+                        or failure.image_hash != result.get("image_hash")):
+                    result["blockers"] = ["incident_or_live_proof_mismatch"]
+                else:
+                    created = _client(args.operator_state_root / "operator.sock", "request",
+                                      args.incident_id, args.incident_run_id)
+                    if created.get("status") != "ok":
+                        result["blockers"] = ["request_rejected"]
+                    else:
+                        request = RecoveryRequest.model_validate(created["request"])
+                        result = assess_incident_request(result, projection, request)
+                        args.request_id = request.request_id
+    else:
+        result, _, _, _ = _collect(args)
     if args.proposal_recheck:
         if result.get("incident_ready"):
             refreshed, projection, request, values = _collect(args)
@@ -133,8 +169,12 @@ def main() -> int:
         else:
             result["proposal_ready"] = False
     write_private_json(args.output, result)
-    print("C-02 실시간 근거를 읽기 전용으로 기록했습니다. PR·승인·배포는 생성하지 않았습니다.")
-    return 0
+    if args.create_request:
+        outcome = "v2 초안 저장" if result.get("proposal_ready") else "초안 차단"
+        print(f"C-02 인증 요청 경로를 검사하고 {outcome}을 기록했습니다. PR·승인·배포는 생성하지 않았습니다.")
+    else:
+        print("C-02 실시간 근거를 읽기 전용으로 기록했습니다. PR·승인·배포는 생성하지 않았습니다.")
+    return 0 if not args.create_request or result.get("proposal_ready") else 2
 
 
 if __name__ == "__main__":

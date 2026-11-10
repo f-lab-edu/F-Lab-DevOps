@@ -3,6 +3,7 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -77,6 +78,24 @@ class RollbackGuardTest(unittest.TestCase):
         deployment["status"]["readyReplicas"] = 0
         with self.assertRaises(ValueError):
             module.verify_normal(plan, app, deployment)
+
+    def test_isolated_server_rejects_underprivileged_or_broad_credentials(self):
+        module = self.runner()
+
+        def reply(*args):
+            action, resource, target = args[-3:]
+            return (b"yes\n" if resource == "applications" and target == "b6-lab/lab-target"
+                    and action in {"get", "update", "sync"} else b"no\n")
+
+        with patch.dict(os.environ, {"ARGOCD_AUTH_TOKEN": "fixture"}):
+            with patch.object(module, "call", side_effect=reply):
+                module.verify_isolated_server_permissions()
+            for response in (
+                lambda *args: b"no\n" if args[-3] == "update" else reply(*args),
+                lambda *args: b"yes\n" if args[-1] == "default/url-shortener" else reply(*args),
+            ):
+                with patch.object(module, "call", side_effect=response), self.assertRaises(ValueError):
+                    module.verify_isolated_server_permissions()
 
     def test_deadline_and_three_allowed_states(self):
         plan, app, deployment = fixture()

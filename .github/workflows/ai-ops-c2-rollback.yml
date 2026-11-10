@@ -8,7 +8,7 @@ on:
         options: [legacy, c03-isolated]
       prepare_only:
         type: boolean
-        default: false
+        default: true
       baseline_revision:
         required: true
         type: string
@@ -99,8 +99,15 @@ jobs:
           PY
       - name: 별도 기한 원복과 정상 상태 검증
         env:
-          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.source == 'legacy' && secrets.S10_ARGOCD_TOKEN || '' }}
+          C03_ROLLBACK_ARGOCD_TOKEN: ${{ inputs.source == 'c03-isolated' && secrets.C03_ROLLBACK_ARGOCD_TOKEN || '' }}
         run: |
+          set -euo pipefail
+          if [[ "$ROLLBACK_SOURCE" == "c03-isolated" ]]; then
+            : "${C03_ROLLBACK_ARGOCD_TOKEN:?Dedicated C-03 rollback token is required}"
+            export ARGOCD_AUTH_TOKEN="$C03_ROLLBACK_ARGOCD_TOKEN"
+          fi
+          unset C03_ROLLBACK_ARGOCD_TOKEN
           rollback_args=()
           if [[ "$ROLLBACK_PREPARE_ONLY" == "true" ]]; then
             rollback_args+=(--prepare-only)

@@ -22,13 +22,33 @@ def call(*args: str, timeout: int = 30, payload: bytes | None = None) -> bytes:
     return result.stdout
 
 
-SERVER_ARGO = ("argocd", "--server", "argocd.bidservice.store", "--grpc-web", "app")
+SERVER = ("argocd", "--server", "argocd.bidservice.store", "--grpc-web")
+SERVER_ARGO = (*SERVER, "app")
 CORE_ARGO = ("argocd", "--core", "app")
 
 
 def get_application(argo: tuple[str, ...] = SERVER_ARGO) -> dict:
     """선택한 Argo 경로로 고정 실습 Application을 조회한다."""
     return json.loads(call(*argo, "get", "lab-target", "-o", "json"))
+
+
+def verify_isolated_server_permissions() -> None:
+    """실행 전에 별도 실습 토큰의 필수 허용과 금지를 읽기 전용으로 검사한다."""
+    if not os.environ.get("ARGOCD_AUTH_TOKEN"):
+        raise ValueError("C-03 독립 원복 토큰이 필요합니다")
+    for action, resource, target, expected in (
+        ("get", "applications", "b6-lab/lab-target", b"yes"),
+        ("update", "applications", "b6-lab/lab-target", b"yes"),
+        ("sync", "applications", "b6-lab/lab-target", b"yes"),
+        ("delete", "applications", "b6-lab/lab-target", b"no"),
+        ("override", "applications", "b6-lab/lab-target", b"no"),
+        ("get", "applications", "default/url-shortener", b"no"),
+        ("update", "applications", "default/url-shortener", b"no"),
+        ("sync", "applications", "default/url-shortener", b"no"),
+        ("update", "projects", "b6-lab", b"no"),
+    ):
+        if call(*SERVER, "account", "can-i", action, resource, target).strip() != expected:
+            raise ValueError("C-03 독립 원복 토큰의 권한이 실습 계약과 다릅니다")
 
 
 def verify_normal(plan: dict, app: dict, deployment: dict) -> None:
@@ -72,6 +92,8 @@ def main() -> int:
         verify_local_kubeconfig(args.kubeconfig)
         os.environ["KUBECONFIG"] = args.kubeconfig
         os.environ.pop("ARGOCD_AUTH_TOKEN", None)
+    elif plan["schema_version"] == 2:
+        verify_isolated_server_permissions()
 
     def get(namespace: str, kind: str, name: str) -> dict:
         return json.loads(call("kubectl", "--kubeconfig", args.kubeconfig,

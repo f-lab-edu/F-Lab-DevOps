@@ -2,6 +2,13 @@ name: C-02 격리 실습 독립 기한 원복
 on:
   workflow_dispatch:
     inputs:
+      source:
+        type: choice
+        default: legacy
+        options: [legacy, c03-isolated]
+      prepare_only:
+        type: boolean
+        default: true
       baseline_revision:
         required: true
         type: string
@@ -47,6 +54,8 @@ jobs:
       C2_NORMAL_IMAGE: ${{ inputs.normal_image }}
       C2_FAILURE_IMAGE: ${{ inputs.failure_image }}
       C2_DEADLINE: ${{ inputs.deadline_utc }}
+      ROLLBACK_SOURCE: ${{ inputs.source }}
+      ROLLBACK_PREPARE_ONLY: ${{ inputs.prepare_only }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
@@ -74,19 +83,34 @@ jobs:
           "$RUNNER_TEMP/venv/bin/python" - <<'PY'
           import json, os
           from pathlib import Path
-          from ai_ops.c2_rollback_guard import validate_plan
+          from ai_ops.c2_rollback_guard import ISOLATED_REPOSITORY, validate_plan
           from datetime import datetime, timezone
           plan = dict(schema_version=1, target='urlshortener/ai-ops-lab/lab-api/practice',
                       application_uid=os.environ['C2_APP_UID'], deployment_uid=os.environ['C2_DEP_UID'],
                       baseline_revision=os.environ['C2_BASELINE'], failure_revision=os.environ['C2_FAILURE'],
                       normal_image=os.environ['C2_NORMAL_IMAGE'], failure_image=os.environ['C2_FAILURE_IMAGE'],
                       deadline_utc=os.environ['C2_DEADLINE'])
+          if os.environ['ROLLBACK_SOURCE'] == 'c03-isolated':
+              plan.update(schema_version=2, source_repository=ISOLATED_REPOSITORY)
+          elif os.environ['ROLLBACK_SOURCE'] != 'legacy':
+              raise SystemExit('Unexpected rollback source')
           validate_plan(plan, now=datetime.now(timezone.utc))
           (Path(os.environ['AI_OPS_FILES_ROOT']) / 'plan.json').write_text(json.dumps(plan))
           PY
       - name: 별도 기한 원복과 정상 상태 검증
         env:
-          ARGOCD_AUTH_TOKEN: ${{ secrets.S10_ARGOCD_TOKEN }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.source == 'legacy' && secrets.S10_ARGOCD_TOKEN || '' }}
+          C03_ROLLBACK_ARGOCD_TOKEN: ${{ inputs.source == 'c03-isolated' && secrets.C03_ROLLBACK_ARGOCD_TOKEN || '' }}
         run: |
+          set -euo pipefail
+          if [[ "$ROLLBACK_SOURCE" == "c03-isolated" ]]; then
+            : "${C03_ROLLBACK_ARGOCD_TOKEN:?Dedicated C-03 rollback token is required}"
+            export ARGOCD_AUTH_TOKEN="$C03_ROLLBACK_ARGOCD_TOKEN"
+          fi
+          unset C03_ROLLBACK_ARGOCD_TOKEN
+          rollback_args=()
+          if [[ "$ROLLBACK_PREPARE_ONLY" == "true" ]]; then
+            rollback_args+=(--prepare-only)
+          fi
           "$RUNNER_TEMP/venv/bin/python" ai-ops/scripts/run_c2_rollback_guard.py \
-            --plan "$AI_OPS_FILES_ROOT/plan.json" --kubeconfig "$HOME/.kube/config"
+            --plan "$AI_OPS_FILES_ROOT/plan.json" --kubeconfig "$HOME/.kube/config" "${rollback_args[@]}"

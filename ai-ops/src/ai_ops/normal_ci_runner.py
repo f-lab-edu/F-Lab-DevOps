@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import time
 
@@ -19,6 +20,10 @@ from ai_ops.normal_ci_contract import (NormalCIBinding, NormalCIIdentity, Normal
                                       WORKFLOW, executor_hash)
 from ai_ops.normal_ci_source import SourceRequest
 from ai_ops.path_policy import cli_paths, write_private_json
+
+
+PRODUCTION_LAB_SOURCE = "https://github.com/f-lab-edu/F-Lab-DevOps.git"
+C03_LAB_SOURCE = "https://github.com/joungGo/c03-execution-lab.git"
 
 
 class NormalCIClient(SequenceLabClient):
@@ -81,15 +86,24 @@ class NormalCIClient(SequenceLabClient):
     def guard(self):
         app, collector = self.pin_app(), self.pin_collector()
         application = self.get("argocd", "application", "lab-target")
-        if (application["spec"]["project"] != "b6-lab"
-                or application["spec"]["destination"]["namespace"] != NAMESPACE
-                or application["spec"]["source"]["repoURL"] != "https://github.com/f-lab-edu/F-Lab-DevOps.git"
-                or application["spec"]["source"]["path"] != "ai-ops/lab"
-                or set(application["spec"]["source"]) != {"repoURL", "path", "targetRevision"}
+        spec = application["spec"]
+        source = spec["source"]
+        if (spec["project"] != "b6-lab"
+                or spec["destination"]["namespace"] != NAMESPACE
+                or source["repoURL"] not in (PRODUCTION_LAB_SOURCE, C03_LAB_SOURCE)
+                or source["path"] != "ai-ops/lab"
+                or set(source) != {"repoURL", "path", "targetRevision"}
                 or application["status"]["sync"]["status"] != "Synced"
                 or application["status"]["health"]["status"] != "Healthy"
                 or application["status"].get("operationState", {}).get("phase") == "Running"):
             raise ValueError("normal_ci_gitops_baseline_rejected")
+        if source["repoURL"] == C03_LAB_SOURCE:
+            revision = source["targetRevision"]
+            if (not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision)
+                    or application["status"]["sync"].get("revision") != revision
+                    or spec.get("syncPolicy", {}).get("automated") is not None
+                    or spec["destination"].get("server") != "https://kubernetes.default.svc"):
+                raise ValueError("normal_ci_c03_revision_not_pinned")
         lab = {}
         for name in ("lab-api", "lab-collector", "lab-postgres", "lab-redis"):
             obj = self.get(NAMESPACE, "deployment", name)

@@ -8,13 +8,15 @@ from pathlib import Path
 import stat
 import subprocess
 import time
+import uuid
 
+from ai_ops.b6_coordination import LabLease
 from ai_ops.c2_rollback_guard import rollback_decision, validate_plan
 from ai_ops.path_policy import cli_paths
 
 
-def call(*args: str, timeout: int = 30) -> bytes:
-    result = subprocess.run(args, capture_output=True, timeout=timeout)
+def call(*args: str, timeout: int = 30, payload: bytes | None = None) -> bytes:
+    result = subprocess.run(args, input=payload, capture_output=True, timeout=timeout)
     if result.returncode or len(result.stdout) > 2 * 1024 * 1024:
         raise ValueError("C-02 원복 명령 또는 조회가 실패했습니다")
     return result.stdout
@@ -34,7 +36,12 @@ def verify_normal(plan: dict, app: dict, deployment: dict) -> None:
     if (rollback_decision(plan, app, deployment) != "verify_normal"
             or app["status"]["sync"]["status"] != "Synced"
             or app["status"]["health"]["status"] != "Healthy"
-            or deployment["status"].get("readyReplicas") != 1):
+            or deployment["status"].get("readyReplicas") != 1
+            or (plan.get("schema_version") == 2 and (
+                app["status"]["sync"].get("revision") != plan["baseline_revision"]
+                or app["status"].get("operationState", {}).get("phase") != "Succeeded"
+                or app["status"]["operationState"].get("syncResult", {}).get("revision") != plan["baseline_revision"]
+                or deployment["status"].get("observedGeneration") != deployment["metadata"]["generation"]))):
         raise ValueError("C-02 실습 정상 상태가 검증되지 않았습니다")
 
 
@@ -56,6 +63,7 @@ def main() -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--kubeconfig", required=True)
     parser.add_argument("--core", action="store_true")
+    parser.add_argument("--prepare-only", action="store_true")
     args = cli_paths(parser, parser.parse_args(), {"plan": "input"})
     plan = json.loads(args.plan.read_bytes())
     deadline = validate_plan(plan, now=datetime.now(timezone.utc))
@@ -72,6 +80,13 @@ def main() -> int:
     app = get_application(argo)
     deployment = get("ai-ops-lab", "deployment", "lab-api")
     verify_normal(plan, app, deployment)
+    if plan["schema_version"] == 2:
+        initial_lease = get("ai-ops-lab", "lease", "b6-scenario-lock")
+        if initial_lease["spec"].get("holderIdentity"):
+            raise ValueError("C-03 공유 잠금이 사용 중입니다")
+    if args.prepare_only:
+        print("독립 원복 기준선 읽기 검증 완료")
+        return 0
     print("C-02 별도 원복 감시 준비 완료", flush=True)
     # 주입 실행과 별도 프로세스에서 기한을 기다린다. 취소되거나 죽으면 성공으로 표시하지 않는다.
     time.sleep(max(0, (deadline - datetime.now(timezone.utc)).total_seconds()))
@@ -79,6 +94,23 @@ def main() -> int:
     app = get_application(argo)
     deployment = get("ai-ops-lab", "deployment", "lab-api")
     decision = rollback_decision(plan, app, deployment)
+    lease = None
+    if plan["schema_version"] == 2 and decision != "verify_normal":
+        def lease_command(*command, payload=None):
+            if command[0] == "create":
+                raise ValueError("C-03 원복은 기존 공유 잠금만 사용합니다")
+            return call("kubectl", "--kubeconfig", args.kubeconfig, *command,
+                        payload=payload.encode() if payload is not None else None).decode()
+        lease = LabLease(lease_command, "manual-" + uuid.uuid4().hex)
+        observed_lease = get("ai-ops-lab", "lease", "b6-scenario-lock")
+        if observed_lease["metadata"]["uid"] != initial_lease["metadata"]["uid"]:
+            raise ValueError("C-03 공유 잠금 UID가 달라졌습니다")
+        held = lease.acquire()
+        if held["uid"] != initial_lease["metadata"]["uid"]:
+            raise ValueError("C-03 원복이 취득한 공유 잠금 UID가 달라졌습니다")
+        app = get_application(argo)
+        deployment = get("ai-ops-lab", "deployment", "lab-api")
+        decision = rollback_decision(plan, app, deployment)
     if decision == "set_and_sync_baseline":
         call(*argo, "set", "lab-target", "--revision", plan["baseline_revision"], timeout=45)
     if decision != "verify_normal":
@@ -89,6 +121,8 @@ def main() -> int:
     app = get_application(argo)
     deployment = get("ai-ops-lab", "deployment", "lab-api")
     verify_normal(plan, app, deployment)
+    if lease is not None:
+        lease.release(recovery_verified=True, scenario_started=True)
     print("C-02 격리 실습 기준선 복구·검증 완료")
     return 0
 

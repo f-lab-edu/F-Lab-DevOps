@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ai_ops.b_contracts import ReadResponse
-from ai_ops.b6_lab import CONTEXT, ECR
+from ai_ops.b6_lab import CONTEXT, ECR, PURPOSE
 from ai_ops.b6_sequence_capture import RequestObservation
 from ai_ops.collection import CapturedSnapshot
 from ai_ops.contracts import build_evidence_bundle, canonical_json_bytes, sha256_json
@@ -21,7 +21,7 @@ from ai_ops.model_sequence_projection import ProbeRead, ProbeRecord, probe_log_h
 from ai_ops.normal_ci_contract import (NormalCIBinding, NormalCIIdentity, NormalCIReceipt,
                                       executor_hash)
 from ai_ops.normal_ci_rbac import build_normal_rbac
-from ai_ops.normal_ci_runner import run_normal_ci, verify_cluster, workflow_identity
+from ai_ops.normal_ci_runner import NormalCIClient, run_normal_ci, verify_cluster, workflow_identity
 from ai_ops.normal_ci_source import NormalSourceStore, SourceRequest
 from test_b6_sequence_capture import FakeSequenceClient
 from test_live_collectors import AT
@@ -93,6 +93,33 @@ class NormalCITest(unittest.TestCase):
         result = run_normal_ci(client, self.identity, self.binding, sleep=lambda _: None,
             lease_factory=lambda *_: lease, clock=lambda: AT-timedelta(seconds=5))
         return result, lease
+
+    def test_isolated_argocd_source_requires_the_pinned_healthy_revision(self):
+        revision = "a" * 40
+        source = {"repoURL": "https://github.com/joungGo/c03-execution-lab.git",
+                  "path": "ai-ops/lab", "targetRevision": revision}
+        app = {"metadata": {"uid": "application-1"},
+               "spec": {"project": "b6-lab", "source": source,
+                        "destination": {"server": "https://kubernetes.default.svc", "namespace": "ai-ops-lab"}},
+               "status": {"sync": {"status": "Synced", "revision": revision},
+                          "health": {"status": "Healthy"}}}
+        deployment = {"metadata": {"uid": "deployment-1", "generation": 1, "labels": dict(PURPOSE)},
+                      "spec": {"replicas": 1, "template": {"spec": {"containers": [{"image": self.binding.app.image}]}}},
+                      "status": {"readyReplicas": 1}}
+        client = NormalCIClient(self.binding)
+        with (patch.object(client, "pin_app", return_value={}),
+              patch.object(client, "pin_collector", return_value={}),
+              patch.object(client, "get", side_effect=lambda namespace, kind, name:
+                           app if kind == "application" else deployment),
+              patch.object(client, "remote")):
+            self.assertEqual(client.guard()["argo"]["revision"], revision)
+            for invalid_revision in ("main", "b" * 40):
+                source["targetRevision"] = invalid_revision
+                with self.assertRaisesRegex(ValueError, "normal_ci_c03_revision_not_pinned"):
+                    client.guard()
+            source.update(repoURL="https://github.com/other/c03-execution-lab.git", targetRevision=revision)
+            with self.assertRaisesRegex(ValueError, "normal_ci_gitops_baseline_rejected"):
+                client.guard()
 
     def test_four_reads_then_cleanup_and_receipt_without_original(self):
         client = FakeNormalClient(self.receipt)

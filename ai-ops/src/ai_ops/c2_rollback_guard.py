@@ -8,14 +8,20 @@ import re
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 IMAGE = re.compile(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[0-9a-f]{64}\Z")
+LEGACY_REPOSITORY = "https://github.com/f-lab-edu/F-Lab-DevOps.git"
+ISOLATED_REPOSITORY = "https://github.com/joungGo/c03-execution-lab.git"
 
 
 def validate_plan(plan: dict, *, now: datetime) -> datetime:
     """승인된 실습 대상·두 SHA·짧은 원복 기한만 허용한다."""
-    if (set(plan) != {"schema_version", "target", "application_uid", "deployment_uid",
-                      "baseline_revision", "failure_revision", "normal_image", "failure_image",
-                      "deadline_utc"}
-            or plan["schema_version"] != 1
+    expected = {"schema_version", "target", "application_uid", "deployment_uid",
+                "baseline_revision", "failure_revision", "normal_image", "failure_image", "deadline_utc"}
+    version = plan.get("schema_version")
+    if version == 2:
+        expected.add("source_repository")
+    if (set(plan) != expected
+            or type(version) is not int or version not in (1, 2)
+            or (version == 2 and plan["source_repository"] != ISOLATED_REPOSITORY)
             or plan["target"] != "urlshortener/ai-ops-lab/lab-api/practice"
             or not all(isinstance(plan[key], str) and plan[key]
                        for key in ("application_uid", "deployment_uid"))
@@ -46,14 +52,22 @@ def rollback_decision(plan: dict, app: dict, deployment: dict) -> str:
         if (app["metadata"]["name"] != "lab-target" or app["metadata"]["namespace"] != "argocd"
                 or app["metadata"]["uid"] != plan["application_uid"]
                 or app["spec"]["project"] != "b6-lab"
-                or source.get("repoURL") != "https://github.com/f-lab-edu/F-Lab-DevOps.git"
+                or source.get("repoURL") != (
+                    ISOLATED_REPOSITORY if plan.get("schema_version") == 2 else LEGACY_REPOSITORY)
                 or source.get("path") != "ai-ops/lab"
                 or destination != {"server": "https://kubernetes.default.svc", "namespace": "ai-ops-lab"}
                 or app["spec"].get("syncPolicy", {}).get("automated") is not None
                 or deployment["metadata"]["name"] != "lab-api"
                 or deployment["metadata"]["namespace"] != "ai-ops-lab"
                 or deployment["metadata"]["uid"] != plan["deployment_uid"]
-                or deployment["spec"]["replicas"] != 1):
+                or deployment["spec"]["replicas"] != 1
+                or (plan.get("schema_version") == 2 and (
+                    set(source) != {"repoURL", "path", "targetRevision"}
+                    or app["metadata"].get("deletionTimestamp")
+                    or app.get("operation")
+                    or deployment["metadata"].get("deletionTimestamp")
+                    or len(deployment["spec"]["template"]["spec"]["containers"]) != 1
+                    or deployment["spec"]["template"]["spec"]["containers"][0]["name"] != "api"))):
             raise ValueError("C-02 원복 대상의 소유권이 바뀌었습니다")
     except (KeyError, IndexError, TypeError) as exc:
         raise ValueError("C-02 원복 대상 구조가 유효하지 않습니다") from exc

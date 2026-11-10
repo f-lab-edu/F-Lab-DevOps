@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from ai_ops.c2_rollback_guard import rollback_decision, validate_plan
+from ai_ops.c2_rollback_guard import ISOLATED_REPOSITORY, rollback_decision, validate_plan
 
 
 BASE = "a" * 40
@@ -86,6 +86,28 @@ class RollbackGuardTest(unittest.TestCase):
         self.assertEqual(rollback_decision(plan, app, deployment), "sync_baseline")
         app["spec"]["source"]["targetRevision"] = FAIL
         self.assertEqual(rollback_decision(plan, app, deployment), "set_and_sync_baseline")
+
+    def test_isolated_guard_pins_source_and_refuses_overlapping_operation(self):
+        plan, app, deployment = fixture()
+        plan.update(schema_version=2, source_repository=ISOLATED_REPOSITORY)
+        self.assertEqual(validate_plan(plan, now=NOW), NOW + timedelta(minutes=10))
+        with self.assertRaises(ValueError):
+            rollback_decision(plan, app, deployment)
+        app["spec"]["source"]["repoURL"] = ISOLATED_REPOSITORY
+        app["status"]["sync"]["revision"] = BASE
+        app["status"]["operationState"] = {"phase": "Succeeded", "syncResult": {"revision": BASE}}
+        deployment["metadata"]["generation"] = 1
+        deployment["status"]["observedGeneration"] = 1
+        deployment["spec"]["template"]["spec"]["containers"][0]["name"] = "api"
+        self.runner().verify_normal(plan, app, deployment)
+        app["spec"]["source"]["targetRevision"] = FAIL
+        deployment["spec"]["template"]["spec"]["containers"][0]["image"] = BAD
+        self.assertEqual(rollback_decision(plan, app, deployment), "set_and_sync_baseline")
+        app["operation"] = {"sync": {"revision": FAIL}}
+        with self.assertRaises(ValueError):
+            rollback_decision(plan, app, deployment)
+        with self.assertRaises(ValueError):
+            validate_plan({**plan, "source_repository": "https://github.com/other/project.git"}, now=NOW)
 
     def test_other_uid_revision_image_or_scope_is_rejected(self):
         for change in (lambda p,a,d: a["metadata"].update(uid="other"),

@@ -72,8 +72,9 @@ module "rds" {
   port     = 5432
   # Read Replica를 사용하기 위해 Secrets Manager 자동관리(ManageMasterUserPassword)는 비활성화
   manage_master_user_password = false
-  password_wo                 = var.rds_restore_snapshot_identifier == null ? var.db_password : null
-  password_wo_version         = var.rds_restore_snapshot_identifier == null ? var.db_password_rotation_version : null
+  # 스냅샷 복원 시 두 입력은 null, 복원 후 회전할 때는 새 값과 증가한 버전을 함께 전달한다.
+  password_wo         = var.db_password
+  password_wo_version = var.db_password_rotation_version
 
   iam_database_authentication_enabled = true # IAM 인증 -> 일반 계정 사용자를 위한 접근 방법
 

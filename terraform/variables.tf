@@ -98,31 +98,26 @@ variable "node_max_size" {
 }
 
 variable "db_password" {
-  description = "신규 RDS 생성 시 필요한 master(user=postgres) 비밀번호. 스냅샷 복원 시에는 전달하지 않음"
+  description = "신규 RDS 생성 또는 스냅샷 복원 후 회전에 필요한 master(user=postgres) 비밀번호"
   type        = string
   sensitive   = true
   ephemeral   = true
   default     = null
 
   validation {
-    condition     = var.rds_restore_snapshot_identifier == null ? var.db_password != null : var.db_password == null
-    error_message = "신규 DB 생성에는 db_password가 필요하고 스냅샷 복원에는 지정하면 안 됩니다."
+    condition     = var.rds_restore_snapshot_identifier == null ? (var.db_password != null && var.db_password_rotation_version != null) : ((var.db_password == null) == (var.db_password_rotation_version == null))
+    error_message = "신규 DB 생성에는 비밀번호와 회전 버전이 필요하고 스냅샷 복원 후 회전에는 두 값을 함께 지정해야 합니다."
   }
 }
 
 variable "db_password_rotation_version" {
-  description = "신규 RDS 생성 시 필요한 master 비밀번호 회전 버전. 스냅샷 복원 시에는 전달하지 않음"
+  description = "신규 RDS 생성 또는 스냅샷 복원 후 회전에 필요한 master 비밀번호 회전 버전"
   type        = number
   default     = null
 
   validation {
     condition     = var.db_password_rotation_version == null || (var.db_password_rotation_version >= 1 && floor(var.db_password_rotation_version) == var.db_password_rotation_version)
     error_message = "db_password_rotation_version은 null 또는 1 이상의 정수여야 합니다."
-  }
-
-  validation {
-    condition     = var.rds_restore_snapshot_identifier == null ? var.db_password_rotation_version != null : var.db_password_rotation_version == null
-    error_message = "신규 DB 생성에는 회전 버전이 필요하고 스냅샷 복원에는 지정하면 안 됩니다."
   }
 }
 

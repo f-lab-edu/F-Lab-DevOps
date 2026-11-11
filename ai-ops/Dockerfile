@@ -1,7 +1,7 @@
 # AI 실행에 필요한 라이브러리만 제공하는 공식 Alpine 베이스를 고정한다.
 FROM python:3.11.17-alpine3.24@sha256:5fb4bc53dd0180955e31e5245b648bbb24a4ac4ab03a1de81513642325220bcd AS base
-# 고정 베이스에 남아 있는 zlib 지적을 배포판의 보안 수정 패키지로 해결한다.
-RUN apk add --no-cache --upgrade zlib=1.4-r0 musl=1.2.6-r3
+# 고정 베이스의 보안 지적을 배포판의 수정 패키지로 해결한다.
+RUN apk add --no-cache --upgrade zlib=1.4-r0 musl=1.2.6-r3 krb5-libs=1.22.3-r0
 # 패키지 제거·수정 버전과 Python 필수 기능을 빌드 중에도 확인한다.
 RUN python - <<'PY_CHECK'
 import pathlib, ssl, sqlite3, zlib
@@ -13,6 +13,7 @@ for entry in pathlib.Path('/lib/apk/db/installed').read_text().split('\n\n'):
 assert packages['zlib'] == '1.4-r0'
 assert packages['libssl3'] == packages['libcrypto3'] == '3.5.9-r0'
 assert packages['musl'] == '1.2.6-r3'
+assert packages['krb5-libs'] == '1.22.3-r0'
 assert not any(name in packages for name in ('glibc', 'pcre2'))
 assert ssl.OPENSSL_VERSION.startswith("OpenSSL 3.5.9 ")
 assert zlib.decompress(zlib.compress(b'ai-ops-runtime')) == b'ai-ops-runtime'

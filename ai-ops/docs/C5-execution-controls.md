@@ -70,9 +70,9 @@ PYTHONPATH="$runtime_root/ai-ops/src" python "$runtime_root/ai-ops/scripts/resto
 
 ## Application 관측 갱신의 비교 경계
 
-전후 원본 비교는 Application의 `metadata.resourceVersion`이 다른 비어 있지 않은 문자열로 바뀌고 `status.reconciledAt`이 현재 시각을 넘지 않으며 엄격히 전진할 때에만 이 두 필드를 제외해 비교한다. 버전은 불투명 문자열로 취급한다. 하나만 바뀌거나 시간이 역행·미래·누락·잘못된 형식이면 거절한다. UID·generation·managedFields·삭제 시각·annotations·전체 spec·나머지 status는 동일해야 한다. Deployment·Lease의 resourceVersion을 포함한 전체 원본과 values 바이트 비교도 유지한다. 조회 전후 단계, 신선도·증거·승인·CI·원복 기한 검사는 그대로다.
+전후 원본 비교는 Application의 `metadata.resourceVersion`이 다른 비어 있지 않은 문자열로 바뀌고 `status.reconciledAt`이 현재 시각을 넘지 않으며 엄격히 전진할 때에만 이 두 필드를 제외해 비교한다. 버전은 불투명 문자열로 취급한다. 하나만 바뀌거나 시간이 역행·미래·누락·잘못된 형식이면 거절한다. 현재 실제 Application CRD의 `subresources`는 `{}`여서 상태 갱신도 generation을 올린다. 위 두 관측 필드가 함께 바뀌고 나머지 원본이 모두 같을 때에만 양의 정수 generation의 단일 증가(+1)를 허용한다. 감소·타입 변경·2 이상 증가·generation 단독 변경은 거절한다. UID·managedFields·삭제 시각·annotations·전체 spec·나머지 status는 동일해야 한다. Deployment·Lease의 resourceVersion을 포함한 전체 원본과 values 바이트 비교도 유지한다. 조회 전후 단계, 신선도·증거·승인·CI·원복 기한 검사는 그대로다.
 
-010은 정확한 head의 기한 내 사람 리뷰·필수 CI 뒤 `execution_preflight_input_unavailable_or_invalid`로 중지하고 정상 원복됐다. 로컬에서 resourceVersion/reconciledAt만 함께 갱신해 같은 거절을 재현했지만, 당시 내부 예외 위치를 저장하지 않아 **010의 확정 원인으로 단정하지 않는다.** 이후 정상 앱의 읽기 전용 watch에서는 generation·managedFields도 바뀌는 갱신을 관찰했다. 이 추가 변경은 위 예외로 허용하지 않는다. 보완 후 실제 C-03/C-04 성공은 새 준비와 실행별 승인·새 PR 리뷰로 별도 검증한다.
+010은 정확한 head의 기한 내 사람 리뷰·필수 CI 뒤 `execution_preflight_input_unavailable_or_invalid`로 중지하고 정상 원복됐다. 로컬에서 resourceVersion/reconciledAt만 함께 갱신해 같은 거절을 재현했지만, 당시 내부 예외 위치를 저장하지 않아 **010의 확정 원인으로 단정하지 않는다.** 이후 정상 앱의 읽기 전용 watch에서는 generation·managedFields도 바뀌는 갱신을 관찰했다. 별도 정상 watch에서 조회 시각 갱신·generation 단일 증가와 나머지 원본 동일성을 확인했다. generation은 실제 CRD에서 확인한 단일 상태 갱신만 위 조건으로 구분하며 managedFields 변경은 허용하지 않는다. 보완 후 실제 C-03/C-04 성공은 새 준비와 실행별 승인·새 PR 리뷰로 별도 검증한다.
 
 ## 최종 데모와 완료 판정
 

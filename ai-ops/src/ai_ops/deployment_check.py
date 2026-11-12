@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
+from contextlib import closing, nullcontext
 import time
 import os
 import signal
@@ -46,14 +46,14 @@ def check_local(config: Path, store: Path) -> None:
     # 임시 DB만 쓰며 기존 사건·예산·큐 기록은 열거나 변경하지 않는다.
     with tempfile.TemporaryDirectory(prefix=".deployment-check-", dir=store) as directory:
         path = Path(directory) / "check.sqlite3"
-        with sqlite3.connect(path) as db:
+        with closing(sqlite3.connect(path)) as db:
             if db.execute("PRAGMA journal_mode=WAL").fetchone()[0] != "wal":
                 raise ValueError("WAL is not supported")
             db.execute("PRAGMA synchronous=FULL")
             db.execute("CREATE TABLE check_record (value INTEGER NOT NULL)")
             db.execute("INSERT INTO check_record VALUES (1)")
             db.commit()
-        with sqlite3.connect(path) as db:
+        with closing(sqlite3.connect(path)) as db:
             if db.execute("SELECT value FROM check_record").fetchone() != (1,):
                 raise ValueError("storage round trip failed")
 

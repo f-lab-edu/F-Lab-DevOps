@@ -16,6 +16,7 @@ class ObservationStabilityTest(unittest.TestCase):
         from test_c_failure_handoff_runtime import FailureHandoffRuntimeTest
         f=FailureHandoffRuntimeTest();f.setUp();self.addCleanup(f.doCleanups)
         app=f.fixture.live.value['application']
+        app['metadata']['generation']=1
         app['metadata']['resourceVersion']='1'
         app['status']['reconciledAt']=(f.now-timedelta(seconds=20)).isoformat()
         transfer_failure_handoff(f.owner,f.record,read_failure=f.read)
@@ -34,6 +35,13 @@ class ObservationStabilityTest(unittest.TestCase):
 
     def test_reconcile_metadata_refresh_during_bound_read_preserves_execution_gate(self):
         actual=self.bound_preflight()
+        self.assertTrue(actual['preflight_ready'])
+        self.assertFalse(actual['execution_allowed'])
+
+    def test_single_status_generation_refresh_also_preserves_bound_gate(self):
+        def status_update(snapshot):
+            snapshot['application']['metadata']['generation'] = 2
+        actual=self.bound_preflight(status_update)
         self.assertTrue(actual['preflight_ready'])
         self.assertFalse(actual['execution_allowed'])
 
@@ -101,6 +109,16 @@ class SnapshotComparisonTest(unittest.TestCase):
         for container,field in [('metadata','resourceVersion'),('status','reconciledAt')]:
             self.after=deepcopy(original);del self.after['application'][container][field]
             with self.subTest(missing=field):self.assertFalse(self.same())
+
+    def test_only_single_generation_advance_with_coupled_observation_is_allowed(self):
+        self.after['application']['metadata']['generation']=2
+        self.assertTrue(self.same())
+        for generation in (0,3,True,'2',None):
+            self.after['application']['metadata']['generation']=generation
+            with self.subTest(generation=generation):self.assertFalse(self.same())
+        self.after['application']['metadata']['generation']=2
+        self.after['application']['status']['reconciledAt']=self.before['application']['status']['reconciledAt']
+        self.assertFalse(self.same())
 
     def test_transport_keeps_read_barriers_and_rejects_lease_cas_change(self):
         transport=C4TrialTransport.__new__(C4TrialTransport);transport.clock=lambda:self.now

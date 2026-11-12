@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import shutil
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -51,6 +52,27 @@ class DeploymentCheckTest(unittest.TestCase):
         self.assertEqual(record.read_text(), '{"preserve":true}')
         self.assertEqual([p.name for p in self.store.iterdir()], [record.name])
         self.assertEqual(self.store.stat().st_mode & 0o777, 0o700)
+
+    def test_diagnostic_database_connections_close_on_success_and_failure(self):
+        original=sqlite3.connect
+        class FailingConnection(sqlite3.Connection):
+            def execute(self,sql,*args,**kwargs):
+                if sql.startswith('CREATE TABLE'):raise OSError('synthetic storage failure')
+                return super().execute(sql,*args,**kwargs)
+        for fail in (False,True):
+            connections=[]
+            def connect(*args,**kwargs):
+                if fail:kwargs['factory']=FailingConnection
+                db=original(*args,**kwargs);connections.append(db)
+                self.addCleanup(db.close)
+                return db
+            with self.subTest(fail=fail), patch('ai_ops.deployment_check.sqlite3.connect',side_effect=connect):
+                if fail:
+                    with self.assertRaises(OSError):check_local(self.config,self.store)
+                else:check_local(self.config,self.store)
+                self.assertEqual(len(connections),1 if fail else 2)
+                for db in connections:
+                    with self.assertRaises(sqlite3.ProgrammingError):db.execute('SELECT 1')
 
     def test_missing_endpoint_and_invalid_model_flag_are_rejected(self):
         self.runtime["connections"]["practice-prometheus"]["base_url"] = None

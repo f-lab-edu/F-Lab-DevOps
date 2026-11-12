@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import re
 
-from ai_ops.c_recovery import IMAGE_REPOSITORY, _values
+from ai_ops.c_recovery import IMAGE_REPOSITORY, RECOVERY_REPOSITORIES, REPOSITORY, _values
 
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
-REPO = "https://github.com/f-lab-edu/F-Lab-DevOps.git"
+REPO = f"https://github.com/{REPOSITORY}.git"
 
 
 def assess_live_preflight(application: dict, deployment: dict, lease: dict,
-                          values_bytes: bytes) -> dict:
+                          values_bytes: bytes, *, expected_lease_holder: str | None = None,
+                          repository: str = REPOSITORY) -> dict:
     """현재 배포가 이미 복구됐거나 values가 비활성이면 초안 연결을 거부한다."""
     spec = application.get("spec", {})
     source = spec.get("source", {})
@@ -20,7 +21,8 @@ def assess_live_preflight(application: dict, deployment: dict, lease: dict,
     revision = source.get("targetRevision", "")
     if (application.get("metadata", {}).get("name") != "lab-target"
             or application["metadata"].get("namespace") != "argocd"
-            or spec.get("project") != "b6-lab" or source.get("repoURL") != REPO
+            or spec.get("project") != "b6-lab" or repository not in RECOVERY_REPOSITORIES
+            or source.get("repoURL") != f"https://github.com/{repository}.git"
             or source.get("path") != "ai-ops/lab" or not SHA.fullmatch(revision)
             or target != {"server": "https://kubernetes.default.svc", "namespace": "ai-ops-lab"}
             or spec.get("syncPolicy", {}).get("automated") is not None
@@ -44,11 +46,14 @@ def assess_live_preflight(application: dict, deployment: dict, lease: dict,
     if (deployment.get("status", {}).get("readyReplicas") == 1
             and application.get("status", {}).get("health", {}).get("status") == "Healthy"):
         blockers.append("already_recovered")
-    if lease.get("spec", {}).get("holderIdentity"):
+    holder = lease.get("spec", {}).get("holderIdentity")
+    if (expected_lease_holder is None and holder) or (expected_lease_holder is not None
+                                                      and holder != expected_lease_holder):
         blockers.append("lab_locked")
     if not blockers:
         blockers.append("prior_digest_and_failure_proof_required")
     return {"schema_version": 1, "target": "urlshortener/ai-ops-lab/lab-api/practice",
+            **({"source_repository": repository} if repository != REPOSITORY else {}),
             "base_sha": revision, "target_uid": deployment["metadata"].get("uid"),
             "blockers": blockers, "proof_ready": False, "proposal_allowed": False,
             "cluster_or_github_write_performed": False}

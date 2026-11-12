@@ -1,0 +1,76 @@
+{
+  "additionalProperties": false,
+  "description": "절대 시작 시각 없이 대상과 상대 기한을 승인하는 불변 계약.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "record_type": {
+      "const": "c04_ready_intent",
+      "default": "c04_ready_intent",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "targets": {
+      "additionalProperties": true,
+      "title": "Targets",
+      "type": "object"
+    },
+    "runtime_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Runtime Manifest Sha256",
+      "type": "string"
+    },
+    "preflight_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Preflight Sha256",
+      "type": "string"
+    },
+    "readiness_ttl_seconds": {
+      "const": 300,
+      "default": 300,
+      "title": "Readiness Ttl Seconds",
+      "type": "integer"
+    },
+    "review_after_start_seconds": {
+      "const": 210,
+      "default": 210,
+      "title": "Review After Start Seconds",
+      "type": "integer"
+    },
+    "minimum_review_seconds": {
+      "const": 120,
+      "default": 120,
+      "title": "Minimum Review Seconds",
+      "type": "integer"
+    },
+    "owner_restore_after_start_seconds": {
+      "const": 240,
+      "default": 240,
+      "title": "Owner Restore After Start Seconds",
+      "type": "integer"
+    },
+    "rollback_after_start_seconds": {
+      "const": 300,
+      "default": 300,
+      "title": "Rollback After Start Seconds",
+      "type": "integer"
+    },
+    "start_write_budget_seconds": {
+      "const": 15,
+      "default": 15,
+      "title": "Start Write Budget Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "targets",
+    "runtime_manifest_sha256",
+    "preflight_sha256"
+  ],
+  "title": "ReadyTrialPlan",
+  "type": "object"
+}

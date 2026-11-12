@@ -1,0 +1,663 @@
+{
+  "$defs": {
+    "AlertReading": {
+      "additionalProperties": false,
+      "description": "빈 ALERTS 결과만으로는 해당 규칙의 정상 평가를 입증할 수 없다.",
+      "properties": {
+        "kind": {
+          "const": "alert",
+          "default": "alert",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rule_present": {
+          "title": "Rule Present",
+          "type": "boolean"
+        },
+        "evaluation": {
+          "enum": [
+            "ok",
+            "error",
+            "no_data"
+          ],
+          "title": "Evaluation",
+          "type": "string"
+        },
+        "evaluated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Evaluated At"
+        },
+        "active_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Active Count"
+        }
+      },
+      "required": [
+        "rule_present",
+        "evaluation",
+        "evaluated_at",
+        "active_count"
+      ],
+      "title": "AlertReading",
+      "type": "object"
+    },
+    "AlertRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "definition_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Definition Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "definition_hash"
+      ],
+      "title": "AlertRequirement",
+      "type": "object"
+    },
+    "HTTPReading": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "http",
+          "default": "http",
+          "title": "Kind",
+          "type": "string"
+        },
+        "status_code": {
+          "anyOf": [
+            {
+              "maximum": 599,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status Code"
+        },
+        "response_contract_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Response Contract Valid"
+        }
+      },
+      "required": [
+        "status_code",
+        "response_contract_valid"
+      ],
+      "title": "HTTPReading",
+      "type": "object"
+    },
+    "MetricReading": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "metric",
+          "default": "metric",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "MetricReading",
+      "type": "object"
+    },
+    "MetricRequirement": {
+      "additionalProperties": false,
+      "description": "조회식·대상 조건의 해시와 운영자가 정한 회복 기준을 묶는다.",
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "definition_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Definition Hash",
+          "type": "string"
+        },
+        "comparison": {
+          "enum": [
+            "lte",
+            "gte"
+          ],
+          "title": "Comparison",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "definition_hash",
+        "comparison",
+        "threshold"
+      ],
+      "title": "MetricRequirement",
+      "type": "object"
+    },
+    "RecoveryBinding": {
+      "additionalProperties": false,
+      "description": "같은 이름으로 다시 설치한 대상을 섞지 않도록 UID까지 결합한다.",
+      "properties": {
+        "cluster_id": {
+          "const": "urlshortener",
+          "default": "urlshortener",
+          "title": "Cluster Id",
+          "type": "string"
+        },
+        "namespace": {
+          "const": "ai-ops-lab",
+          "default": "ai-ops-lab",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "workload": {
+          "const": "lab-api",
+          "default": "lab-api",
+          "title": "Workload",
+          "type": "string"
+        },
+        "application_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Application Uid",
+          "type": "string"
+        },
+        "target_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Target Uid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "application_uid",
+        "target_uid"
+      ],
+      "title": "RecoveryBinding",
+      "type": "object"
+    },
+    "RuntimeReading": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "runtime",
+          "default": "runtime",
+          "title": "Kind",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "operation_revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Operation Revision",
+          "type": "string"
+        },
+        "argo_sync": {
+          "enum": [
+            "Synced",
+            "OutOfSync",
+            "Unknown"
+          ],
+          "title": "Argo Sync",
+          "type": "string"
+        },
+        "argo_health": {
+          "enum": [
+            "Healthy",
+            "Progressing",
+            "Degraded",
+            "Missing",
+            "Unknown"
+          ],
+          "title": "Argo Health",
+          "type": "string"
+        },
+        "operation_phase": {
+          "enum": [
+            "Succeeded",
+            "Running",
+            "Failed",
+            "Error",
+            "Unknown"
+          ],
+          "title": "Operation Phase",
+          "type": "string"
+        },
+        "generation": {
+          "minimum": 1,
+          "title": "Generation",
+          "type": "integer"
+        },
+        "observed_generation": {
+          "minimum": 0,
+          "title": "Observed Generation",
+          "type": "integer"
+        },
+        "replicas": {
+          "minimum": 0,
+          "title": "Replicas",
+          "type": "integer"
+        },
+        "ready_replicas": {
+          "minimum": 0,
+          "title": "Ready Replicas",
+          "type": "integer"
+        },
+        "pod_count": {
+          "minimum": 0,
+          "title": "Pod Count",
+          "type": "integer"
+        },
+        "ready_pods": {
+          "minimum": 0,
+          "title": "Ready Pods",
+          "type": "integer"
+        },
+        "pod_images": {
+          "items": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Pod Images",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "operation_revision",
+        "argo_sync",
+        "argo_health",
+        "operation_phase",
+        "generation",
+        "observed_generation",
+        "replicas",
+        "ready_replicas",
+        "pod_count",
+        "ready_pods",
+        "pod_images"
+      ],
+      "title": "RuntimeReading",
+      "type": "object"
+    },
+    "SyncReceipt": {
+      "additionalProperties": false,
+      "description": "C-03 결과의 서비스 미판정 상태를 C-04의 입력으로 유지한다.",
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/RecoveryBinding"
+        },
+        "proposal_id": {
+          "pattern": "^cprop-[0-9a-f]{32}$",
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "proposal_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Proposal Hash",
+          "type": "string"
+        },
+        "merge_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Merge Sha",
+          "type": "string"
+        },
+        "desired_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Desired Digest",
+          "type": "string"
+        },
+        "sync_verified": {
+          "const": true,
+          "title": "Sync Verified",
+          "type": "boolean"
+        },
+        "service_resolved": {
+          "const": false,
+          "title": "Service Resolved",
+          "type": "boolean"
+        },
+        "verified_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verified At"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding",
+        "proposal_id",
+        "proposal_hash",
+        "merge_sha",
+        "desired_digest",
+        "sync_verified",
+        "service_resolved",
+        "verified_at",
+        "source_hash"
+      ],
+      "title": "SyncReceipt",
+      "type": "object"
+    },
+    "VerificationPolicy": {
+      "additionalProperties": false,
+      "description": "자료 누락과 표본 부족을 정상으로 바꾸지 않는 관찰 조건이다.",
+      "properties": {
+        "window_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Window Start"
+        },
+        "window_end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Window End"
+        },
+        "minimum_span_seconds": {
+          "default": 120,
+          "maximum": 900,
+          "minimum": 30,
+          "title": "Minimum Span Seconds",
+          "type": "integer"
+        },
+        "maximum_gap_seconds": {
+          "default": 45,
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Maximum Gap Seconds",
+          "type": "integer"
+        },
+        "minimum_samples": {
+          "default": 4,
+          "maximum": 100,
+          "minimum": 2,
+          "title": "Minimum Samples",
+          "type": "integer"
+        },
+        "maximum_report_delay_seconds": {
+          "default": 120,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Maximum Report Delay Seconds",
+          "type": "integer"
+        },
+        "http_paths": {
+          "items": {
+            "enum": [
+              "/readyz",
+              "/items"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Http Paths",
+          "type": "array"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/MetricRequirement"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Metrics",
+          "type": "array"
+        },
+        "alerts": {
+          "items": {
+            "$ref": "#/$defs/AlertRequirement"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Alerts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "window_start",
+        "window_end",
+        "http_paths",
+        "metrics",
+        "alerts"
+      ],
+      "title": "VerificationPolicy",
+      "type": "object"
+    },
+    "VerificationSample": {
+      "additionalProperties": false,
+      "properties": {
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observed At"
+        },
+        "reading": {
+          "discriminator": {
+            "mapping": {
+              "alert": "#/$defs/AlertReading",
+              "http": "#/$defs/HTTPReading",
+              "metric": "#/$defs/MetricReading",
+              "runtime": "#/$defs/RuntimeReading"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/RuntimeReading"
+            },
+            {
+              "$ref": "#/$defs/HTTPReading"
+            },
+            {
+              "$ref": "#/$defs/MetricReading"
+            },
+            {
+              "$ref": "#/$defs/AlertReading"
+            }
+          ],
+          "title": "Reading"
+        }
+      },
+      "required": [
+        "observed_at",
+        "reading"
+      ],
+      "title": "VerificationSample",
+      "type": "object"
+    },
+    "VerificationSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "runtime",
+            "http",
+            "metric",
+            "alert"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/RecoveryBinding"
+        },
+        "definition_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Definition Hash"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "missing",
+            "collection_failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/VerificationSample"
+          },
+          "maxItems": 100,
+          "title": "Samples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "binding",
+        "source_hash",
+        "status"
+      ],
+      "title": "VerificationSeries",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "provenance": {
+      "enum": [
+        "synthetic",
+        "archived",
+        "operator_supplied"
+      ],
+      "title": "Provenance",
+      "type": "string"
+    },
+    "execution": {
+      "$ref": "#/$defs/SyncReceipt"
+    },
+    "policy": {
+      "$ref": "#/$defs/VerificationPolicy"
+    },
+    "evaluated_at": {
+      "format": "date-time",
+      "title": "Evaluated At",
+      "type": "string"
+    },
+    "series": {
+      "items": {
+        "$ref": "#/$defs/VerificationSeries"
+      },
+      "maxItems": 32,
+      "title": "Series",
+      "type": "array"
+    }
+  },
+  "required": [
+    "provenance",
+    "execution",
+    "policy",
+    "evaluated_at",
+    "series"
+  ],
+  "title": "VerificationInput",
+  "type": "object"
+}

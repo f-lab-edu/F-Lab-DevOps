@@ -1,0 +1,70 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "c04_ready_receipt",
+      "default": "c04_ready_receipt",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "trial_id": {
+      "title": "Trial Id",
+      "type": "integer"
+    },
+    "intent_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Intent Hash",
+      "type": "string"
+    },
+    "runtime_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Runtime Manifest Sha256",
+      "type": "string"
+    },
+    "preflight_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Preflight Sha256",
+      "type": "string"
+    },
+    "baseline_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Baseline Sha256",
+      "type": "string"
+    },
+    "guards": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "local",
+          "remote"
+        ]
+      },
+      "title": "Guards",
+      "type": "object"
+    },
+    "prepared_at": {
+      "format": "date-time",
+      "title": "Prepared At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "trial_id",
+    "intent_hash",
+    "runtime_manifest_sha256",
+    "preflight_sha256",
+    "baseline_sha256",
+    "guards",
+    "prepared_at",
+    "expires_at"
+  ],
+  "title": "ReadyReceipt",
+  "type": "object"
+}

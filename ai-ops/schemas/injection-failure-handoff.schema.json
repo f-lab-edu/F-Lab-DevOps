@@ -1,0 +1,128 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "record_type": {
+      "const": "injection_failure_handoff",
+      "default": "injection_failure_handoff",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "repository": {
+      "const": "https://github.com/joungGo/c03-execution-lab.git",
+      "default": "https://github.com/joungGo/c03-execution-lab.git",
+      "title": "Repository",
+      "type": "string"
+    },
+    "trial_id": {
+      "maximum": 1000000000000000,
+      "minimum": 1,
+      "title": "Trial Id",
+      "type": "integer"
+    },
+    "owner_holder": {
+      "pattern": "^manual-[a-f0-9]{32}$",
+      "title": "Owner Holder",
+      "type": "string"
+    },
+    "executor_holder": {
+      "pattern": "^c3-[a-f0-9]{32}$",
+      "title": "Executor Holder",
+      "type": "string"
+    },
+    "lease_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Lease Uid",
+      "type": "string"
+    },
+    "lease_acquired_at": {
+      "format": "date-time",
+      "title": "Lease Acquired At",
+      "type": "string"
+    },
+    "application_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Application Uid",
+      "type": "string"
+    },
+    "deployment_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Deployment Uid",
+      "type": "string"
+    },
+    "deployment_generation": {
+      "minimum": 1,
+      "title": "Deployment Generation",
+      "type": "integer"
+    },
+    "failure_pod_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Failure Pod Uid",
+      "type": "string"
+    },
+    "failure_revision": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Failure Revision",
+      "type": "string"
+    },
+    "failure_image": {
+      "pattern": "^764428911194\\.dkr\\.ecr\\.ap-northeast-2\\.amazonaws\\.com/urlshortener@sha256:[a-f0-9]{64}$",
+      "title": "Failure Image",
+      "type": "string"
+    },
+    "normal_revision": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Normal Revision",
+      "type": "string"
+    },
+    "normal_image": {
+      "pattern": "^764428911194\\.dkr\\.ecr\\.ap-northeast-2\\.amazonaws\\.com/urlshortener@sha256:[a-f0-9]{64}$",
+      "title": "Normal Image",
+      "type": "string"
+    },
+    "injected_at": {
+      "format": "date-time",
+      "title": "Injected At",
+      "type": "string"
+    },
+    "offered_at": {
+      "format": "date-time",
+      "title": "Offered At",
+      "type": "string"
+    },
+    "rollback_deadline": {
+      "format": "date-time",
+      "title": "Rollback Deadline",
+      "type": "string"
+    }
+  },
+  "required": [
+    "trial_id",
+    "owner_holder",
+    "executor_holder",
+    "lease_uid",
+    "lease_acquired_at",
+    "application_uid",
+    "deployment_uid",
+    "deployment_generation",
+    "failure_pod_uid",
+    "failure_revision",
+    "failure_image",
+    "normal_revision",
+    "normal_image",
+    "injected_at",
+    "offered_at",
+    "rollback_deadline"
+  ],
+  "title": "FailureHandoff",
+  "type": "object"
+}

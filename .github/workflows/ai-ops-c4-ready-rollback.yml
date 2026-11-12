@@ -1,0 +1,69 @@
+name: C-04 준비 완료 승인 후 독립 원복
+on:
+  workflow_dispatch:
+    inputs:
+      intent_json:
+        description: 시각 없는 실습 대상·코드·상대 기한 계약
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ai-ops-c2-rollback
+  cancel-in-progress: false
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    environment: ai-ops-lab-ci
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      PYTHONPATH: ai-ops/src
+      C4_READY_INTENT: ${{ inputs.intent_json }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
+        with:
+          role-to-assume: ${{ vars.S10_CI_ROLE_ARN }}
+          aws-region: ap-northeast-2
+          role-duration-seconds: 1800
+      - name: 고정 실행 도구와 개인 계획 준비
+        run: |
+          set -euo pipefail
+          umask 077
+          export AI_OPS_FILES_ROOT="$RUNNER_TEMP/c4-ready-rollback"
+          echo "AI_OPS_FILES_ROOT=$AI_OPS_FILES_ROOT" >> "$GITHUB_ENV"
+          mkdir -m 700 "$AI_OPS_FILES_ROOT"
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
+          curl -fsSL -o "$RUNNER_TEMP/argocd" https://github.com/argoproj/argo-cd/releases/download/v3.5.3/argocd-linux-amd64
+          echo "b860f73f57cbddd993cd446f5236d797c1b1ac8554857b2683d2669f17e765b4  $RUNNER_TEMP/argocd" | sha256sum --check --status
+          curl -fsSL -o "$RUNNER_TEMP/kubectl" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl
+          curl -fsSL -o "$RUNNER_TEMP/kubectl.sha256" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl.sha256
+          echo "$(cat "$RUNNER_TEMP/kubectl.sha256")  $RUNNER_TEMP/kubectl" | sha256sum --check --status
+          chmod +x "$RUNNER_TEMP/argocd" "$RUNNER_TEMP/kubectl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          aws eks update-kubeconfig --region ap-northeast-2 --name urlshortener
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import json, os
+          from pathlib import Path
+          from ai_ops.c_trial_ready import ReadyTrialPlan
+          intent = ReadyTrialPlan.model_validate_json(os.environ['C4_READY_INTENT'])
+          if intent.targets['workflow_main'] != os.environ['GITHUB_SHA']:
+              raise SystemExit('Ready guard source revision mismatch')
+          (Path(os.environ['AI_OPS_FILES_ROOT']) / 'intent.json').write_text(intent.model_dump_json())
+          PY
+      - name: 준비 대기와 승인 후 기한 원복
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.C03_ROLLBACK_ARGOCD_TOKEN }}
+        run: |
+          set -euo pipefail
+          : "${ARGOCD_AUTH_TOKEN:?Dedicated rollback token is required}"
+          "$RUNNER_TEMP/venv/bin/python" ai-ops/scripts/run_c4_ready_guard.py \
+            --intent "$AI_OPS_FILES_ROOT/intent.json" \
+            --marker "$AI_OPS_FILES_ROOT/standby.json" \
+            --kubeconfig "$HOME/.kube/config" --role remote

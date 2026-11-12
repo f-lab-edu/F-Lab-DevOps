@@ -4,7 +4,8 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import unittest
 
-from ai_ops.c2_active_capture import build_active_capture_job, validate_active_failure
+from ai_ops.c2_active_capture import (ISOLATED_REPOSITORY, build_active_capture_job,
+                                    validate_active_failure)
 from test_c2_live_job import worker_deployment
 
 
@@ -66,3 +67,26 @@ class ActiveCaptureTest(unittest.TestCase):
         self.assertFalse(pod["automountServiceAccountToken"])
         self.assertEqual([v["name"] for v in pod["volumes"]], ["config", "data", "tmp"])
         self.assertIn("c2-source-capture-123", pod["containers"][0]["args"])
+
+    def test_isolated_source_requires_explicit_selection(self):
+        values = fixture(); values[0]["spec"]["source"]["repoURL"] = ISOLATED_REPOSITORY
+        args = dict(failure_revision=REVISION, failure_image=BAD,
+                    application_uid="app-uid", deployment_uid="dep", now=NOW)
+        with self.assertRaises(ValueError): validate_active_failure(*values, **args)
+        validate_active_failure(*values, **args, source_repository=ISOLATED_REPOSITORY)
+
+    def test_unknown_repository_cannot_expand_the_allowlist(self):
+        values = fixture(); other = "https://github.com/example/other.git"
+        values[0]["spec"]["source"]["repoURL"] = other
+        with self.assertRaises(ValueError):
+            validate_active_failure(*values, failure_revision=REVISION, failure_image=BAD,
+                application_uid="app-uid", deployment_uid="dep", now=NOW, source_repository=other)
+
+    def test_isolated_selection_still_rejects_wrong_uid_or_lock(self):
+        for edit in (lambda x: x[0]["metadata"].update(uid="other"),
+                     lambda x: x[4]["spec"].update(holderIdentity="ci-in-use")):
+            values = fixture(); values[0]["spec"]["source"]["repoURL"] = ISOLATED_REPOSITORY; edit(values)
+            with self.assertRaises(ValueError):
+                validate_active_failure(*values, failure_revision=REVISION, failure_image=BAD,
+                    application_uid="app-uid", deployment_uid="dep", now=NOW,
+                    source_repository=ISOLATED_REPOSITORY)

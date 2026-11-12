@@ -44,6 +44,9 @@ jobs:
             [[ "$ECR_REPOSITORY" =~ ^[a-z0-9][a-z0-9._/-]*-ai-ops$ ]]
             [[ "$IMAGE_ROLE_ARN" =~ ^arn:aws:iam::${AWS_ACCOUNT_ID}:role/[a-zA-Z0-9+=,.@_-]+-ai-ops-image-role$ ]]
           fi
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # 버전 5.0.1
+        with:
+          version: v4.1.3
       - name: 단위 시험과 실행 이미지 검증
         run: |
           python3 -m venv /tmp/ai-ops-venv

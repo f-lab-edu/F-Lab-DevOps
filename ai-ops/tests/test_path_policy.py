@@ -41,6 +41,14 @@ class PathPolicyTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             permitted_path(PACKAGE_ROOT / "config" / "new-store", "store")
 
+    def test_runtime_under_personal_root_is_still_excluded_from_data_store(self):
+        package=self.allowed/'runtime'/'ai-ops'
+        package.mkdir(parents=True)
+        with patch('ai_ops.path_policy.PACKAGE_ROOT',package), patch('ai_ops.path_policy.PERSONAL_ROOT',self.allowed), patch.dict(os.environ,{'AI_OPS_FILES_ROOT':''}):
+            with self.assertRaises(ValueError):
+                permitted_path(package/'config'/'new-store','store')
+            self.assertEqual(permitted_path(self.allowed/'incidents','store'),(self.allowed/'incidents').resolve())
+
     def test_input_links_can_rotate_inside_the_mount_but_cannot_escape(self):
         internal = self.allowed / "projected.json"
         internal.symlink_to(self.json)

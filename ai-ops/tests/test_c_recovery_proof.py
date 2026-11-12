@@ -81,6 +81,14 @@ class RecoveryProofTest(unittest.TestCase):
         self.assertEqual(result["blockers"], ["already_recovered", "lab_locked"])
         self.assertFalse(result["proof_ready"])
 
+    def test_only_expected_c3_holder_can_refresh_proof_under_lock(self):
+        holder = "c3-" + "a" * 32
+        self.lease["spec"]["holderIdentity"] = holder
+        self.assertTrue(self.assess(expected_lease_holder=holder)["proof_ready"])
+        denied = self.assess(expected_lease_holder="c3-" + "b" * 32)
+        self.assertIn("lab_locked", denied["blockers"])
+        self.assertFalse(denied["proof_ready"])
+
     def test_other_pod_or_missing_ecr_digest_cannot_become_proof(self):
         pod = deepcopy(self.pods)
         pod[0]["metadata"]["ownerReferences"][0]["uid"] = "other-rs"

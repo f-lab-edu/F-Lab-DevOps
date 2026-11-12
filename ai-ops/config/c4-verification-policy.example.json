@@ -1,0 +1,22 @@
+{
+  "window_start": null,
+  "window_end": null,
+  "http_paths": [
+    "/readyz",
+    "/items"
+  ],
+  "metrics": [
+    {
+      "name": "error_rate",
+      "definition_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "comparison": "lte",
+      "threshold": 0.05
+    }
+  ],
+  "alerts": [
+    {
+      "name": "WorkloadUnavailable",
+      "definition_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ]
+}

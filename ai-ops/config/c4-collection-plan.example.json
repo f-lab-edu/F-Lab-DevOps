@@ -1,0 +1,24 @@
+{
+  "execution": {
+    "binding": {
+      "cluster_id": "urlshortener",
+      "namespace": "ai-ops-lab",
+      "workload": "lab-api",
+      "application_uid": "11111111-1111-4111-8111-111111111111",
+      "target_uid": "22222222-2222-4222-8222-222222222222"
+    },
+    "proposal_id": "cprop-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "proposal_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "merge_sha": "cccccccccccccccccccccccccccccccccccccccc",
+    "desired_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "sync_verified": true,
+    "service_resolved": false,
+    "verified_at": null,
+    "source_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "repository": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+  "alert": null,
+  "duration_seconds": 120,
+  "interval_seconds": 30,
+  "source_max_age_seconds": 60
+}

@@ -1,5 +1,7 @@
 # AI 운영 조사 기능
 
+C-04 실행 경로: [준비 완료 후 승인 시작](docs/C4-ready-start-local-20261112.md). 대상/코드/실제 준비 영수증별 실행 승인을 받은 뒤 고정 시각 대기 없이 시작하며, 실제 안내 뒤 최소 120초 리뷰와 300초 원복 시작 기한을 유지한다. [복구 검증](docs/C4-recovery-verification.md)과 [실패 잠금 인계](docs/C4-failure-handoff.md)를 함께 사용한다. 실제 장애 주입은 새 준비 영수증에 대한 별도 실행 승인이 필요하다.
+
 > 최신 상태(2026-10-28 KST): 격리 실습에서 [CI 실패·원복 v2](docs/B6-model-ci-projection-v2-connection.md)와 [정상 캐시 관측 v3](docs/B6-normal-source-persistence.md)의 자동 접수·별도 모델 보고서 생성을 각각 확인했다. v3 정상 CI 한 건의 재접수는 `duplicate=true`였고 영수증·전달 기록은 각각 1건이었다. 승인 캠페인은 한 건 검증 후 중지했고 gateway·프록시·모델 Secret은 0이다. 보고서는 `needs_review`이며 조치는 실행하지 않았다. [B-02 원본 시각·S10 실패/원복 대조](docs/B2-cross-source-time-audit-20261028.md)까지 마쳐 [B단계의 합의된 읽기 조사·격리 실습 종료 조건](docs/B-stage-readiness-audit-20261028.md)을 충족했다. [B-06 판정](docs/B6-completion-gate-20261028.md)은 장부·보고서 보존과 안전 경계를 구분한다. C-01 설계 후 C-02의 로컬 조회·요청·초안 첫 구현을 진행 중이며, 쓰기·복구 권한은 없다. 현재 작업 브랜치의 문서·시험 변경은 커밋 및 새 원격 CI 검증 전이다. 아래 단계별 설명에는 작성 당시의 진행 상태가 포함돼 있다.
 
 [C-01 승인 기반 이미지 복구 설계](docs/C1-approval-recovery-design.md)는 현재 실습 GitOps 입력과 계획의 values-only 변경 차이, 사용자 인증·정확한 PR 승인, 실행 주체 분리와 브랜치 보호 선행 조건을 정리했다. **C-02의 실제 연결과 C-03~C-05 기능, 쓰기·복구 권한은 아직 없다.**

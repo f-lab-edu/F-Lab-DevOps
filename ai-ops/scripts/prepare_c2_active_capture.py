@@ -8,7 +8,9 @@ import stat
 import subprocess
 
 from ai_ops.b6_ci import validate_sources
-from ai_ops.c2_active_capture import build_active_capture_job, validate_active_failure
+from ai_ops.c2_active_capture import (ISOLATED_REPOSITORY, LEGACY_REPOSITORY,
+                                    build_active_capture_job, validate_active_failure)
+from ai_ops.c_failure_handoff import FailureHandoff
 from ai_ops.path_policy import cli_paths, write_private_json
 
 
@@ -20,8 +22,19 @@ def main() -> int:
     parser.add_argument("--application-uid", required=True)
     parser.add_argument("--deployment-uid", required=True)
     parser.add_argument("--trial-id", type=int, required=True)
+    parser.add_argument("--source", choices=("legacy", "c03-isolated"), default="legacy",
+                        help="기본값은 기존 저장소이며 격리 저장소는 명시적으로 선택")
+    parser.add_argument("--failure-handoff", type=Path,
+                        help="주입 소유자가 제공한 실습 실패 인계. 기존 승인·실시간 조회를 대체하지 않음")
     parser.add_argument("--output", type=Path, required=True)
-    args = cli_paths(parser, parser.parse_args(), {"output": "output"})
+    args = cli_paths(parser, parser.parse_args(), {"output": "output", "failure_handoff": "input"})
+    handoff = FailureHandoff.model_validate_json(args.failure_handoff.read_text()) if args.failure_handoff else None
+    if handoff is not None and (handoff.trial_id != args.trial_id or args.source != "c03-isolated"
+            or handoff.normal_revision != args.baseline_revision
+            or handoff.failure_revision != args.failure_revision
+            or handoff.application_uid != args.application_uid
+            or handoff.deployment_uid != args.deployment_uid):
+        raise ValueError("조사 실습 번호·소스·대상과 실패 인계가 다릅니다")
     kubeconfig = Path(args.kubeconfig).expanduser().absolute()
     info = kubeconfig.lstat()
     if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
@@ -57,7 +70,9 @@ def main() -> int:
     validate_active_failure(application, deployment, replica_set, pods, lease,
                             failure_revision=args.failure_revision, failure_image=failure_image,
                             application_uid=args.application_uid,
-                            deployment_uid=args.deployment_uid)
+                            deployment_uid=args.deployment_uid,
+                            failure_handoff=handoff,
+                            source_repository=ISOLATED_REPOSITORY if args.source == "c03-isolated" else LEGACY_REPOSITORY)
     worker = get("ai-ci", "deployment", "ci-worker")
     job = build_active_capture_job(worker, trial_id=args.trial_id,
                                    failure_revision=args.failure_revision)

@@ -49,6 +49,8 @@ def permitted_path(value: str | Path, kind: Kind) -> Path:
     if ".." in path.parts:
         raise ValueError("상위 폴더 탐색은 허용하지 않습니다")
     resolved = path.resolve(strict=False)
+    if kind == "store" and resolved.is_relative_to(PACKAGE_ROOT.resolve()):
+        raise ValueError("실행 코드 폴더는 사건 데이터 저장 위치로 사용할 수 없습니다")
     roots = _roots(kind)
     if any(root.is_symlink() for root in roots):
         raise ValueError("허용 폴더 자체를 심볼릭 링크로 바꿀 수 없습니다")

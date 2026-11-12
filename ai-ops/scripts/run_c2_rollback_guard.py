@@ -113,6 +113,13 @@ def main() -> int:
     # 주입 실행과 별도 프로세스에서 기한을 기다린다. 취소되거나 죽으면 성공으로 표시하지 않는다.
     time.sleep(max(0, (deadline - datetime.now(timezone.utc)).total_seconds()))
 
+    return rollback_at_deadline(plan, get=get, argo=argo, kubeconfig=args.kubeconfig,
+                                initial_lease=initial_lease if plan['schema_version'] == 2 else None)
+
+
+def rollback_at_deadline(plan, *, get, argo, kubeconfig, initial_lease=None):
+    """기존 소유권/탈취 금지 검사를 고정 시각·준비 완료 감시에서 공통 사용한다."""
+
     app = get_application(argo)
     deployment = get("ai-ops-lab", "deployment", "lab-api")
     decision = rollback_decision(plan, app, deployment)
@@ -121,7 +128,7 @@ def main() -> int:
         def lease_command(*command, payload=None):
             if command[0] == "create":
                 raise ValueError("C-03 원복은 기존 공유 잠금만 사용합니다")
-            return call("kubectl", "--kubeconfig", args.kubeconfig, *command,
+            return call("kubectl", "--kubeconfig", kubeconfig, *command,
                         payload=payload.encode() if payload is not None else None).decode()
         lease = LabLease(lease_command, "manual-" + uuid.uuid4().hex)
         observed_lease = get("ai-ops-lab", "lease", "b6-scenario-lock")

@@ -1,0 +1,19 @@
+{
+  "status": "publication_source_locally_verified",
+  "tests_passed": 839,
+  "duration_seconds": 26.219,
+  "skipped": 0,
+  "source_mode": "repository_checkout_without_private_runtime",
+  "c03_dependency_skips_removed": true,
+  "guard_read_publication_race_regression": true,
+  "rollback_explicit_kubeconfig_regression": true,
+  "repository_commit_bundle_regressions": 3,
+  "fixture_builders_checked": 4,
+  "deployment_static_check_passed": true,
+  "ready_schemas_registered_in_exporter": 4,
+  "remote_workflow_dispatched": false,
+  "fault_injection_executed": false,
+  "terraform_executed": false,
+  "operational_secrets_published": false,
+  "live_validation_pending": true
+}

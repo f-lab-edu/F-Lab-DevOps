@@ -14,6 +14,7 @@ from ai_ops.contracts import _utc_datetime
 LEASE_NAME = "b6-scenario-lock"
 OWNER_KEY = "ai-ops/b6-deployment-owner"
 NOT_BEFORE_KEY = "ai-ops/b6-not-before"
+FAILURE_HANDOFF_KEY = "ai-ops/c03-failure-handoff"
 
 
 def require_manual_deployment(obj: dict) -> None:
@@ -30,7 +31,7 @@ class LabLease:
     """CAS로 한 실행만 소유하며 복구 실패·프로세스 종료 때 잠금을 보존한다."""
 
     def __init__(self, command, holder: str, *, clock=None):
-        if not re.fullmatch(r"(?:manual|preflight|ci|adoption)-[a-f0-9]{32}", holder):
+        if not re.fullmatch(r"(?:manual|preflight|ci|adoption|c3)-[a-f0-9]{32}", holder):
             raise ValueError("실습 잠금 실행 식별자가 다릅니다")
         self.command = command
         self.holder = holder
@@ -67,6 +68,7 @@ class LabLease:
             desired = deepcopy(current)
             operation = "replace"
         desired["spec"].update(holderIdentity=self.holder, acquireTime=now.isoformat(), renewTime=now.isoformat())
+        desired["metadata"].get("annotations", {}).pop(FAILURE_HANDOFF_KEY, None)
         response = json.loads(self.command(operation, "-f", "-", "-o", "json", payload=json.dumps(desired)))
         self._validate(response)
         if response["spec"].get("holderIdentity") != self.holder:
@@ -84,6 +86,7 @@ class LabLease:
         if current["metadata"]["uid"] != self.uid or current["spec"].get("holderIdentity") != self.holder:
             raise ValueError("다른 실행의 공유 잠금은 해제하지 않습니다")
         current["spec"]["holderIdentity"] = ""
+        current["metadata"].get("annotations", {}).pop(FAILURE_HANDOFF_KEY, None)
         not_before = _utc_datetime(self.clock()) + timedelta(seconds=305 if scenario_started else 0)
         current["metadata"].setdefault("annotations", {})[NOT_BEFORE_KEY] = not_before.isoformat()
         response = json.loads(self.command("replace", "-f", "-", "-o", "json", payload=json.dumps(current)))

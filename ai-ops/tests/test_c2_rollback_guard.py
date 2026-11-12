@@ -3,6 +3,7 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -39,6 +40,40 @@ def fixture():
 
 
 class RollbackGuardTest(unittest.TestCase):
+    def test_deadline_helper_uses_explicit_kubeconfig_for_lease_then_verifies_and_releases(self):
+        from test_b6_gitops import LeaseServer
+        module = self.runner()
+        plan, app, dep = fixture()
+        plan.update(schema_version=2, source_repository=ISOLATED_REPOSITORY)
+        app['spec']['source'].update(repoURL=ISOLATED_REPOSITORY, targetRevision=FAIL)
+        app['status'].update(sync={'status': 'Synced', 'revision': FAIL}, health={'status': 'Degraded'},
+                             operationState={'phase': 'Succeeded', 'syncResult': {'revision': FAIL}})
+        dep['metadata']['generation'] = 2
+        dep['status'].update(observedGeneration=2, readyReplicas=0)
+        dep['spec']['template']['spec']['containers'][0].update(name='api', image=BAD)
+        server = LeaseServer(); owner = server.lease(); owner.acquire()
+        owner.release(recovery_verified=True, scenario_started=False)
+        server.value['metadata']['annotations'] = {}
+        initial = deepcopy(server.value)
+        def get(ns, kind, name): return deepcopy(server.value if kind == 'lease' else dep)
+        def command(*args, **kwargs):
+            if args[0] == 'kubectl':
+                self.assertEqual(args[1:3], ('--kubeconfig', '/private/tmp/guard-kubeconfig'))
+                return server.command(*args[3:], payload=(kwargs.get('payload') or b'').decode() or None).encode()
+            if 'sync' in args and '--revision' in args:
+                app['spec']['source']['targetRevision'] = BASE
+                app['status'].update(sync={'status': 'Synced', 'revision': BASE}, health={'status': 'Healthy'},
+                    operationState={'phase': 'Succeeded', 'syncResult': {'revision': BASE}})
+                dep['spec']['template']['spec']['containers'][0]['image'] = GOOD
+                dep['status']['readyReplicas'] = 1
+            return b''
+        with patch.object(module, 'call', side_effect=command), \
+                patch.object(module, 'get_application', side_effect=lambda argo: deepcopy(app)):
+            self.assertEqual(module.rollback_at_deadline(plan, get=get, argo=module.CORE_ARGO,
+                kubeconfig='/private/tmp/guard-kubeconfig', initial_lease=initial), 0)
+        self.assertFalse(server.value['spec'].get('holderIdentity'))
+        self.assertEqual(app['spec']['source']['targetRevision'], BASE)
+
     @staticmethod
     def runner():
         script = Path(__file__).parents[1] / "scripts/run_c2_rollback_guard.py"

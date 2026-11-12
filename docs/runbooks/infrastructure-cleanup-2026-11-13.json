@@ -1,0 +1,111 @@
+{
+  "recorded_at_kst": "2026-11-13T01:06:00.059273+09:00",
+  "status": "complete",
+  "account": "764428911194",
+  "region": "ap-northeast-2",
+  "infrastructure_cleanup_complete": true,
+  "terraform_apply_destroy_executed_by_codex": true,
+  "authorization": "2026-11-13 this-cleanup-only user delegation and explicit state/lock recovery continuation",
+  "cleanup_directory": "/Users/jounghyeon/.local/share/url-shortener-ai-ops/cleanup-20261112-after-ai-split",
+  "source_sha": "63e220ecdcb5018437c2ba4259855375af548466",
+  "verification": {
+    "verified_at": "2026-11-12T16:05:51.297462+00:00",
+    "account": "764428911194",
+    "region": "ap-northeast-2",
+    "eks_absent": true,
+    "vpc_absent": true,
+    "rds_instances_absent": true,
+    "active_project_ec2": 0,
+    "active_nat_gateways": 0,
+    "load_balancers": 0,
+    "target_groups": 0,
+    "vpc_enis": 0,
+    "sqs_queue_absent": true,
+    "recorded_ebs_volumes_absent": 10,
+    "eips_absent": 1,
+    "ecr_repositories_absent": 2,
+    "project_roles_absent": 11,
+    "state_managed_resources": {
+      "production": 0,
+      "ai": 0
+    },
+    "dns_unchanged": true,
+    "operator_login_policies_preserved": true,
+    "existing_manual_snapshots_preserved": 6,
+    "new_final_snapshot": "urlshortener-postgres-final-snapshot-urlshortener-postgres-6962a7a0",
+    "new_final_snapshot_available_encrypted": true,
+    "snapshot_kms_enabled": true,
+    "eks_kms_pending_deletion": [
+      {
+        "AWSAccountId": "764428911194",
+        "KeyId": "8b896f34-957a-4c46-8bab-d037fd3d1d62",
+        "Arn": "arn:aws:kms:ap-northeast-2:764428911194:key/8b896f34-957a-4c46-8bab-d037fd3d1d62",
+        "CreationDate": "2026-11-12 13:10:17.224000+09:00",
+        "Enabled": false,
+        "Description": "urlshortener cluster encryption key",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeyState": "PendingDeletion",
+        "DeletionDate": "2026-12-13 00:55:35.665000+09:00",
+        "Origin": "AWS_KMS",
+        "KeyManager": "CUSTOMER",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "MultiRegion": false,
+        "CurrentKeyMaterialId": "784ebb4853ffc2d8a4c055b977ec4d077d7bffa5c385080883fa5ddd018055ef"
+      }
+    ],
+    "state_history_preserved": true,
+    "cloudwatch_orphan_groups_archived_and_deleted": 1,
+    "enhanced_monitoring_streams_archived_deleted": 2,
+    "shared_rdsosmetrics_group_preserved": true,
+    "shared_rdsosmetrics_remaining_streams": 0,
+    "terraform_apply_destroy_executed_by_codex_under_delegation": true,
+    "cleanup_complete": true
+  },
+  "final_state": [
+    {
+      "root": "production",
+      "key": "urlshortener/production/terraform.tfstate",
+      "managed_resources": 0,
+      "serial": 139,
+      "version": "o6VnL_EzPJ6RHb0qf1Sus07TYs173rqC",
+      "original_version_retained": "a3vb.szNyb9poEn7Qo4kOlCfpbD3.ldr",
+      "lock_absent": true
+    },
+    {
+      "root": "ai",
+      "key": "urlshortener/ai-ops/practice/terraform.tfstate",
+      "managed_resources": 0,
+      "serial": 14,
+      "version": "WIOE1J2BpHiCVst5gnF0Xzzw7t0WX0vz",
+      "original_version_retained": "SQD_dAaverhiSjmQ0ffzm5sPrsjRNoKP",
+      "lock_absent": true
+    }
+  ],
+  "state_recovery": {
+    "completed_at": "2026-11-12T15:41:49.459613+00:00",
+    "own_stale_lock_released": "dc986bed-cd73-8d01-9649-e00c7dee5040",
+    "state_push_used_force": false,
+    "lineage": "d7519cf8-d731-5409-1a30-fd93b0b385f5",
+    "state_serial": 133,
+    "managed_resources_remaining": 100,
+    "reconciliation_managed_changes": 0,
+    "both_rds_instances_absent": true,
+    "snapshot": "urlshortener-postgres-final-snapshot-urlshortener-postgres-6962a7a0",
+    "snapshot_available_encrypted": true
+  },
+  "eks_kms_pending_deletion": [
+    {
+      "arn": "arn:aws:kms:ap-northeast-2:764428911194:key/8b896f34-957a-4c46-8bab-d037fd3d1d62",
+      "status": "PendingDeletion",
+      "deletion_at_kst": "2026-12-13 00:55 KST"
+    }
+  ],
+  "remaining_work": [
+    "No required infrastructure cleanup action remains; preserve DNS/RDS snapshots/S3 state and credentials per policy",
+    "AI C04 real validation and C05 completion remain pending; resume local validation in separate AI repository before fresh installation/control cutover"
+  ]
+}

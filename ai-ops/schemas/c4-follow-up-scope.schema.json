@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "FollowUpChange": {
+      "additionalProperties": false,
+      "description": "후속 후보도 실습 대상의 고정 GitOps 동기화로 한정한다.",
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/RecoveryBinding"
+        },
+        "action": {
+          "const": "gitops_sync",
+          "default": "gitops_sync",
+          "title": "Action",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding",
+        "revision",
+        "digest"
+      ],
+      "title": "FollowUpChange",
+      "type": "object"
+    },
+    "RecoveryBinding": {
+      "additionalProperties": false,
+      "description": "같은 이름으로 다시 설치한 대상을 섞지 않도록 UID까지 결합한다.",
+      "properties": {
+        "cluster_id": {
+          "const": "urlshortener",
+          "default": "urlshortener",
+          "title": "Cluster Id",
+          "type": "string"
+        },
+        "namespace": {
+          "const": "ai-ops-lab",
+          "default": "ai-ops-lab",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "workload": {
+          "const": "lab-api",
+          "default": "lab-api",
+          "title": "Workload",
+          "type": "string"
+        },
+        "application_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Application Uid",
+          "type": "string"
+        },
+        "target_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Target Uid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "application_uid",
+        "target_uid"
+      ],
+      "title": "RecoveryBinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "기존 승인 범위와의 로컬 비교 입력이며 승인 진위를 보증하지 않는다.",
+  "properties": {
+    "proposal_id": {
+      "pattern": "^cprop-[0-9a-f]{32}$",
+      "title": "Proposal Id",
+      "type": "string"
+    },
+    "proposal_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Proposal Hash",
+      "type": "string"
+    },
+    "execution_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Execution Hash",
+      "type": "string"
+    },
+    "change": {
+      "$ref": "#/$defs/FollowUpChange"
+    },
+    "issued_at": {
+      "format": "date-time",
+      "title": "Issued At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "revoked": {
+      "default": false,
+      "title": "Revoked",
+      "type": "boolean"
+    },
+    "attempts_used": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Attempts Used",
+      "type": "integer"
+    },
+    "maximum_attempts": {
+      "const": 1,
+      "default": 1,
+      "title": "Maximum Attempts",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "proposal_hash",
+    "execution_hash",
+    "change",
+    "issued_at",
+    "expires_at"
+  ],
+  "title": "FollowUpScope",
+  "type": "object"
+}

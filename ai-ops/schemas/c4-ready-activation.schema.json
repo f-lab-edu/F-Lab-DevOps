@@ -1,0 +1,388 @@
+{
+  "$defs": {
+    "ReadyApproval": {
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "c04_ready_approval",
+          "default": "c04_ready_approval",
+          "title": "Record Type",
+          "type": "string"
+        },
+        "trial_id": {
+          "title": "Trial Id",
+          "type": "integer"
+        },
+        "intent_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Intent Hash",
+          "type": "string"
+        },
+        "readiness_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Readiness Hash",
+          "type": "string"
+        },
+        "actor_github_id": {
+          "const": 149856960,
+          "title": "Actor Github Id",
+          "type": "integer"
+        },
+        "approved_at": {
+          "format": "date-time",
+          "title": "Approved At",
+          "type": "string"
+        },
+        "fault_injection_approved": {
+          "const": true,
+          "title": "Fault Injection Approved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "trial_id",
+        "intent_hash",
+        "readiness_hash",
+        "actor_github_id",
+        "approved_at",
+        "fault_injection_approved"
+      ],
+      "title": "ReadyApproval",
+      "type": "object"
+    },
+    "ReadyReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "c04_ready_receipt",
+          "default": "c04_ready_receipt",
+          "title": "Record Type",
+          "type": "string"
+        },
+        "trial_id": {
+          "title": "Trial Id",
+          "type": "integer"
+        },
+        "intent_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Intent Hash",
+          "type": "string"
+        },
+        "runtime_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Runtime Manifest Sha256",
+          "type": "string"
+        },
+        "preflight_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Preflight Sha256",
+          "type": "string"
+        },
+        "baseline_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Baseline Sha256",
+          "type": "string"
+        },
+        "guards": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "local",
+              "remote"
+            ]
+          },
+          "title": "Guards",
+          "type": "object"
+        },
+        "prepared_at": {
+          "format": "date-time",
+          "title": "Prepared At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trial_id",
+        "intent_hash",
+        "runtime_manifest_sha256",
+        "preflight_sha256",
+        "baseline_sha256",
+        "guards",
+        "prepared_at",
+        "expires_at"
+      ],
+      "title": "ReadyReceipt",
+      "type": "object"
+    },
+    "ReadyTrialPlan": {
+      "additionalProperties": false,
+      "description": "절대 시작 시각 없이 대상과 상대 기한을 승인하는 불변 계약.",
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "record_type": {
+          "const": "c04_ready_intent",
+          "default": "c04_ready_intent",
+          "title": "Record Type",
+          "type": "string"
+        },
+        "targets": {
+          "additionalProperties": true,
+          "title": "Targets",
+          "type": "object"
+        },
+        "runtime_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Runtime Manifest Sha256",
+          "type": "string"
+        },
+        "preflight_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Preflight Sha256",
+          "type": "string"
+        },
+        "readiness_ttl_seconds": {
+          "const": 300,
+          "default": 300,
+          "title": "Readiness Ttl Seconds",
+          "type": "integer"
+        },
+        "review_after_start_seconds": {
+          "const": 210,
+          "default": 210,
+          "title": "Review After Start Seconds",
+          "type": "integer"
+        },
+        "minimum_review_seconds": {
+          "const": 120,
+          "default": 120,
+          "title": "Minimum Review Seconds",
+          "type": "integer"
+        },
+        "owner_restore_after_start_seconds": {
+          "const": 240,
+          "default": 240,
+          "title": "Owner Restore After Start Seconds",
+          "type": "integer"
+        },
+        "rollback_after_start_seconds": {
+          "const": 300,
+          "default": 300,
+          "title": "Rollback After Start Seconds",
+          "type": "integer"
+        },
+        "start_write_budget_seconds": {
+          "const": 15,
+          "default": 15,
+          "title": "Start Write Budget Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "targets",
+        "runtime_manifest_sha256",
+        "preflight_sha256"
+      ],
+      "title": "ReadyTrialPlan",
+      "type": "object"
+    },
+    "TrialPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": 1,
+          "enum": [
+            1,
+            2
+          ],
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "trial_id": {
+          "maximum": 1000000000000000,
+          "minimum": 1,
+          "title": "Trial Id",
+          "type": "integer"
+        },
+        "repository": {
+          "const": "https://github.com/joungGo/c03-execution-lab.git",
+          "default": "https://github.com/joungGo/c03-execution-lab.git",
+          "title": "Repository",
+          "type": "string"
+        },
+        "application_uid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Application Uid",
+          "type": "string"
+        },
+        "deployment_uid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Deployment Uid",
+          "type": "string"
+        },
+        "lease_uid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Lease Uid",
+          "type": "string"
+        },
+        "worker_uid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Worker Uid",
+          "type": "string"
+        },
+        "pvc_uid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Pvc Uid",
+          "type": "string"
+        },
+        "normal_revision": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Normal Revision",
+          "type": "string"
+        },
+        "failure_revision": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Failure Revision",
+          "type": "string"
+        },
+        "seed_main": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Seed Main",
+          "type": "string"
+        },
+        "workflow_main": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Workflow Main",
+          "type": "string"
+        },
+        "normal_image": {
+          "pattern": "^764428911194\\.dkr\\.ecr\\.ap-northeast-2\\.amazonaws\\.com/urlshortener@sha256:[a-f0-9]{64}$",
+          "title": "Normal Image",
+          "type": "string"
+        },
+        "failure_image": {
+          "pattern": "^764428911194\\.dkr\\.ecr\\.ap-northeast-2\\.amazonaws\\.com/urlshortener@sha256:[a-f0-9]{64}$",
+          "title": "Failure Image",
+          "type": "string"
+        },
+        "planned_at": {
+          "format": "date-time",
+          "title": "Planned At",
+          "type": "string"
+        },
+        "approval_cutoff": {
+          "format": "date-time",
+          "title": "Approval Cutoff",
+          "type": "string"
+        },
+        "manual_recovery_at": {
+          "format": "date-time",
+          "title": "Manual Recovery At",
+          "type": "string"
+        },
+        "rollback_deadline": {
+          "format": "date-time",
+          "title": "Rollback Deadline",
+          "type": "string"
+        },
+        "review_deadline": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Deadline"
+        },
+        "minimum_review_seconds": {
+          "anyOf": [
+            {
+              "maximum": 120,
+              "minimum": 120,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Review Seconds"
+        }
+      },
+      "required": [
+        "trial_id",
+        "application_uid",
+        "deployment_uid",
+        "lease_uid",
+        "worker_uid",
+        "pvc_uid",
+        "normal_revision",
+        "failure_revision",
+        "seed_main",
+        "workflow_main",
+        "normal_image",
+        "failure_image",
+        "planned_at",
+        "approval_cutoff",
+        "manual_recovery_at",
+        "rollback_deadline"
+      ],
+      "title": "TrialPlan",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "c04_ready_activation",
+      "default": "c04_ready_activation",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "intent": {
+      "$ref": "#/$defs/ReadyTrialPlan"
+    },
+    "readiness": {
+      "$ref": "#/$defs/ReadyReceipt"
+    },
+    "approval": {
+      "$ref": "#/$defs/ReadyApproval"
+    },
+    "execution": {
+      "$ref": "#/$defs/TrialPlan"
+    },
+    "owner_holder": {
+      "pattern": "^manual-[a-f0-9]{32}$",
+      "title": "Owner Holder",
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent",
+    "readiness",
+    "approval",
+    "execution",
+    "owner_holder"
+  ],
+  "title": "ReadyActivation",
+  "type": "object"
+}

@@ -1,0 +1,391 @@
+{
+  "schema_version": 1,
+  "provenance": "synthetic",
+  "execution": {
+    "binding": {
+      "cluster_id": "urlshortener",
+      "namespace": "ai-ops-lab",
+      "workload": "lab-api",
+      "application_uid": "11111111-1111-4111-8111-111111111111",
+      "target_uid": "22222222-2222-4222-8222-222222222222"
+    },
+    "proposal_id": "cprop-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "proposal_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "merge_sha": "cccccccccccccccccccccccccccccccccccccccc",
+    "desired_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "sync_verified": true,
+    "service_resolved": false,
+    "verified_at": "2026-11-10T14:14:59+00:00",
+    "source_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "policy": {
+    "window_start": "2026-11-10T14:15:00+00:00",
+    "window_end": "2026-11-10T14:17:00+00:00",
+    "http_paths": [
+      "/readyz",
+      "/items"
+    ],
+    "metrics": [
+      {
+        "name": "error_rate",
+        "definition_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "comparison": "lte",
+        "threshold": 0.05
+      }
+    ],
+    "alerts": [
+      {
+        "name": "WorkloadUnavailable",
+        "definition_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    ]
+  },
+  "evaluated_at": "2026-11-10T14:17:01+00:00",
+  "series": [
+    {
+      "kind": "runtime",
+      "name": "lab-api",
+      "binding": {
+        "cluster_id": "urlshortener",
+        "namespace": "ai-ops-lab",
+        "workload": "lab-api",
+        "application_uid": "11111111-1111-4111-8111-111111111111",
+        "target_uid": "22222222-2222-4222-8222-222222222222"
+      },
+      "definition_hash": null,
+      "source_hash": "6e4c12630d302e4ea0ae428a99ab7b9256c6864041c23542bdb77033b2804c83",
+      "status": "available",
+      "samples": [
+        {
+          "observed_at": "2026-11-10T14:15:00+00:00",
+          "reading": {
+            "kind": "runtime",
+            "revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "operation_revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "argo_sync": "Synced",
+            "argo_health": "Healthy",
+            "operation_phase": "Succeeded",
+            "generation": 3,
+            "observed_generation": 3,
+            "replicas": 1,
+            "ready_replicas": 1,
+            "pod_count": 1,
+            "ready_pods": 1,
+            "pod_images": [
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ]
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:15:30+00:00",
+          "reading": {
+            "kind": "runtime",
+            "revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "operation_revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "argo_sync": "Synced",
+            "argo_health": "Healthy",
+            "operation_phase": "Succeeded",
+            "generation": 3,
+            "observed_generation": 3,
+            "replicas": 1,
+            "ready_replicas": 1,
+            "pod_count": 1,
+            "ready_pods": 1,
+            "pod_images": [
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ]
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:00+00:00",
+          "reading": {
+            "kind": "runtime",
+            "revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "operation_revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "argo_sync": "Synced",
+            "argo_health": "Healthy",
+            "operation_phase": "Succeeded",
+            "generation": 3,
+            "observed_generation": 3,
+            "replicas": 1,
+            "ready_replicas": 1,
+            "pod_count": 1,
+            "ready_pods": 1,
+            "pod_images": [
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ]
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:30+00:00",
+          "reading": {
+            "kind": "runtime",
+            "revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "operation_revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "argo_sync": "Synced",
+            "argo_health": "Healthy",
+            "operation_phase": "Succeeded",
+            "generation": 3,
+            "observed_generation": 3,
+            "replicas": 1,
+            "ready_replicas": 1,
+            "pod_count": 1,
+            "ready_pods": 1,
+            "pod_images": [
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ]
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:17:00+00:00",
+          "reading": {
+            "kind": "runtime",
+            "revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "operation_revision": "cccccccccccccccccccccccccccccccccccccccc",
+            "argo_sync": "Synced",
+            "argo_health": "Healthy",
+            "operation_phase": "Succeeded",
+            "generation": 3,
+            "observed_generation": 3,
+            "replicas": 1,
+            "ready_replicas": 1,
+            "pod_count": 1,
+            "ready_pods": 1,
+            "pod_images": [
+              "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "http",
+      "name": "/readyz",
+      "binding": {
+        "cluster_id": "urlshortener",
+        "namespace": "ai-ops-lab",
+        "workload": "lab-api",
+        "application_uid": "11111111-1111-4111-8111-111111111111",
+        "target_uid": "22222222-2222-4222-8222-222222222222"
+      },
+      "definition_hash": null,
+      "source_hash": "67ad649f549322748f179eb10dfeea954dbc40a3b34f05164ece0335887fdb2e",
+      "status": "available",
+      "samples": [
+        {
+          "observed_at": "2026-11-10T14:15:00+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:15:30+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:00+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:30+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:17:00+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        }
+      ]
+    },
+    {
+      "kind": "http",
+      "name": "/items",
+      "binding": {
+        "cluster_id": "urlshortener",
+        "namespace": "ai-ops-lab",
+        "workload": "lab-api",
+        "application_uid": "11111111-1111-4111-8111-111111111111",
+        "target_uid": "22222222-2222-4222-8222-222222222222"
+      },
+      "definition_hash": null,
+      "source_hash": "67ad649f549322748f179eb10dfeea954dbc40a3b34f05164ece0335887fdb2e",
+      "status": "available",
+      "samples": [
+        {
+          "observed_at": "2026-11-10T14:15:00+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:15:30+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:00+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:30+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:17:00+00:00",
+          "reading": {
+            "kind": "http",
+            "status_code": 200,
+            "response_contract_valid": true
+          }
+        }
+      ]
+    },
+    {
+      "kind": "metric",
+      "name": "error_rate",
+      "binding": {
+        "cluster_id": "urlshortener",
+        "namespace": "ai-ops-lab",
+        "workload": "lab-api",
+        "application_uid": "11111111-1111-4111-8111-111111111111",
+        "target_uid": "22222222-2222-4222-8222-222222222222"
+      },
+      "definition_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "source_hash": "6a013f7ab96a56f850762fdb7955611e96b51ce12a2abc7a90b4f931cc216a9c",
+      "status": "available",
+      "samples": [
+        {
+          "observed_at": "2026-11-10T14:15:00+00:00",
+          "reading": {
+            "kind": "metric",
+            "value": 0.01
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:15:30+00:00",
+          "reading": {
+            "kind": "metric",
+            "value": 0.01
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:00+00:00",
+          "reading": {
+            "kind": "metric",
+            "value": 0.01
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:30+00:00",
+          "reading": {
+            "kind": "metric",
+            "value": 0.01
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:17:00+00:00",
+          "reading": {
+            "kind": "metric",
+            "value": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "kind": "alert",
+      "name": "WorkloadUnavailable",
+      "binding": {
+        "cluster_id": "urlshortener",
+        "namespace": "ai-ops-lab",
+        "workload": "lab-api",
+        "application_uid": "11111111-1111-4111-8111-111111111111",
+        "target_uid": "22222222-2222-4222-8222-222222222222"
+      },
+      "definition_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "source_hash": "9713ce3ea83a3badcd4a5dd813f3807ec3422dbd71d374c1b3a645ffd0e69ad3",
+      "status": "available",
+      "samples": [
+        {
+          "observed_at": "2026-11-10T14:15:00+00:00",
+          "reading": {
+            "kind": "alert",
+            "rule_present": true,
+            "evaluation": "ok",
+            "active_count": 0,
+            "evaluated_at": "2026-11-10T14:15:00+00:00"
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:15:30+00:00",
+          "reading": {
+            "kind": "alert",
+            "rule_present": true,
+            "evaluation": "ok",
+            "active_count": 0,
+            "evaluated_at": "2026-11-10T14:15:30+00:00"
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:00+00:00",
+          "reading": {
+            "kind": "alert",
+            "rule_present": true,
+            "evaluation": "ok",
+            "active_count": 0,
+            "evaluated_at": "2026-11-10T14:16:00+00:00"
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:16:30+00:00",
+          "reading": {
+            "kind": "alert",
+            "rule_present": true,
+            "evaluation": "ok",
+            "active_count": 0,
+            "evaluated_at": "2026-11-10T14:16:30+00:00"
+          }
+        },
+        {
+          "observed_at": "2026-11-10T14:17:00+00:00",
+          "reading": {
+            "kind": "alert",
+            "rule_present": true,
+            "evaluation": "ok",
+            "active_count": 0,
+            "evaluated_at": "2026-11-10T14:17:00+00:00"
+          }
+        }
+      ]
+    }
+  ]
+}

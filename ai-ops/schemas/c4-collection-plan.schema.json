@@ -1,0 +1,226 @@
+{
+  "$defs": {
+    "AlertDefinition": {
+      "additionalProperties": false,
+      "description": "운영자가 실제 규칙을 확인하고 고정할 필드다. 예시 규칙을 자동 생성하지 않는다.",
+      "properties": {
+        "name": {
+          "const": "KubeDeploymentReplicasMismatch",
+          "title": "Name",
+          "type": "string"
+        },
+        "query": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Labels",
+          "type": "object"
+        },
+        "duration": {
+          "maximum": 86400,
+          "minimum": 0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "keepFiringFor": {
+          "default": 0,
+          "maximum": 86400,
+          "minimum": 0,
+          "title": "Keepfiringfor",
+          "type": "number"
+        },
+        "group": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Group",
+          "type": "string"
+        },
+        "file": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "query",
+        "labels",
+        "duration",
+        "group",
+        "file"
+      ],
+      "title": "AlertDefinition",
+      "type": "object"
+    },
+    "RecoveryBinding": {
+      "additionalProperties": false,
+      "description": "같은 이름으로 다시 설치한 대상을 섞지 않도록 UID까지 결합한다.",
+      "properties": {
+        "cluster_id": {
+          "const": "urlshortener",
+          "default": "urlshortener",
+          "title": "Cluster Id",
+          "type": "string"
+        },
+        "namespace": {
+          "const": "ai-ops-lab",
+          "default": "ai-ops-lab",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "workload": {
+          "const": "lab-api",
+          "default": "lab-api",
+          "title": "Workload",
+          "type": "string"
+        },
+        "application_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Application Uid",
+          "type": "string"
+        },
+        "target_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Target Uid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "application_uid",
+        "target_uid"
+      ],
+      "title": "RecoveryBinding",
+      "type": "object"
+    },
+    "SyncReceipt": {
+      "additionalProperties": false,
+      "description": "C-03 결과의 서비스 미판정 상태를 C-04의 입력으로 유지한다.",
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/RecoveryBinding"
+        },
+        "proposal_id": {
+          "pattern": "^cprop-[0-9a-f]{32}$",
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "proposal_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Proposal Hash",
+          "type": "string"
+        },
+        "merge_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Merge Sha",
+          "type": "string"
+        },
+        "desired_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Desired Digest",
+          "type": "string"
+        },
+        "sync_verified": {
+          "const": true,
+          "title": "Sync Verified",
+          "type": "boolean"
+        },
+        "service_resolved": {
+          "const": false,
+          "title": "Service Resolved",
+          "type": "boolean"
+        },
+        "verified_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verified At"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding",
+        "proposal_id",
+        "proposal_hash",
+        "merge_sha",
+        "desired_digest",
+        "sync_verified",
+        "service_resolved",
+        "verified_at",
+        "source_hash"
+      ],
+      "title": "SyncReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "고정된 GET 범위와 시간 예산만 제공하며 새 실행 권한을 부여하지 않는다.",
+  "properties": {
+    "execution": {
+      "$ref": "#/$defs/SyncReceipt"
+    },
+    "repository": {
+      "enum": [
+        "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+        "https://github.com/joungGo/c03-execution-lab.git"
+      ],
+      "title": "Repository",
+      "type": "string"
+    },
+    "alert": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlertDefinition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "duration_seconds": {
+      "default": 120,
+      "maximum": 600,
+      "minimum": 120,
+      "title": "Duration Seconds",
+      "type": "integer"
+    },
+    "interval_seconds": {
+      "default": 30,
+      "maximum": 45,
+      "minimum": 10,
+      "title": "Interval Seconds",
+      "type": "integer"
+    },
+    "source_max_age_seconds": {
+      "default": 60,
+      "maximum": 90,
+      "minimum": 15,
+      "title": "Source Max Age Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "execution",
+    "repository"
+  ],
+  "title": "CollectionPlan",
+  "type": "object"
+}

@@ -1,0 +1,153 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": 1,
+      "enum": [
+        1,
+        2
+      ],
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "trial_id": {
+      "maximum": 1000000000000000,
+      "minimum": 1,
+      "title": "Trial Id",
+      "type": "integer"
+    },
+    "repository": {
+      "const": "https://github.com/joungGo/c03-execution-lab.git",
+      "default": "https://github.com/joungGo/c03-execution-lab.git",
+      "title": "Repository",
+      "type": "string"
+    },
+    "application_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Application Uid",
+      "type": "string"
+    },
+    "deployment_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Deployment Uid",
+      "type": "string"
+    },
+    "lease_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Lease Uid",
+      "type": "string"
+    },
+    "worker_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Worker Uid",
+      "type": "string"
+    },
+    "pvc_uid": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Pvc Uid",
+      "type": "string"
+    },
+    "normal_revision": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Normal Revision",
+      "type": "string"
+    },
+    "failure_revision": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Failure Revision",
+      "type": "string"
+    },
+    "seed_main": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Seed Main",
+      "type": "string"
+    },
+    "workflow_main": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Workflow Main",
+      "type": "string"
+    },
+    "normal_image": {
+      "pattern": "^764428911194\\.dkr\\.ecr\\.ap-northeast-2\\.amazonaws\\.com/urlshortener@sha256:[a-f0-9]{64}$",
+      "title": "Normal Image",
+      "type": "string"
+    },
+    "failure_image": {
+      "pattern": "^764428911194\\.dkr\\.ecr\\.ap-northeast-2\\.amazonaws\\.com/urlshortener@sha256:[a-f0-9]{64}$",
+      "title": "Failure Image",
+      "type": "string"
+    },
+    "planned_at": {
+      "format": "date-time",
+      "title": "Planned At",
+      "type": "string"
+    },
+    "approval_cutoff": {
+      "format": "date-time",
+      "title": "Approval Cutoff",
+      "type": "string"
+    },
+    "manual_recovery_at": {
+      "format": "date-time",
+      "title": "Manual Recovery At",
+      "type": "string"
+    },
+    "rollback_deadline": {
+      "format": "date-time",
+      "title": "Rollback Deadline",
+      "type": "string"
+    },
+    "review_deadline": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Deadline"
+    },
+    "minimum_review_seconds": {
+      "anyOf": [
+        {
+          "maximum": 120,
+          "minimum": 120,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Minimum Review Seconds"
+    }
+  },
+  "required": [
+    "trial_id",
+    "application_uid",
+    "deployment_uid",
+    "lease_uid",
+    "worker_uid",
+    "pvc_uid",
+    "normal_revision",
+    "failure_revision",
+    "seed_main",
+    "workflow_main",
+    "normal_image",
+    "failure_image",
+    "planned_at",
+    "approval_cutoff",
+    "manual_recovery_at",
+    "rollback_deadline"
+  ],
+  "title": "TrialPlan",
+  "type": "object"
+}

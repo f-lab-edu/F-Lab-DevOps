@@ -10,15 +10,48 @@ from ai_ops.c2_live_job import build_live_capture_job
 
 SHA = re.compile(r"[a-f0-9]{40}\Z")
 IMAGE = re.compile(r"764428911194\.dkr\.ecr\.ap-northeast-2\.amazonaws\.com/urlshortener@sha256:[a-f0-9]{64}\Z")
+LEGACY_REPOSITORY = "https://github.com/f-lab-edu/F-Lab-DevOps.git"
+ISOLATED_REPOSITORY = "https://github.com/joungGo/c03-execution-lab.git"
 
 
 def validate_active_failure(application: dict, deployment: dict, replica_set: dict,
                             pods: list[dict], lease: dict, *, failure_revision: str,
                             failure_image: str, application_uid: str,
-                            deployment_uid: str, now: datetime | None = None) -> None:
-    """활성 소스·동기화·Pod 소유 관계·현재 이미지 실패·빈 잠금을 검사한다."""
+                            deployment_uid: str, now: datetime | None = None,
+                            source_repository: str = LEGACY_REPOSITORY,
+                            failure_handoff=None) -> None:
+    """빈 잠금 또는 정확한 실패 인계 아래 활성 장애 원본을 검사한다."""
     moment = now or datetime.now(timezone.utc)
-    if (moment.utcoffset() != timedelta(0)
+    expected_holder = None
+    if failure_handoff is not None:
+        from ai_ops.c_failure_handoff import validate_failure_lease
+
+        expected_holder = validate_failure_lease(
+            failure_handoff, application, deployment, lease, now=moment)
+        if (source_repository != ISOLATED_REPOSITORY
+                or failure_revision != failure_handoff.failure_revision
+                or failure_image != failure_handoff.failure_image
+                or len(pods) != 1
+                or pods[0].get("metadata", {}).get("uid") != failure_handoff.failure_pod_uid
+                or pods[0].get("metadata", {}).get("deletionTimestamp")
+                or replica_set.get("metadata", {}).get("deletionTimestamp")):
+            raise ValueError("C-02 실패 인계의 소스가 다릅니다")
+    _validate_active_failure(application, deployment, replica_set, pods, lease,
+        failure_revision=failure_revision, failure_image=failure_image,
+        application_uid=application_uid, deployment_uid=deployment_uid, now=moment,
+        source_repository=source_repository, expected_lease_holder=expected_holder)
+
+
+def _validate_active_failure(application: dict, deployment: dict, replica_set: dict,
+                             pods: list[dict], lease: dict, *, failure_revision: str,
+                             failure_image: str, application_uid: str,
+                             deployment_uid: str, now: datetime | None = None,
+                             source_repository: str = LEGACY_REPOSITORY,
+                             expected_lease_holder: str | None = None) -> None:
+    """소유권을 대조한 호출자만 지정 holder 아래의 실패를 검사한다."""
+    moment = now or datetime.now(timezone.utc)
+    if (source_repository not in (LEGACY_REPOSITORY, ISOLATED_REPOSITORY)
+            or moment.utcoffset() != timedelta(0)
             or not isinstance(failure_revision, str) or not SHA.fullmatch(failure_revision)
             or not isinstance(failure_image, str) or not IMAGE.fullmatch(failure_image)
             or not isinstance(application_uid, str) or not application_uid
@@ -42,7 +75,7 @@ def validate_active_failure(application: dict, deployment: dict, replica_set: di
             or application["metadata"].get("namespace") != "argocd"
             or application["metadata"].get("uid") != application_uid
             or application["spec"].get("project") != "b6-lab"
-            or source != {"repoURL": "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+            or source != {"repoURL": source_repository,
                           "path": "ai-ops/lab", "targetRevision": failure_revision}
             or application["spec"].get("destination") != {
                 "server": "https://kubernetes.default.svc", "namespace": "ai-ops-lab"}
@@ -71,7 +104,7 @@ def validate_active_failure(application: dict, deployment: dict, replica_set: di
             or container.get("state", {}).get("waiting", {}).get("reason") not in ("ErrImagePull", "ImagePullBackOff")
             or lease["metadata"].get("name") != "b6-scenario-lock"
             or lease["metadata"].get("namespace") != "ai-ops-lab"
-            or lease.get("spec", {}).get("holderIdentity")
+            or (lease.get("spec", {}).get("holderIdentity") or None) != expected_lease_holder
             or started.utcoffset() != timedelta(0) or created.utcoffset() != timedelta(0)
             or not timedelta(0) <= moment - started <= timedelta(minutes=5)
             or not timedelta(0) <= moment - created <= timedelta(minutes=5)):

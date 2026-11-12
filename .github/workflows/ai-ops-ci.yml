@@ -14,6 +14,8 @@ on:
       - '.github/workflows/ai-ops-image.yml'
       - '.github/workflows/ai-ops-lab-ci.yml'
       - '.github/workflows/ai-ops-normal-ci.yml'
+      - '.github/workflows/ai-ops-c2-rollback.yml'
+      - '.github/workflows/ai-ops-c4-ready-rollback.yml'
       - '.github/workflows/ci-cd.yml'
       - '.github/scripts/**'
       - 'url-shortener/app/**'
@@ -51,7 +53,7 @@ jobs:
           ai_changes=false
           while IFS= read -r -d '' path; do
             case "$path" in
-              ai-ops/*|cluster-addons/ai-ops/*|.github/scripts/*|url-shortener/app/*|url-shortener/url-shortener-chart/*|.github/workflows/ai-ops-ci.yml|.github/workflows/ai-ops-image.yml|.github/workflows/ai-ops-lab-ci.yml|.github/workflows/ai-ops-normal-ci.yml|.github/workflows/ci-cd.yml)
+              ai-ops/*|cluster-addons/ai-ops/*|.github/scripts/*|url-shortener/app/*|url-shortener/url-shortener-chart/*|.github/workflows/ai-ops-ci.yml|.github/workflows/ai-ops-image.yml|.github/workflows/ai-ops-lab-ci.yml|.github/workflows/ai-ops-normal-ci.yml|.github/workflows/ai-ops-c2-rollback.yml|.github/workflows/ai-ops-c4-ready-rollback.yml|.github/workflows/ci-cd.yml)
                 ai_changes=true
                 break
                 ;;
@@ -69,6 +71,9 @@ jobs:
         run: |
           python3 -m venv /tmp/ai-ops-venv
           /tmp/ai-ops-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r ai-ops/requirements.lock
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # 버전 5.0.1
+        with:
+          version: v4.1.3
       - name: 계약·증거 처리·로컬 조사·fixture 검사
         run: |
           /tmp/ai-ops-venv/bin/python -m compileall -q ai-ops/src ai-ops/scripts ai-ops/tests
@@ -80,9 +85,6 @@ jobs:
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_holdout_v3_fixtures.py --check
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py
           git diff --exit-code -- ai-ops/schemas
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # 버전 5.0.1
-        with:
-          version: v4.1.3
       - name: 배포 정의·읽기 권한·통신·저장 정적 검사
         run: PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_deployment.py
 

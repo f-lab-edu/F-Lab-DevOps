@@ -1,0 +1,50 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "c04_ready_approval",
+      "default": "c04_ready_approval",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "trial_id": {
+      "title": "Trial Id",
+      "type": "integer"
+    },
+    "intent_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Intent Hash",
+      "type": "string"
+    },
+    "readiness_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Readiness Hash",
+      "type": "string"
+    },
+    "actor_github_id": {
+      "const": 149856960,
+      "title": "Actor Github Id",
+      "type": "integer"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "fault_injection_approved": {
+      "const": true,
+      "title": "Fault Injection Approved",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "trial_id",
+    "intent_hash",
+    "readiness_hash",
+    "actor_github_id",
+    "approved_at",
+    "fault_injection_approved"
+  ],
+  "title": "ReadyApproval",
+  "type": "object"
+}

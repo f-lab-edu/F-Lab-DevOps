@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from ai_ops.c_live_preflight import assess_live_preflight
-from ai_ops.c_recovery import (DIGEST, IMAGE_REPOSITORY, IncidentProjection,
+from ai_ops.c_recovery import (DIGEST, IMAGE_REPOSITORY, REPOSITORY, IncidentProjection,
                                RecoveryRequest, _values)
 from ai_ops.contracts import _utc_datetime, sha256_json
 from ai_ops.normal_ci_contract import NormalCIBinding
@@ -23,13 +23,16 @@ def assess_recovery_proof(application: dict, deployment: dict, lease: dict,
                           values_bytes: bytes, replica_set: dict, pods: list[dict],
                           binding: NormalCIBinding, history: VerifiedNormalHistory,
                           ecr_response: dict, bad_digest_absent: bool,
-                          *, now: datetime | None = None) -> dict:
+                          *, now: datetime | None = None,
+                          expected_lease_holder: str | None = None,
+                          repository: str = REPOSITORY) -> dict:
     """원본 API 검증 뒤 전달된 자료를 대조한다. 사건 연결 전에는 제안하지 않는다.
 
     호출자는 정상 CI를 GitHub의 ``verify_normal_ci_history``로 확인하고 ECR과
     Kubernetes 자료를 새로 읽어야 한다. 이 함수의 인자 자체는 인증 수단이 아니다.
     """
-    base = assess_live_preflight(application, deployment, lease, values_bytes)
+    base = assess_live_preflight(application, deployment, lease, values_bytes,
+                                 expected_lease_holder=expected_lease_holder, repository=repository)
     blockers = [item for item in base["blockers"]
                 if item != "prior_digest_and_failure_proof_required"]
     result = {**base, "blockers": blockers, "proof_ready": False,
@@ -183,6 +186,13 @@ PROPOSAL_IDENTITY_FIELDS = (
 )
 
 
+def proposal_identity(record):
+    identity = {field: record[field] for field in PROPOSAL_IDENTITY_FIELDS}
+    if "source_repository" in record:
+        identity["source_repository"] = record["source_repository"]
+    return identity
+
+
 def assess_proposal_recheck(first: dict, refreshed: dict, *, now: datetime | None = None) -> dict:
     """두 번의 독립된 실시간 조회가 같은 이미지 장애인지 확인한다.
 
@@ -208,8 +218,8 @@ def assess_proposal_recheck(first: dict, refreshed: dict, *, now: datetime | Non
     try:
         earlier = _utc_datetime(first["proof_checked_at"])
         later = _utc_datetime(refreshed["proof_checked_at"])
-        same = all(first[field] is not None and first[field] == refreshed[field]
-                   for field in PROPOSAL_IDENTITY_FIELDS)
+        identity = proposal_identity(refreshed)
+        same = None not in identity.values() and proposal_identity(first) == identity
     except (KeyError, TypeError, ValueError):
         same = False
         earlier = later = moment
@@ -217,7 +227,7 @@ def assess_proposal_recheck(first: dict, refreshed: dict, *, now: datetime | Non
             or moment - later > timedelta(seconds=30)):
         result["blockers"] = ["incident_recheck_changed_or_stale"]
         return result
-    binding = {field: refreshed[field] for field in PROPOSAL_IDENTITY_FIELDS}
+    binding = identity.copy()
     binding["proof_checked_at"] = refreshed["proof_checked_at"]
     result["proposal_ready"] = True
     result["proposal_readiness_hash"] = sha256_json(binding)

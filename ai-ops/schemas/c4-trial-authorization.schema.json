@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "trial_id": {
+      "title": "Trial Id",
+      "type": "integer"
+    },
+    "plan_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Plan Hash",
+      "type": "string"
+    },
+    "actor_github_id": {
+      "const": 149856960,
+      "title": "Actor Github Id",
+      "type": "integer"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "fault_injection_approved": {
+      "const": true,
+      "title": "Fault Injection Approved",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "trial_id",
+    "plan_hash",
+    "actor_github_id",
+    "approved_at",
+    "fault_injection_approved"
+  ],
+  "title": "TrialAuthorization",
+  "type": "object"
+}

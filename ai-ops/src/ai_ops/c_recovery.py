@@ -22,6 +22,8 @@ from ai_ops.incidents import IncidentStore, REPO_ROOT
 
 
 REPOSITORY = "f-lab-edu/F-Lab-DevOps"
+ISOLATED_REPOSITORY = "joungGo/c03-execution-lab"
+RECOVERY_REPOSITORIES = frozenset((REPOSITORY, ISOLATED_REPOSITORY))
 VALUES_PATH = "ai-ops/lab/values.yaml"
 IMAGE_REPOSITORY = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/urlshortener"
 DIGEST = re.compile(r"sha256:[a-f0-9]{64}\Z")
@@ -235,7 +237,8 @@ class RecoveryProposal(StrictModel):
 
     @model_validator(mode="after")
     def fixed_scope(self):
-        if (self.schema_version not in (1, 2) or self.target != TARGET or self.repository != REPOSITORY or self.values_path != VALUES_PATH
+        if (self.schema_version not in (1, 2) or self.target != TARGET
+                or self.repository not in RECOVERY_REPOSITORIES or self.values_path != VALUES_PATH
                 or self.state != "draft" or not COMMIT.fullmatch(self.base_sha)
                 or not DIGEST.fullmatch(self.current_digest) or not DIGEST.fullmatch(self.desired_digest)
                 or self.current_digest == self.desired_digest
@@ -287,7 +290,7 @@ def _values(raw: bytes) -> dict:
 
 def draft_proposal(request: RecoveryRequest, *, target_uid: str, base_sha: str,
                    current_image: str, desired_digest: str, values_bytes: bytes,
-                   now: datetime | None = None) -> RecoveryProposal:
+                   now: datetime | None = None, repository: str = REPOSITORY) -> RecoveryProposal:
     """이미지 한 필드의 재현 가능한 초안만 만든다. ECR·PR·클러스터 변경은 하지 않는다."""
     if request.target != TARGET or not COMMIT.fullmatch(base_sha):
         raise ValueError("실습 대상과 고정 Git revision이 필요합니다")
@@ -309,7 +312,7 @@ def draft_proposal(request: RecoveryRequest, *, target_uid: str, base_sha: str,
                 request_id=request.request_id, incident_id=request.incident_id, run_id=request.run_id,
                 bundle_hash=request.bundle_hash, report_hash=request.report_hash,
                 target=TARGET.model_dump(mode="json"), target_uid=target_uid,
-                repository=REPOSITORY, values_path=VALUES_PATH, base_sha=base_sha,
+                repository=repository, values_path=VALUES_PATH, base_sha=base_sha,
                 current_digest=current_digest, desired_digest=desired_digest,
                 diff=diff, diff_hash=hashlib.sha256(diff.encode()).hexdigest(),
                 created_at=moment.isoformat().replace("+00:00", "Z"),
@@ -343,9 +346,9 @@ def draft_verified_proposal(request: RecoveryRequest, projection: IncidentProjec
             or readiness.get("image_hash") != failure.image_hash
             or readiness.get("current_digest") == readiness.get("prior_digest")):
         raise ValueError("재확인 근거와 사건·요청이 일치하지 않습니다")
-    from ai_ops.c_recovery_proof import PROPOSAL_IDENTITY_FIELDS
+    from ai_ops.c_recovery_proof import proposal_identity
     try:
-        binding = {field: readiness[field] for field in PROPOSAL_IDENTITY_FIELDS}
+        binding = proposal_identity(readiness)
         binding["proof_checked_at"] = readiness["proof_checked_at"]
         checked = _utc_datetime(readiness["proof_checked_at"])
     except (KeyError, TypeError, ValueError) as exc:
@@ -357,7 +360,8 @@ def draft_verified_proposal(request: RecoveryRequest, projection: IncidentProjec
                              base_sha=readiness["base_sha"],
                              current_image=IMAGE_REPOSITORY + "@" + readiness["current_digest"],
                              desired_digest=readiness["prior_digest"],
-                             values_bytes=values_bytes, now=moment)
+                             values_bytes=values_bytes, now=moment,
+                             repository=readiness.get("source_repository", REPOSITORY))
     body = offline.model_dump(mode="json", exclude={"proposal_hash"})
     body.update(schema_version=2, failure_binding_hash=request.failure_binding_hash,
                 recheck_hash=readiness["proposal_readiness_hash"],
@@ -456,7 +460,9 @@ class RecoveryDraftStore:
                         proposal.created_at.isoformat().replace("+00:00", "Z"), request.requester_github_id))
         return proposal
 
-    def read(self, proposal_id: str) -> RecoveryProposal:
+    def read(self, proposal_id: str, *, actor_github_id: int | None = None,
+             now: datetime | None = None) -> RecoveryProposal:
+        """초안을 읽고, 인증 호출에서는 현재 GitHub ID로 소유권을 확인한다."""
         if not re.fullmatch(r"cprop-[0-9a-f]{32}", proposal_id):
             raise ValueError("변경안 ID가 유효하지 않습니다")
         with self._connect() as db:
@@ -466,7 +472,8 @@ class RecoveryDraftStore:
             if row is not None:
                 proposal = RecoveryProposal.model_validate_json(row[0])
                 request = RecoveryRequest.model_validate_json(row[1])
-                state = self._state_locked(db, proposal_id, request.requester_github_id)
+                actor = request.requester_github_id if actor_github_id is None else actor_github_id
+                state = self._state_locked(db, proposal_id, actor, now=now)
         if row is None:
             raise ValueError("변경안이 없습니다")
         if state["state"] != "draft":

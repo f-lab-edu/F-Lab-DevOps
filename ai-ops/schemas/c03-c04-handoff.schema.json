@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "RecoveryBinding": {
+      "additionalProperties": false,
+      "description": "같은 이름으로 다시 설치한 대상을 섞지 않도록 UID까지 결합한다.",
+      "properties": {
+        "cluster_id": {
+          "const": "urlshortener",
+          "default": "urlshortener",
+          "title": "Cluster Id",
+          "type": "string"
+        },
+        "namespace": {
+          "const": "ai-ops-lab",
+          "default": "ai-ops-lab",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "workload": {
+          "const": "lab-api",
+          "default": "lab-api",
+          "title": "Workload",
+          "type": "string"
+        },
+        "application_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Application Uid",
+          "type": "string"
+        },
+        "target_uid": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Target Uid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "application_uid",
+        "target_uid"
+      ],
+      "title": "RecoveryBinding",
+      "type": "object"
+    },
+    "SyncReceipt": {
+      "additionalProperties": false,
+      "description": "C-03 결과의 서비스 미판정 상태를 C-04의 입력으로 유지한다.",
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/RecoveryBinding"
+        },
+        "proposal_id": {
+          "pattern": "^cprop-[0-9a-f]{32}$",
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "proposal_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Proposal Hash",
+          "type": "string"
+        },
+        "merge_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Merge Sha",
+          "type": "string"
+        },
+        "desired_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Desired Digest",
+          "type": "string"
+        },
+        "sync_verified": {
+          "const": true,
+          "title": "Sync Verified",
+          "type": "boolean"
+        },
+        "service_resolved": {
+          "const": false,
+          "title": "Service Resolved",
+          "type": "boolean"
+        },
+        "verified_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verified At"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding",
+        "proposal_id",
+        "proposal_hash",
+        "merge_sha",
+        "desired_digest",
+        "sync_verified",
+        "service_resolved",
+        "verified_at",
+        "source_hash"
+      ],
+      "title": "SyncReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "record_type": {
+      "const": "c03_c04_handoff",
+      "default": "c03_c04_handoff",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "repository": {
+      "enum": [
+        "https://github.com/f-lab-edu/F-Lab-DevOps.git",
+        "https://github.com/joungGo/c03-execution-lab.git"
+      ],
+      "title": "Repository",
+      "type": "string"
+    },
+    "execution": {
+      "$ref": "#/$defs/SyncReceipt"
+    },
+    "snapshot_checked_at": {
+      "format": "date-time",
+      "title": "Snapshot Checked At",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "result_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Result Hash",
+      "type": "string"
+    },
+    "snapshot_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Hash",
+      "type": "string"
+    },
+    "pr_link_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Pr Link Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "repository",
+    "execution",
+    "snapshot_checked_at",
+    "created_at",
+    "result_hash",
+    "snapshot_hash",
+    "pr_link_hash"
+  ],
+  "title": "C03Handoff",
+  "type": "object"
+}

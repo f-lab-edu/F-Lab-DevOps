@@ -9,6 +9,9 @@ description = "URL 단축 서비스의 로컬 운영 증거 검증과 규칙·AI
 requires-python = ">=3.11"
 dependencies = ["pydantic==2.13.5"]
 
+[project.optional-dependencies]
+trial = ["boto3[crt]==1.44.0"]
+
 [project.scripts]
 aiops = "ai_ops.cli:main"
 

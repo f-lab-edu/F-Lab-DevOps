@@ -49,6 +49,15 @@ class RepositoryBundleTest(unittest.TestCase):
         with self.assertRaises(ValueError): self.build()
         self.assertFalse((self.root/'runtime').exists())
 
+    def test_workflow_and_observation_helpers_needed_by_full_tests_are_included(self):
+        names = ['.github/scripts/capture-deployment-observation.py', '.github/workflows/ci-cd.yml']
+        for name in names:
+            p = self.repo/name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text('public helper')
+        self.git('add', '.'); self.git('-c', 'commit.gpgsign=false', 'commit', '-qm', 'helpers')
+        self.sha = self.git('rev-parse', 'HEAD').strip()
+        result = self.build()
+        self.assertTrue(set(names).issubset(result['files']))
+
     def test_arbitrary_revision_and_missing_dependencies_are_rejected(self):
         self.sha = '--all'
         with self.assertRaises(ValueError): self.build()

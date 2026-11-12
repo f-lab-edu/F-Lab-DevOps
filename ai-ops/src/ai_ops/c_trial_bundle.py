@@ -52,7 +52,7 @@ def build_repository_runtime(source, revision, destination):
     sdk_versions = {name: importlib.metadata.version(name) for name in
                     ('boto3', 'botocore', 'awscrt', 's3transfer', 'jmespath', 'urllib3', 'python-dateutil', 'six')}
     result = subprocess.run(['git', '-C', str(source), 'archive', '--format=tar', revision, '--',
-        'ai-ops', '.github/workflows/ai-ops-c4-ready-rollback.yml'], capture_output=True, timeout=30)
+        'ai-ops', '.github'], capture_output=True, timeout=30)
     if result.returncode or len(result.stdout) > 64*1024*1024:
         raise ValueError('고정 commit의 실행 소스를 읽지 못했습니다')
     members = []
@@ -61,7 +61,7 @@ def build_repository_runtime(source, revision, destination):
             if item.isdir(): continue
             name = Path(item.name)
             if (not item.isfile() or name.is_absolute() or '..' in name.parts
-                    or not (name.parts[0] == 'ai-ops' or str(name) == '.github/workflows/ai-ops-c4-ready-rollback.yml')
+                    or name.parts[0] not in {'ai-ops', '.github'}
                     or item.size > 4*1024*1024 or str(name) == 'runtime-manifest.json'):
                 raise ValueError('실행 소스의 경로·형식·크기가 유효하지 않습니다')
             members.append((name, archive.extractfile(item).read(), item.mode))

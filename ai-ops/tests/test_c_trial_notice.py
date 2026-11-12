@@ -58,8 +58,10 @@ class NoticeDeliveryTest(unittest.TestCase):
         for _ in range(100):
             try:
                 if resolve_plan:
-                    if self.socket.exists(): break
-                    raise OSError('local bridge not yet bound')
+                    from ai_ops.c_trial_notice import _exchange
+                    response = _exchange(self.socket, {'action':'ping',
+                        'trial_id':self.plan.trial_id,'plan_hash':self.plan.digest()}, 2)
+                    self.assertEqual(response, {'ready': False})
                 elif rehearsal:
                     from ai_ops.c_trial_notice import _exchange
                     response = _exchange(self.socket, {'action':'ping',
@@ -79,10 +81,7 @@ class NoticeDeliveryTest(unittest.TestCase):
         with self.assertRaises(ValueError): require_bridge(self.plan, self.socket)
         self.assertEqual(self.questions, []); self.assertFalse(self.output.exists())
         active[0] = self.plan
-        for _ in range(100):
-            try: require_bridge(self.plan, self.socket); break
-            except ValueError: time.sleep(.005)
-        else: self.fail('ready bridge did not activate')
+        require_bridge(self.plan, self.socket)
         receipt = self.deliver()
         self.assertEqual(receipt['review_deadline'], self.plan.review_cutoff().isoformat())
         self.assertEqual(receipt['plan_hash'], self.plan.digest())

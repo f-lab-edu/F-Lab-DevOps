@@ -73,7 +73,7 @@ class StandbyEvidenceTest(unittest.TestCase):
     def setUp(self):
         f = fixtures.ReadyStartTest(); f.setUp(); self.addCleanup(f.doCleanups); self.intent = f.intent
         folder = tempfile.TemporaryDirectory(); self.addCleanup(folder.cleanup)
-        self.root = Path(folder.name); self.root.chmod(0o700)
+        self.root = Path(folder.name).resolve(); self.root.chmod(0o700)
         self.addCleanup(patch.stopall); patch.dict(os.environ, {'AI_OPS_FILES_ROOT': str(self.root)}).start()
         hashes = {}
         for name in GUARD_SOURCES:

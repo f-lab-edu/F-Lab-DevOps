@@ -16,5 +16,10 @@
   "terraform_executed": false,
   "operational_secrets_published": false,
   "live_validation_pending": true,
-  "additional_repository_bundle_test_passed": true
+  "additional_repository_bundle_test_passed": true,
+  "publication_final_checkout_tests_passed": 840,
+  "activation_socket_read_race_regression": true,
+  "portable_socket_tests_passed": 29,
+  "independent_commit_bundle_tests_passed": 840,
+  "independent_commit_bundle_source_revision": "0e89057490a0de351a11befc020d597149957cac"
 }

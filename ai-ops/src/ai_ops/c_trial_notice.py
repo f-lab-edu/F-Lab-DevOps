@@ -203,6 +203,10 @@ def serve_bridge(plan, path, notify_host, *, clock=_moment, rehearsal=False,
                 with client, client.makefile('rwb') as stream:
                     client.settimeout(2)
                     request = _read(stream)
+                    # accept 대기 중 activation이 게시됐을 수 있다. 첫 ping도 새 바인딩을 확인한다.
+                    if resolve_plan is not None:
+                        current = resolve_plan()
+                        if current is not None: plan = current
                     if plan is None:
                         _write(stream, {'ready': False})
                         continue

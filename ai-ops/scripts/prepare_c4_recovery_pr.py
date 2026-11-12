@@ -15,6 +15,8 @@ from ai_ops.c_recovery import (IncidentProjection,RecoveryRequest,RecoveryDraftS
 from ai_ops.c_recovery_proof import assess_proposal_recheck
 from ai_ops.c_approval import prepare_pr_link,verify_review,ApprovalRejected,ApprovalGitHubReader
 from ai_ops.path_policy import write_private_json
+from ai_ops.c_trial_request_time import wait_for_request_projection
+from ai_ops.c_trial_read_budget import approval_rejection_codes,rejection_source_frames
 
 
 def main():
@@ -91,8 +93,13 @@ def main():
             wait()
         save('queue-metadata.json',metadata)
         op=Path(prep['operator_state_root']);os.environ['AI_OPS_FILES_ROOT']=str(op)
-        shown=_client(op/'operator.sock','show',metadata['incident_id'],metadata['run_id']);assert shown['status']=='ok'
-        projection=IncidentProjection.model_validate(shown['projection']);assert projection.image_failure is not None
+        def fetch_projection():
+            shown=_client(op/'operator.sock','show',metadata['incident_id'],metadata['run_id'])
+            if shown.get('status')!='ok':raise ValueError('incident_projection_unavailable')
+            return IncidentProjection.model_validate(shown['projection'])
+        state['stage']='waiting_incident_observation_time';save('post-state.json',state)
+        projection=wait_for_request_projection(fetch_projection,
+            deadline=plan.review_cutoff()-timedelta(seconds=plan.minimum_review_seconds or 30))
         requested=_client(op/'operator.sock','request',metadata['incident_id'],metadata['run_id']);assert requested['status']=='ok'
         request=RecoveryRequest.model_validate(requested['request'])
         context=SimpleNamespace(kubeconfig=os.environ['KUBECONFIG'],recovery_repository='joungGo/c03-execution-lab',
@@ -102,6 +109,7 @@ def main():
         source=TrialSource(context,handoff,transport,clock=lambda:datetime.now(timezone.utc),**caches)
         state['stage']='fresh_c02_proposal_recheck';save('post-state.json',state)
         first,_=source.collect();second,snapshot=source.collect()
+        save('proposal-inputs.json',{'first':first,'refreshed':second})
         readiness=assess_proposal_recheck(first,second)
         if not readiness.get('proposal_ready'):save('proposal-blocked.json',readiness);raise ValueError('fresh_proposal_not_ready')
         proposal=draft_verified_proposal(request,projection,readiness,snapshot['values_bytes'])
@@ -188,7 +196,9 @@ def main():
             time.sleep(1)
         else:state['stage']='review_deadline_passed_no_execution_context';save('post-state.json',state)
     except BaseException as exc:
-        state.update(stage='stopped',error_type=type(exc).__name__,error_code=str(exc) if str(exc).startswith(('command_failed_','manual_recovery_','fresh_','investigation_','review_notice_','insufficient_actual_review_notice_window')) else 'source_or_pr_condition_failed')
+        state.update(stage='stopped',error_type=type(exc).__name__,error_code=str(exc) if str(exc).startswith(('command_failed_','manual_recovery_','fresh_','investigation_','review_notice_','incident_','insufficient_actual_review_notice_window')) else 'source_or_pr_condition_failed')
+        state['approval_rejection_codes']=approval_rejection_codes(exc)
+        state['rejection_source_frames']=rejection_source_frames(exc)
         save('post-state.json',state)
     print(json.dumps(state,ensure_ascii=False))
 

@@ -1,9 +1,9 @@
 {
   "status": "local_controls_verified_live_recovery_pending",
-  "tests_passed": 870,
+  "tests_passed": 880,
   "skipped": 0,
-  "duration_seconds": 26.483,
-  "base_revision": "c969b8e645a2b0a4d5a3f2e7e948bc6dcf870436",
+  "duration_seconds": 28.488,
+  "base_revision": "9573b8c9f323a643e65bb58c323dc932c681a6b2",
   "control_tests": 10,
   "parallel_source_barrier_regression": true,
   "cancel_before_merge": true,
@@ -57,11 +57,19 @@
       "test_c_trial_transport.py::test_wrong_capture_job_namespace_is_refused"
     ]
   },
-  "r2_new_live_result": "pending_new_trial_after_011_no_injection_stop",
-  "validation_stage": "local_before_start_read_parallelization_merge",
+  "r2_new_live_result": "pending_new_trial_after_012_request_time_rejection",
+  "validation_stage": "local_request_observation_order_fix_before_merge",
   "prior_published_tested_head": "fb3bfa9f5cbc9a964d7c737f0f4a0e4e7464e014",
   "prior_published_source_tree_matches_main": true,
   "tested_ready_transport_sha256": "2042c2e7b935206d658801eb4f70dc8eee49f04b454d49aa1d80787f8bbc7924",
   "remote_run_and_jobs_independent_reads_parallel": true,
-  "lease_rechecked_after_remote_guard_reads": true
+  "lease_rechecked_after_remote_guard_reads": true,
+  "tested_head": "67afeea00035649039806b529bab7836408c585a",
+  "tested_execution_source_tree_matches_main": false,
+  "published_pr": 155,
+  "tested_request_time_sha256": "04cc5a21ee1ddcd44162d34122ad05814af9bf412ee1bde28a2a06ee8189927d",
+  "future_observation_request_not_persisted": true,
+  "bounded_observation_wait_seconds": 5,
+  "observation_wait_preserves_existing_notice_deadline": true,
+  "unchanged_projection_rechecked_before_single_request": true
 }

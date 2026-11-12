@@ -85,7 +85,7 @@ jobs:
         run: '"$RUNNER_TEMP/venv/bin/python" -m ai_ops.b6_ci finish'
       - name: 본문 없는 실패·복구 관측만 보관
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 버전 4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 버전 7.0.2
         with:
           name: b6-lab-observation-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/s10/records/*.json

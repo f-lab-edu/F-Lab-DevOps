@@ -1,9 +1,9 @@
 {
   "status": "local_controls_verified_live_recovery_pending",
-  "tests_passed": 852,
+  "tests_passed": 870,
   "skipped": 0,
-  "duration_seconds": 26.541,
-  "base_revision": "1b487a4315d0bb5e607c159bf66ef37e17166471",
+  "duration_seconds": 26.483,
+  "base_revision": "c969b8e645a2b0a4d5a3f2e7e948bc6dcf870436",
   "control_tests": 10,
   "parallel_source_barrier_regression": true,
   "cancel_before_merge": true,
@@ -19,5 +19,49 @@
   "new_live_recovery_verified": false,
   "c05_final_completion": false,
   "terraform_executed": false,
-  "model_api_called": false
+  "model_api_called": false,
+  "r1_r8_local_coverage": {
+    "R1": [
+      "test_c_recovery_proof.py::test_proof_can_be_ready_but_cannot_approve_or_create_proposal",
+      "test_c_trial_ready.py::test_expired_ready_receipt_and_clock_jump_do_not_reschedule"
+    ],
+    "R2": [
+      "test_c_trial_runtime.py::test_real_gates_merge_once_sync_confirmed_sha_then_release",
+      "test_c_verification.py::test_complete_window_resolves_without_network_or_writes"
+    ],
+    "R3": [
+      "test_c_approval.py::test_non_approval_or_unapproved_identity",
+      "test_c_approval.py::test_approval_must_match_head_and_is_invalid_at_30_minutes",
+      "test_c_execution_preflight.py::test_changed_main_or_review_is_rejected"
+    ],
+    "R4": [
+      "test_c_execution_control.py::test_lost_merge_response_is_recorded_as_uncertain_and_never_retried",
+      "test_c_execution_control.py::test_verified_merge_survives_process_restart_and_rechecks_github",
+      "test_c_trial_ready.py::test_duplicate_and_restarted_process_cannot_reuse_consumed_approval"
+    ],
+    "R5": [
+      "test_c_verification.py::test_known_failure_with_other_missing_data_is_unresolved",
+      "test_c_execution_control.py::test_cancel_does_not_block_owned_safe_rollback_or_revert_git"
+    ],
+    "R6": [
+      "test_c_approval.py::test_main_with_desired_image_produces_no_link_or_change",
+      "test_c_recovery_proof.py::test_healthy_app_and_active_lease_stop_before_historical_proof"
+    ],
+    "R7": [
+      "test_c_execution_control.py::test_cancel_before_merge_does_not_open_execution_credentials",
+      "test_c_execution_control.py::test_cancel_after_merge_keeps_git_fact_and_stops_argo_writes",
+      "test_c_execution_control.py::test_cancel_after_set_stops_sync_and_records_what_was_applied"
+    ],
+    "R8": [
+      "test_c_approval.py::test_extra_changes_mode_changes_and_truncated_tree_are_denied",
+      "test_c_trial_transport.py::test_wrong_capture_job_namespace_is_refused"
+    ]
+  },
+  "r2_new_live_result": "pending_new_trial_after_011_no_injection_stop",
+  "validation_stage": "local_before_start_read_parallelization_merge",
+  "prior_published_tested_head": "fb3bfa9f5cbc9a964d7c737f0f4a0e4e7464e014",
+  "prior_published_source_tree_matches_main": true,
+  "tested_ready_transport_sha256": "2042c2e7b935206d658801eb4f70dc8eee49f04b454d49aa1d80787f8bbc7924",
+  "remote_run_and_jobs_independent_reads_parallel": true,
+  "lease_rechecked_after_remote_guard_reads": true
 }

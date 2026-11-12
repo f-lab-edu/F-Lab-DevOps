@@ -59,17 +59,22 @@
   },
   "r2_new_live_result": "pending_new_trial_after_012_request_time_rejection",
   "validation_stage": "local_request_observation_order_fix_before_merge",
-  "prior_published_tested_head": "fb3bfa9f5cbc9a964d7c737f0f4a0e4e7464e014",
+  "prior_published_tested_head": "67afeea00035649039806b529bab7836408c585a",
   "prior_published_source_tree_matches_main": true,
   "tested_ready_transport_sha256": "2042c2e7b935206d658801eb4f70dc8eee49f04b454d49aa1d80787f8bbc7924",
   "remote_run_and_jobs_independent_reads_parallel": true,
   "lease_rechecked_after_remote_guard_reads": true,
-  "tested_head": "67afeea00035649039806b529bab7836408c585a",
   "tested_execution_source_tree_matches_main": false,
-  "published_pr": 155,
   "tested_request_time_sha256": "04cc5a21ee1ddcd44162d34122ad05814af9bf412ee1bde28a2a06ee8189927d",
   "future_observation_request_not_persisted": true,
   "bounded_observation_wait_seconds": 5,
   "observation_wait_preserves_existing_notice_deadline": true,
-  "unchanged_projection_rechecked_before_single_request": true
+  "unchanged_projection_rechecked_before_single_request": true,
+  "prior_published_pr": 155,
+  "tested_source_sha256": {
+    "ai-ops/src/ai_ops/c_recovery.py": "33355c2a941533c2daafb13b66635844851b27475c4a9b0e15cdd22cfed668c2",
+    "ai-ops/src/ai_ops/c_trial_request_time.py": "04cc5a21ee1ddcd44162d34122ad05814af9bf412ee1bde28a2a06ee8189927d",
+    "ai-ops/scripts/prepare_c4_recovery_pr.py": "f1d8ffc444f06791e07ece8759873bc8131ec345bce4b71c260cb32818fa19bc",
+    "ai-ops/tests/test_c_trial_request_time.py": "d7892f192451eb3b85ed72efe3a7c834aa5184cbd145198966e720866bcb872b"
+  }
 }

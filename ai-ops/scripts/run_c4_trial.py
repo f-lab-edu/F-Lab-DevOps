@@ -16,11 +16,11 @@ from ai_ops.c_trial_transport import C4TrialTransport
 from ai_ops.c_trial_bundle import verify_runtime_bundle
 from ai_ops.c_trial_guards import GuardReader, private_json
 from ai_ops.c_trial_schedule import RefreshingProbe, schedule_trial
+from ai_ops.c_trial_read_budget import recovery_github_reader, approval_rejection_codes
 from ai_ops.path_policy import cli_paths, permitted_path, write_private_json
 
 
 def recovery_args(path, executor, transport, kubeconfig):
-    from ai_ops.c_approval import ApprovalGitHubReader
     from ai_ops.c_pr_link import RecoveryPRLink
     from ai_ops.c_recovery import RecoveryDraftStore
 
@@ -42,7 +42,8 @@ def recovery_args(path, executor, transport, kubeconfig):
         pull_number=value["pull_number"], allowed_github_id=149856960, pr_author_id=354870297,
         original_recheck=private_json(Path(value["proposal_audit"])),
         pr_link=RecoveryPRLink.model_validate(private_json(Path(value["pr_link"]))),
-        live_reader=source.reader(), reader=ApprovalGitHubReader(repository="joungGo/c03-execution-lab"))
+        live_reader=source.reader(), reader=recovery_github_reader(executor.plan.manual_recovery_at,
+            repository=context.recovery_repository, clock=executor.clock))
     if notice is not None:result['review_notice']=notice
     return result
 
@@ -151,6 +152,7 @@ def main():
                         stop_step=executor.last_step,
                         stop_error_type=type(exc).__name__, image_probe_error=image_cache.error_type,
                         guard_probe_error=guard_cache.error_type)
+        evidence['approval_rejection_codes'] = approval_rejection_codes(exc)
         if executor.injected and executor.handoff is None:
             evidence["fault_injected"] = None
             evidence["fault_observation"] = "unconfirmed_inspect_runtime"

@@ -1,5 +1,7 @@
 """실습의 고정 원복 기한 안에서 GitHub 읽기와 안전한 거절 코드를 다룬다."""
 
+from pathlib import Path
+
 from ai_ops.c_approval import ApprovalGitHubReader, ApprovalRejected
 from ai_ops.contracts import _utc_datetime
 
@@ -44,3 +46,28 @@ def approval_rejection_codes(error):
                 codes.append(code)
         error = error.__cause__ if error.__cause__ is not None else error.__context__
     return codes
+
+
+def rejection_source_frames(error):
+    """원문·locals 없이 신뢰한 소스 위치만 남겨 다음 입력 거절을 진단한다."""
+    root = Path(__file__).resolve().parents[2]
+    frames, seen = [], set()
+    while error is not None and id(error) not in seen and len(seen) < 8:
+        seen.add(id(error))
+        trace, current = error.__traceback__, []
+        while trace is not None:
+            code = trace.tb_frame.f_code
+            try:
+                source = Path(code.co_filename).resolve().relative_to(root)
+            except (ValueError, OSError):
+                source = None
+            if (source is not None and source.suffix == '.py'
+                    and (source.parts[:2] == ('src', 'ai_ops')
+                         or source.parts[:1] == ('scripts',))
+                    and code.co_name.isidentifier()):
+                current.append({'source': source.as_posix(), 'function': code.co_name,
+                                'line': trace.tb_lineno})
+            trace = trace.tb_next
+        frames.extend(current[-3:])
+        error = error.__cause__ if error.__cause__ is not None else error.__context__
+    return frames[-8:]

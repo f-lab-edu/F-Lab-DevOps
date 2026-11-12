@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from ai_ops.c_approval import (ApprovalGitHubReader, _blob, _entry, _lab_tree, _tree,
                                prepare_pr_link)
 from ai_ops.c_execution_live import C3LiveReader
+from ai_ops.c_recovery_snapshot import same_recovery_resources
 from ai_ops.c_pr_link import read_private_c_record
 from ai_ops.c_live_preflight import SHA, assess_live_preflight
 from ai_ops.c_recovery_proof import (assess_incident_request, assess_proposal_recheck,
@@ -120,7 +121,9 @@ def _collect(args, *, expected_lease_holder=None, include_snapshot=False,
         # 공유 잠금이 바뀌었다면 한 번의 수집 안에서도 닫힌 상태로 끝낸다.
         with ThreadPoolExecutor(max_workers=3) as pool:
             final = list(pool.map(lambda target: get(*target), targets))
-        if final != [app, deployment, lease]:
+        if not same_recovery_resources(
+                {"application": app, "deployment": deployment, "lease": lease},
+                dict(zip(("application", "deployment", "lease"), final))):
             raise ValueError("C-03 원본 조회 중 실습 대상 또는 잠금이 바뀌었습니다")
         return result, projection, request, values, {
             "application": app, "deployment": deployment, "lease": lease,

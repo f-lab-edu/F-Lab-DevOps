@@ -21,7 +21,7 @@ from ai_ops.c_trial_notice import _socket_path, require_bridge
 from ai_ops.c_trial_github import GitHubMergeSession
 from ai_ops.normal_ci_contract import NormalCIBinding
 from ai_ops.c_trial_read_cache import warm_trial_reads
-from ai_ops.c_trial_read_budget import approval_rejection_codes
+from ai_ops.c_trial_read_budget import approval_rejection_codes, rejection_source_frames
 from ai_ops.contracts import sha256_json
 from ai_ops.path_policy import cli_paths, write_private_json
 from run_c4_trial import recover_and_observe
@@ -187,6 +187,7 @@ def main(argv=None):
     except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as exc:
         evidence.update(status='stopped', error_type=type(exc).__name__)
         evidence['approval_rejection_codes'] = approval_rejection_codes(exc)
+        evidence['rejection_source_frames'] = rejection_source_frames(exc)
         executor = controller.executor
         if executor is not None and executor.injected:
             evidence['fault_injected'] = True if executor.handoff is not None else None

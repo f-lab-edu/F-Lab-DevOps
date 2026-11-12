@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from ai_ops.b6_coordination import FAILURE_HANDOFF_KEY as HANDOFF_KEY, LabLease, NOT_BEFORE_KEY
 from ai_ops.c2_active_capture import ISOLATED_REPOSITORY, _validate_active_failure
 from ai_ops.contracts import StrictModel, UTCDateTime, _utc_datetime, sha256_json
+from ai_ops.c_recovery_snapshot import same_recovery_resources
 
 
 Revision = Annotated[str, Field(pattern=r"^[a-f0-9]{40}$")]
@@ -206,8 +207,8 @@ class FailureHandoffReader:
         _failure_snapshot(record, second, now=_utc_datetime(self.clock()))
         if second["lease"]["spec"].get("holderIdentity") != record.executor_holder:
             raise ValueError("C-03 원본 조회 중 실행 소유권을 잃었습니다")
-        if any(first[key] != result[key] or result[key] != second[key]
-               for key in ("application", "deployment", "lease")):
+        if (not same_recovery_resources(first, result, now=self.clock())
+                or not same_recovery_resources(result, second, now=self.clock())):
             raise ValueError("C-03 원본 조회 중 실패 인계 대상이 바뀌었습니다")
         return result
 

@@ -74,6 +74,14 @@ PYTHONPATH="$runtime_root/ai-ops/src" python "$runtime_root/ai-ops/scripts/resto
 
 010은 정확한 head의 기한 내 사람 리뷰·필수 CI 뒤 `execution_preflight_input_unavailable_or_invalid`로 중지하고 정상 원복됐다. 로컬에서 resourceVersion/reconciledAt만 함께 갱신해 같은 거절을 재현했지만, 당시 내부 예외 위치를 저장하지 않아 **010의 확정 원인으로 단정하지 않는다.** 이후 정상 앱의 읽기 전용 watch에서는 generation·managedFields도 바뀌는 갱신을 관찰했다. 별도 정상 watch에서 조회 시각 갱신·generation 단일 증가와 나머지 원본 동일성을 확인했다. generation은 실제 CRD에서 확인한 단일 상태 갱신만 위 조건으로 구분하며 managedFields 변경은 허용하지 않는다. 보완 후 실제 C-03/C-04 성공은 새 준비와 실행별 승인·새 PR 리뷰로 별도 검증한다.
 
+## 관측 시각과 해결 요청의 순서
+
+012는 시작 예산 안에 장애를 주입하고 사건을 접수했지만, 저장된 관측 시각이 요청 생성 시각보다 2.009996초 뒤여서 사건 결합을 거절했다. 사건·대상·bundle/report/failure 결합과 Pod/Deployment/image 해시는 일치했다. 새 PR 없이 소유 정상 원복·HTTP 200·빈 Lease·자격 회수를 확인했다. 어느 호스트의 시계가 원인인지는 이 자료만으로 단정하지 않는다.
+
+인증된 운영자 서비스는 실제 현재 UTC보다 미래인 이미지 장애 관측으로 해결 요청을 저장하지 않는다. 자동 연결기는 기존 안내 마감(리뷰 마감에서 최소 리뷰 시간을 뺀 시각) 안에서 최대 5초만 실제로 기다린다. 대기 전 투영을 보존하고, 대기 후 동일 사건 투영을 다시 읽어 비교한 뒤 요청을 한 번 생성한다. 5초 밖의 미래·마감 초과·시계 점프·조회 실패·투영 변경은 중지한다. 요청 시각 소급·시계 조정·시간 검증 완화·요청 쓰기 재시도는 하지 않는다.
+
+새 제안의 첫/갱신 입력은 개인 `proposal-inputs.json`에 보존해 첫 차단 사유가 상위 판정에 덮여 사라지지 않게 한다. 후속 연결기의 예외도 고정 거절 코드와 신뢰한 소스 위치만 진단에 추가한다. 원문 사건 자료는 공개 문서에 복사하지 않는다.
+
 ## 최종 데모와 완료 판정
 
 011은 새 준비의 기한 내 실제 승인을 받은 뒤 `_inject`의 시작 직전 15초 예산 검사에서 중지했다. `fault_injected=false`이고 실행 장부의 events/confirmed는 비어 있으며 pending_operation도 null이다. 정상 앱·HTTP 200·빈 Lease·자격 회수를 별도로 확인했다. 이 실행의 새 복구 PR이나 C-04 성공은 없다.

@@ -42,7 +42,7 @@ class ReadyCLITest(unittest.TestCase):
 
     def test_actual_arguments_allow_future_approval_but_no_calendar_start(self):
         module = load('run_c4_ready_trial')
-        with tempfile.TemporaryDirectory(dir='/private/tmp') as folder:
+        with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); root.chmod(0o700); run = root/'run'; argv = []
             for n in ('intent', 'preflight', 'guard-evidence', 'normal-binding', 'projection-probe', 'c2-kubeconfig'):
                 p = root/(n+'.json'); p.write_text('{}'); argv += ['--'+n, str(p)]

@@ -27,7 +27,7 @@ class NoticeDeliveryTest(unittest.TestCase):
         fixture = fixtures.ReviewWindowTest(); fixture.setUp()
         self.plan, self.head = fixture.plan, fixture.head
         self.now = self.plan.planned_at + timedelta(seconds=70)
-        self.tmp = tempfile.TemporaryDirectory(prefix='c4n-', dir='/private/tmp')
+        self.tmp = tempfile.TemporaryDirectory(prefix='c4n-', dir=Path('/tmp').resolve())
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name); self.root.chmod(0o700)
         self.socket = self.root/'notice.sock'; self.output = self.root/'review-notified.json'

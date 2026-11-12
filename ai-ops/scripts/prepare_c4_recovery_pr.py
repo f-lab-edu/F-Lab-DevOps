@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime,timezone,timedelta
 from types import SimpleNamespace
 from urllib.parse import quote
-import argparse,base64,json,os,re,subprocess,time
+import argparse,base64,json,os,re,signal,subprocess,time
 
 from ai_ops.c_operator import _client
 from ai_ops.c_failure_handoff import FailureHandoff
@@ -40,6 +40,10 @@ def main():
     os.environ['KUBECONFIG']=str(args.kubeconfig)
     state={'trial_id':plan.trial_id,'stage':'waiting_failure_handoff'}
     def save(name,value):
+        if name == 'post-state.json':
+            steps = value.setdefault('stage_history', [])
+            if not steps or steps[-1]['stage'] != value['stage']:
+                steps.append({'stage': value['stage'], 'at': datetime.now(timezone.utc).isoformat()})
         path=P/name; tmp=P/('.'+name+'.tmp')
         with tmp.open('w') as f:os.fchmod(f.fileno(),0o600);json.dump(value,f,ensure_ascii=False,indent=2);f.write('\n')
         os.replace(tmp,path)
@@ -51,6 +55,10 @@ def main():
     def wait():
         if datetime.now(timezone.utc)>=plan.manual_recovery_at:raise ValueError('manual_recovery_cutoff_reached')
         time.sleep(.5)
+    def stop_pending(_signum, _frame):
+        raise KeyboardInterrupt('stop_pending_recovery_steps')
+    # Raising in Python preserves the installation-token revocation finally block.
+    signal.signal(signal.SIGTERM, stop_pending)
     try:
         from ai_ops.c_trial_read_cache import warm_trial_reads
         from ai_ops.normal_ci_contract import NormalCIBinding
@@ -106,6 +114,7 @@ def main():
         state['stage']='creating_writer_pr';state['proposal_id']=proposal.proposal_id;save('post-state.json',state)
         deadline=plan.review_cutoff()
         def review_window():
+            drafts.read(proposal.proposal_id, actor_github_id=149856960)
             if datetime.now(timezone.utc)>=deadline-timedelta(seconds=plan.minimum_review_seconds or 30):
                 raise ValueError('manual_recovery_review_window_too_short')
         review_window()
@@ -151,6 +160,8 @@ def main():
         state['stage']='waiting_exact_head_review_and_ci';save('post-state.json',state)
         number=state['pull_number'];prefix='repos/joungGo/c03-execution-lab'
         while datetime.now(timezone.utc)<deadline:
+            if drafts.status(proposal.proposal_id, 149856960)['state'] != 'draft':
+                state['stage']='proposal_cancelled_or_expired';save('post-state.json',state);break
             notice=None
             if plan.schema_version==2:
                 notice_path=P/'review-notified.json'

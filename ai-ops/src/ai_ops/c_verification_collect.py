@@ -266,7 +266,7 @@ def _prom_identity(pod):
 
 
 def collect(plan, reader, *, enabled=False, clock=lambda: datetime.now(timezone.utc),
-            monotonic=time.monotonic, sleep=time.sleep):
+            monotonic=time.monotonic, sleep=time.sleep, cancel_check=None):
     """먼저 대상 대조만 한다. 명시적으로 켠 경우에만 한정된 관찰 창을 수집한다."""
     audit = {"mode": "collect" if enabled else "preflight", "reasons": [], "rounds": 0,
              "workload_changes": 0, "external_model_calls": 0}
@@ -293,6 +293,8 @@ def collect(plan, reader, *, enabled=False, clock=lambda: datetime.now(timezone.
 
     previous_deadline = getattr(reader, "deadline", None)
     try:
+        if cancel_check is not None:
+            cancel_check()
         app, deployment = reader.get("application"), reader.get("deployment")
         audit["observed_binding"] = type(plan.execution.binding)(
             application_uid=app["metadata"]["uid"], target_uid=deployment["metadata"]["uid"]).model_dump(mode="json")
@@ -311,6 +313,8 @@ def collect(plan, reader, *, enabled=False, clock=lambda: datetime.now(timezone.
             anchor = None
             prom_anchor = None
             while monotonic()-started < plan.duration_seconds+120:
+                if cancel_check is not None:
+                    cancel_check()
                 runtime, pods, identity = snapshot(reader, plan)
                 if anchor is not None and anchor != identity:
                     raise CollectionError("observation_identity_changed")
@@ -376,7 +380,15 @@ def collect(plan, reader, *, enabled=False, clock=lambda: datetime.now(timezone.
                     earliest = min(s["observed_at"] for x in series.values() for s in x["samples"])
                     policy = policy_for(plan, earliest, now)
                     break
-                sleep(plan.interval_seconds)
+                if cancel_check is None:
+                    sleep(plan.interval_seconds)
+                else:
+                    remaining = plan.interval_seconds
+                    while remaining > 0:
+                        cancel_check()
+                        step = min(1, remaining)
+                        sleep(step)
+                        remaining -= step
             else:
                 raise CollectionError("collection_deadline_exceeded")
     except (ValueError, KeyError, TypeError, OSError, IndexError) as error:

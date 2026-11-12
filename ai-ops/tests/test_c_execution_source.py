@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+import threading
 from unittest.mock import patch
 
 import test_c_approval as approval_fixtures
@@ -87,6 +88,19 @@ class ExecutionSourceTest(unittest.TestCase):
         with patch.object(audit, "_run", side_effect=self.run_command):
             with self.assertRaisesRegex(ValueError, "원본 조회 중"):
                 audit._collect(args, include_snapshot=True)
+
+    def test_independent_reads_share_a_phase_but_second_phase_still_rechecks(self):
+        barrier = threading.Barrier(3, timeout=3)
+        original = self.run_command
+        def concurrent(*args):
+            if args[0] == 'kubectl':
+                barrier.wait()
+            return original(*args)
+        args = SimpleNamespace(kubeconfig='/tmp/c3-test-kubeconfig', normal_binding=None,
+                               operator_state_root=None)
+        with patch.object(audit, '_run', side_effect=concurrent):
+            audit._collect(args, include_snapshot=True)
+        self.assertEqual(self.lease_reads, 2)
 
 
 if __name__ == "__main__":

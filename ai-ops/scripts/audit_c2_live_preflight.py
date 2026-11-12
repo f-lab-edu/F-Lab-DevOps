@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 from ai_ops.c_approval import (ApprovalGitHubReader, _blob, _entry, _lab_tree, _tree,
                                prepare_pr_link)
@@ -37,9 +38,11 @@ def _collect(args, *, expected_lease_holder=None, include_snapshot=False,
     def get(namespace: str, kind: str, name: str) -> dict:
         return json.loads(_run("kubectl", "--kubeconfig", kubeconfig, "-n", namespace,
                                "get", kind, name, "-o", "json"))
-    app = get("argocd", "application", "lab-target")
-    deployment = get("ai-ops-lab", "deployment", "lab-api")
-    lease = get("ai-ops-lab", "lease", "b6-scenario-lock")
+    targets = (("argocd", "application", "lab-target"),
+               ("ai-ops-lab", "deployment", "lab-api"),
+               ("ai-ops-lab", "lease", "b6-scenario-lock"))
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        app, deployment, lease = list(pool.map(lambda target: get(*target), targets))
     if repository not in RECOVERY_REPOSITORIES or (
             app["spec"]["source"].get("repoURL") != f"https://github.com/{repository}.git"):
         raise ValueError("선택한 복구 저장소와 Argo 원본이 다릅니다")
@@ -56,12 +59,17 @@ def _collect(args, *, expected_lease_holder=None, include_snapshot=False,
         if args.normal_binding.stat().st_size > 8192:
             raise ValueError("정상 CI 결합값 파일이 너무 큽니다")
         binding = NormalCIBinding.model_validate_json(args.normal_binding.read_bytes())
-        history = verify_normal_ci_history(args.normal_run_id, args.normal_head, binding)
-        cluster = json.loads(_run("aws", "eks", "describe-cluster", "--region", "ap-northeast-2",
-                                  "--name", "urlshortener", "--output", "json"))["cluster"]
-        account = json.loads(_run("aws", "sts", "get-caller-identity", "--output", "json"))
-        kube = json.loads(_run("kubectl", "--kubeconfig", kubeconfig, "config", "view",
-                               "--minify", "--raw", "-o", "json"))
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            history_read = pool.submit(verify_normal_ci_history, args.normal_run_id, args.normal_head, binding)
+            cluster_read = pool.submit(_run, "aws", "eks", "describe-cluster", "--region", "ap-northeast-2",
+                                       "--name", "urlshortener", "--output", "json")
+            account_read = pool.submit(_run, "aws", "sts", "get-caller-identity", "--output", "json")
+            kube_read = pool.submit(_run, "kubectl", "--kubeconfig", kubeconfig, "config", "view",
+                                    "--minify", "--raw", "-o", "json")
+            history = history_read.result()
+            cluster = json.loads(cluster_read.result())["cluster"]
+            account = json.loads(account_read.result())
+            kube = json.loads(kube_read.result())
         connection = kube["clusters"][0]["cluster"]
         fingerprint = sha256_json({"arn": cluster["arn"], "endpoint": cluster["endpoint"],
                                    "ca": cluster["certificateAuthority"]["data"]})
@@ -81,11 +89,15 @@ def _collect(args, *, expected_lease_holder=None, include_snapshot=False,
                 raise ValueError("ECR 이미지 조회를 확인하지 못했습니다")
             return json.loads(response.stdout), False
         old_digest = binding.app.image.removeprefix(IMAGE_REPOSITORY + "@")
-        ecr, _ = ecr_lookup(old_digest)
         bad_digest = _values(values)["api"]["image"]["digest"]
-        _, bad_absent = ecr_lookup(bad_digest)
-        pods = json.loads(_run("kubectl", "--kubeconfig", kubeconfig, "-n", "ai-ops-lab",
-                               "get", "pods", "-l", "app=lab-api", "-o", "json"))["items"]
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            normal_read = pool.submit(ecr_lookup, old_digest)
+            failure_read = pool.submit(ecr_lookup, bad_digest)
+            pods_read = pool.submit(_run, "kubectl", "--kubeconfig", kubeconfig, "-n", "ai-ops-lab",
+                                    "get", "pods", "-l", "app=lab-api", "-o", "json")
+            ecr, _ = normal_read.result()
+            _, bad_absent = failure_read.result()
+            pods = json.loads(pods_read.result())["items"]
         owners = pods[0].get("metadata", {}).get("ownerReferences", []) if len(pods) == 1 else []
         replica_set = get("ai-ops-lab", "replicaset", owners[0]["name"]) if len(owners) == 1 \
             and owners[0].get("kind") == "ReplicaSet" else {}
@@ -106,9 +118,9 @@ def _collect(args, *, expected_lease_holder=None, include_snapshot=False,
     if include_snapshot:
         # C-03은 이 자료로 실행 경계를 판단한다. 긴 CI/ECR 조회 중 대상이나
         # 공유 잠금이 바뀌었다면 한 번의 수집 안에서도 닫힌 상태로 끝낸다.
-        if (get("argocd", "application", "lab-target") != app
-                or get("ai-ops-lab", "deployment", "lab-api") != deployment
-                or get("ai-ops-lab", "lease", "b6-scenario-lock") != lease):
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            final = list(pool.map(lambda target: get(*target), targets))
+        if final != [app, deployment, lease]:
             raise ValueError("C-03 원본 조회 중 실습 대상 또는 잠금이 바뀌었습니다")
         return result, projection, request, values, {
             "application": app, "deployment": deployment, "lease": lease,

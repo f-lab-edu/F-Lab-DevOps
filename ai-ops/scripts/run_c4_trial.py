@@ -52,6 +52,7 @@ def recover_and_observe(args, executor, transport, evidence):
     plan, handoff = executor.plan, executor.handoff
     evidence["capture_job"] = executor.investigate()
     while datetime.now(timezone.utc) < plan.manual_recovery_at:
+        executor.check_cancellation()
         if args.recovery_context.exists():
             receipt = executor.recover(**recovery_args(args.recovery_context, executor, transport, args.kubeconfig))
             evidence.update(status="c03_verified", phase="c04_observation", c03_handoff=receipt.model_dump(mode="json"))
@@ -68,7 +69,9 @@ def recover_and_observe(args, executor, transport, evidence):
             evidence["collection_preparation"] = prepared
             if prepared["status"] != "ready":
                 raise ValueError("새 C-03 인계 후 관찰 준비를 확인하지 못했습니다")
-            request, audit = collect(CollectionPlan.model_validate(prepared["collection_plan"]), reader, enabled=True)
+            request, audit = collect(CollectionPlan.model_validate(prepared["collection_plan"]), reader,
+                                     enabled=True, cancel_check=executor.check_cancellation)
+            executor.check_cancellation()
             evidence.update(collection=audit, verification=verify_recovery(request))
             evidence["status"] = evidence["verification"]["status"]
             break
@@ -110,10 +113,13 @@ def main():
     transport = C4TrialTransport(args.kubeconfig, image_check=image_cache.require,
         guard_check=guard_cache.require, merge_session=GitHubMergeSession)
     executor = C4TrialExecutor(plan, transport)
-    write_private_json(args.output.with_name(args.output.stem+"-owner.json"), {
+    owner = {
         "trial_id": plan.trial_id, "plan_hash": plan.digest(), "pid": os.getpid(),
         "lease_uid": plan.lease_uid, "injection_holder": executor.lease.holder,
-        "executor_holder": executor.executor_holder})
+        "executor_holder": executor.executor_holder}
+    write_private_json(args.output.with_name(args.output.stem+"-owner.json"), owner)
+    from ai_ops.c_execution_control import ExecutionControl
+    executor.control = ExecutionControl(args.output.parent, plan, owner, clock=executor.clock)
     evidence = {"trial_id": plan.trial_id, "plan_hash": plan.digest(), "status": "started", "fault_injected": False,
                 "phase": "preparation"}
     def prepared(at):
@@ -159,6 +165,7 @@ def main():
             except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError):
                 evidence["fallback"] = "lock_retained_inspect_current_owner_and_operation"
     finally:
+        evidence['execution_control'] = executor.control.summary()
         evidence['probe_threads_stopped'] = True
         for probe in (image_cache,guard_cache):
             try:probe.close()

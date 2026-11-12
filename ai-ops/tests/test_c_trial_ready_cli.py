@@ -36,7 +36,8 @@ class ReadyCLITest(unittest.TestCase):
             self.assertEqual(f.port.calls, [])
             original_arm(activation, lease)
         f.port.arm_ready_guards = arm
-        executor, _ = f.start()
+        with patch.dict(os.environ, {'AI_OPS_FILES_ROOT': str(root)}):
+            executor, _ = f.start()
         self.assertTrue((root/'active-plan.json').exists())
         self.assertEqual(len(f.port.calls), 2)
 

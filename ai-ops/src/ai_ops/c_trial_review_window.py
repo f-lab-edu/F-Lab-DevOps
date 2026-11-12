@@ -23,4 +23,5 @@ def review_in_time(review, plan):
 
 def review_path_ended(value):
     return value.get('stage') in ('minimum_notification_window_missed','stopped',
-                                 'review_deadline_passed_no_execution_context')
+                                 'review_deadline_passed_no_execution_context',
+                                 'proposal_cancelled_or_expired')

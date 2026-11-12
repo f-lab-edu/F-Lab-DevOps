@@ -123,6 +123,19 @@ def run(reader, target=None, enabled=True):
 
 
 class CollectorTests(unittest.TestCase):
+    def test_execution_cancel_stops_observation_and_closes_owned_forwards(self):
+        reader = Reader()
+        def cancelled():
+            if reader.elapsed >= 2:
+                from ai_ops.c_execution_control import ExecutionCancelled
+                raise ExecutionCancelled('synthetic_user_cancel')
+        request, audit = collect(plan(), reader, enabled=True, clock=lambda: reader.at,
+            monotonic=lambda: reader.elapsed, sleep=reader.sleep, cancel_check=cancelled)
+        self.assertEqual(reader.elapsed, 2)
+        self.assertEqual(reader.closed, reader.forwards_started)
+        self.assertEqual(verify_recovery(request)['status'], 'inconclusive')
+        self.assertEqual(audit['workload_changes'], 0)
+
     def test_complete_reads_resolve_and_close_every_forward(self):
         reader = Reader()
         report, audit, request = run(reader)

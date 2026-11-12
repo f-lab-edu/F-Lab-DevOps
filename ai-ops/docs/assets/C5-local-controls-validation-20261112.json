@@ -1,0 +1,23 @@
+{
+  "status": "local_controls_verified_live_recovery_pending",
+  "tests_passed": 852,
+  "skipped": 0,
+  "duration_seconds": 26.541,
+  "base_revision": "1b487a4315d0bb5e607c159bf66ef37e17166471",
+  "control_tests": 10,
+  "parallel_source_barrier_regression": true,
+  "cancel_before_merge": true,
+  "cancel_after_merge_before_argo": true,
+  "cancel_after_set_before_sync": true,
+  "cancel_does_not_block_owned_rollback": true,
+  "lost_merge_response_not_retried": true,
+  "post_merge_restart_verifies_github_before_owned_rollback": true,
+  "duplicate_restart_does_not_repeat_writes": true,
+  "observation_cancel_closes_forwards": true,
+  "deployment_static_check_passed": true,
+  "runtime_sources_published": false,
+  "new_live_recovery_verified": false,
+  "c05_final_completion": false,
+  "terraform_executed": false,
+  "model_api_called": false
+}

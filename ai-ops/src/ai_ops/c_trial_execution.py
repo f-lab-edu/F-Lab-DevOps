@@ -131,6 +131,21 @@ class C4TrialExecutor:
         self.finished = False
         self.prepared_at = None
         self.last_step='initial'
+        self.control = None
+
+    def check_cancellation(self):
+        if self.control is not None:
+            self.control.check()
+
+    def _before_write(self, operation, **facts):
+        if self.control is not None:
+            self.control.before(operation, **facts)
+        if self._moment() >= self.plan.rollback_deadline:
+            raise ValueError('execution_journal_crossed_write_deadline')
+
+    def _confirm_write(self, operation, revision):
+        if self.control is not None:
+            self.control.confirmed(operation, revision)
 
     def _authorize(self, authorization):
         if (not isinstance(authorization, TrialAuthorization)
@@ -207,10 +222,16 @@ class C4TrialExecutor:
             raise ValueError("잠금 아래 검사 중 예정 주입 시각을 지났습니다")
         injected_at = self._moment()
         # 첫 외부 쓰기의 응답을 잃어도 다시 주입하지 않는다.
+        self._before_write('inject_set', revision=plan.failure_revision)
+        if not 0 <= (self._moment()-plan.planned_at).total_seconds() <= budget:
+            raise ValueError('execution_journal_crossed_injection_budget')
         self.injected = True
         self.transport.argo("sync", ["app", "set", "lab-target", "--revision", plan.failure_revision])
+        self._confirm_write('inject_set', plan.failure_revision)
+        self._before_write('inject_sync', revision=plan.failure_revision)
         self.transport.argo("sync", ["app", "sync", "lab-target", "--revision", plan.failure_revision,
                                     "--async"])
+        self._confirm_write('inject_sync', plan.failure_revision)
         self.transport.wait_failure(plan)
         self.handoff = offer_failure_handoff(self.lease, read_failure=self.transport.snapshot,
             trial_id=plan.trial_id, executor_holder=self.executor_holder,
@@ -225,6 +246,7 @@ class C4TrialExecutor:
 
         if self.handoff is None or self.finished:
             raise ValueError("현재 실행의 실패 인계가 필요합니다")
+        self.check_cancellation()
         snapshot = self.transport.snapshot()
         validate_active_failure(snapshot["application"], snapshot["deployment"],
             snapshot["replica_set"], snapshot["pods"], snapshot["lease"],
@@ -249,6 +271,9 @@ class C4TrialExecutor:
 
         if self.handoff is None or self.finished or self._moment() >= self.plan.manual_recovery_at:
             raise ValueError("현재 실패 인계와 남은 사람 승인 시간이 필요합니다")
+        if self.control is not None:
+            self.control.bind_proposal(preflight_args['drafts'], preflight_args['proposal_id'],
+                                       preflight_args['allowed_github_id'])
         preflight_args.pop("clock", None)
         review_args = {key: preflight_args[key] for key in (
             "drafts", "proposal_id", "pull_number", "allowed_github_id", "pr_author_id", "pr_link", "reader")}
@@ -276,20 +301,30 @@ class C4TrialExecutor:
             self._require_write_window()
             if not 0 <= (self._moment()-_utc_datetime(locked["checked_at"])).total_seconds() < 15:
                 raise ValueError("병합 API 호출 전 실행 검증의 유효기간을 지났습니다")
+            self._before_write('merge', head=locked['head_sha'], pull_number=locked['pull_number'])
+            if not 0 <= (self._moment()-_utc_datetime(locked['checked_at'])).total_seconds() < 15:
+                raise ValueError('execution_journal_crossed_merge_preflight_window')
             response = merge.merge(request)
             # API 성공 뒤 읽기 검증 실패를 병합 실패로 해석해 재시도하지 않는다.
             verified = verify_merged_commit(reader=preflight_args["reader"], locked=locked,
                 proposal=proposal, pr_link=link, merge_response=response)
             self.merge_sha = verified["merge_sha"]
+            if self.control is not None:
+                self.control.merged(locked, proposal, link, response)
             sync = plan_exact_sync(reader=preflight_args["reader"], live_reader=bound,
                 locked=locked, proposal=proposal, pr_link=link, merge_response=response, now=self._moment())
             for command in sync["commands"]:
                 # set 이후 source가 달라지므로 두 번째 호출은 UID/소유권/기한을 대조한다.
                 self._require_write_window(allowed_revision=verified["merge_sha"])
+                operation = 'argo_'+command[1]
+                self._before_write(operation, revision=verified['merge_sha'])
                 self.transport.argo("sync", command)
+                self._confirm_write(operation, verified['merge_sha'])
             snapshot = self.transport.wait_healthy(verified["merge_sha"], self.plan.normal_image)
+            self.check_cancellation()
             receipt = verify_c03_handoff(reader=preflight_args["reader"], snapshot=snapshot,
                 locked=locked, proposal=proposal, pr_link=link, merge_response=response, clock=self.clock)
+            self._confirm_write('c03', verified['merge_sha'])
             self.lease.release(recovery_verified=True)
             self.finished = True
             return receipt
@@ -360,6 +395,8 @@ class C4TrialExecutor:
         self.last_step='restore_release_owned_lease'
         self.lease.release(recovery_verified=True)
         self.finished = True
+        if self.control is not None:
+            self.control.rollback_verified()
 
     def cancel_before_injection(self):
         """주입이 시작되기 전 실제 정상 상태를 확인한 자기 잠금만 해제한다."""

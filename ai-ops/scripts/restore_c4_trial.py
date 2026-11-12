@@ -15,7 +15,7 @@ from ai_ops.path_policy import cli_paths, write_private_json
 from run_c4_trial import private_json
 
 
-def resume(plan, authorization, owner, transport, *, handoff=None):
+def resume(plan, authorization, owner, transport, *, handoff=None, journal=None, reader=None):
     if (owner.get("trial_id") != plan.trial_id or owner.get("plan_hash") != plan.digest()
             or owner.get("lease_uid") != plan.lease_uid
             or authorization.trial_id != plan.trial_id or authorization.plan_hash != plan.digest()
@@ -35,6 +35,11 @@ def resume(plan, authorization, owner, transport, *, handoff=None):
     executor.lease = LabLease(transport.lease_command, owner["injection_holder"], clock=executor.clock)
     executor.lease.uid = plan.lease_uid
     executor.executor_holder = owner["executor_holder"]
+    if journal is not None:
+        from ai_ops.c_execution_control import verified_resume_merge
+        from ai_ops.c_approval import ApprovalGitHubReader
+        executor.merge_sha = verified_resume_merge(journal, plan=plan, owner=owner,
+            reader=reader or ApprovalGitHubReader(repository='joungGo/c03-execution-lab'))
     if handoff is not None:
         if (handoff.trial_id != plan.trial_id or handoff.lease_uid != plan.lease_uid
                 or handoff.owner_holder != owner["injection_holder"]
@@ -49,6 +54,7 @@ def resume(plan, authorization, owner, transport, *, handoff=None):
     executor.injected = True
     executor.restore()
     return {"trial_id": plan.trial_id, "plan_hash": plan.digest(), "status": "verified_owned_rollback",
+            "previously_merged_sha": executor.merge_sha, "new_merge_performed": False,
             "git_main_normalization": "read_back_and_review_if_seed_remains"}
 
 
@@ -57,15 +63,16 @@ def main():
     for name in ("plan", "authorization", "owner", "handoff", "output"):
         parser.add_argument("--"+name, type=Path, required=name != "handoff")
     parser.add_argument("--kubeconfig", required=True)
+    parser.add_argument("--journal", type=Path, help="병합 이후 중단됐으면 실제 Git 원본과 재대조할 실행 장부")
     args = cli_paths(parser, parser.parse_args(), {"plan": "input", "authorization": "input",
-        "owner": "input", "handoff": "input", "output": "output"})
+        "owner": "input", "handoff": "input", "journal": "input", "output": "output"})
     transport = C4TrialTransport(args.kubeconfig, image_check=lambda plan: False,
         guard_check=lambda plan: False, merge_session=GitHubMergeSession)
     record = private_json(args.handoff) if args.handoff else None
     handoff = FailureHandoff.model_validate(record.get("failure_handoff", record)) if record else None
     result = resume(TrialPlan.model_validate(private_json(args.plan)),
         TrialAuthorization.model_validate(private_json(args.authorization)), private_json(args.owner),
-        transport, handoff=handoff)
+        transport, handoff=handoff, journal=args.journal)
     write_private_json(args.output, result)
     print("종료한 실습 소유권의 정상 원복을 확인했습니다.")
 

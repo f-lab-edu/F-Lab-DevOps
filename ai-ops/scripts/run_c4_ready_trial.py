@@ -51,10 +51,13 @@ def publish_execution(activation, executor, run_dir, activation_path):
     write_private_json(activation_path, activation.model_dump(mode='json'))
     write_private_json(run_dir/'active-plan.json', activation.execution.model_dump(mode='json'))
     write_private_json(run_dir/'derived-authorization.json', activation.authorization().model_dump(mode='json'))
-    write_private_json(run_dir/'result-owner.json', {
+    owner = {
         'trial_id': activation.intent.trial_id, 'plan_hash': executor.plan.digest(), 'pid': os.getpid(),
         'lease_uid': executor.plan.lease_uid, 'injection_holder': executor.lease.holder,
-        'executor_holder': executor.executor_holder})
+        'executor_holder': executor.executor_holder}
+    write_private_json(run_dir/'result-owner.json', owner)
+    from ai_ops.c_execution_control import ExecutionControl
+    executor.control = ExecutionControl(run_dir, executor.plan, owner, clock=executor.clock)
 
 
 def main(argv=None):
@@ -194,10 +197,12 @@ def main(argv=None):
             except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError):
                 evidence['fallback'] = 'lock_retained_inspect_current_owner'
     finally:
+        if controller.executor is not None and controller.executor.control is not None:
+            evidence['execution_control'] = controller.executor.control.summary()
         if post is not None:
             if post.poll() is None:
                 post.terminate()
-                try: post.wait(timeout=8)
+                try: post.wait(timeout=15)
                 except subprocess.TimeoutExpired: post.kill(); post.wait(timeout=5)
         for process in (forward,):
             if process is not None and process.poll() is None:

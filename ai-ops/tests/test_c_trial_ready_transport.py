@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch, Mock
 
@@ -68,6 +69,20 @@ class ReadyTransportTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.port.require_images(self.activation.execution.model_copy(update={'worker_uid': 'replacement'}))
 
+    def test_lease_is_read_after_guard_lookup_to_detect_ownership_change(self):
+        self.port.arm_ready_guards(self.activation, self.f.controller.executor.lease)
+        lease_read=threading.Event()
+        original_guard=self.port.standby_reader;original_get=self.port.get
+        def guard(intent):
+            # 원격 조회 중 소유권 변경. Lease를 미리 읽으면 놓치게 된다.
+            lease_read.wait(timeout=.1)
+            self.lease['spec']['holderIdentity']='foreign'
+            return original_guard(intent)
+        def get(resource):
+            value=original_get(resource);lease_read.set();return value
+        self.port.standby_reader=guard;self.port.get=get
+        with self.assertRaises(ValueError):self.port.require_ready_guard_acks(self.activation)
+
 
 class StandbyEvidenceTest(unittest.TestCase):
     def setUp(self):
@@ -99,6 +114,16 @@ class StandbyEvidenceTest(unittest.TestCase):
 
     def test_current_process_sources_job_and_real_marker_are_required(self):
         self.assertEqual(self.reader(self.intent), {'local': 'local:123:n', 'remote': 'remote:456:n'})
+
+    def test_remote_run_and_jobs_are_independent_reads_with_full_validation(self):
+        barrier=threading.Barrier(2)
+        def github(path):
+            barrier.wait(timeout=1)
+            return deepcopy(self.jobs if '/jobs?' in path else self.remote)
+        self.reader.github=github
+        self.assertEqual(self.reader(self.intent),{'local':'local:123:n','remote':'remote:456:n'})
+        self.remote['status']='completed'
+        with self.assertRaises(ValueError):self.reader(self.intent)
 
     def test_changed_source_and_cancelled_or_wrong_workflow_are_rejected(self):
         for key, value in [('status', 'completed'), ('head_sha', 'f'*40), ('path', 'old.yml')]:

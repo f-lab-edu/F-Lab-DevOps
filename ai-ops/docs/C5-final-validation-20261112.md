@@ -1,0 +1,40 @@
+# C-05 최종 검증 대조 — 2026-11-12
+
+현재 상태: **로컬 실행 통제 검증·기존 main 반영 완료, 새 C-03/C-04 실환경 성공은 대기**다. 실습 202611120011은 시작 직전 예산 검사에서 장애 주입 없이 중지했다. 조회 병렬화 보완을 새로 검증하고 있으며, 새 준비 승인과 새 복구 PR 리뷰·병합·동기화·120초 관찰을 확인하기 전에는 전체 C 완료로 판정하지 않는다.
+
+## 소스와 정상 기준선
+
+[PR #154](https://github.com/f-lab-edu/F-Lab-DevOps/pull/154)의 최종 head `fb3bfa9f5cbc9a964d7c737f0f4a0e4e7464e014`는 main `c969b8e645a2b0a4d5a3f2e7e948bc6dcf870436`에 squash 병합됐다. 실행 소스 `ai-ops`·`.github` tree가 동일하다. 전체 Python **868개·skip 0·30.896초**, Helm/권한/통신/저장 정적 검사와 PR 검사 4종이 통과했다. PR 한정 리뷰 예외는 병합 직후 리뷰 1명으로 복원했고 전체 보호 원본 동일성을 확인했다.
+
+새 main의 [정상 기준선 CI 43223088012](https://github.com/f-lab-edu/F-Lab-DevOps/actions/runs/43223088012)가 통과했다. 실제 artifact의 출처·binding·자기 데이터 제거·기준선 보존·Lease 해제를 검증했고 worker의 해당 영수증 ready 1건과 설정 로드를 확인했다. 새 실습 전에 정상 CI 뒤 5분 지표 보호 구간을 유지한다.
+
+011 종료 후 추가한 원격 run/jobs 조회 병렬화와 Lease 후속 조회 회귀 검증을 포함해 로컬 **870개·skip 0·26.483초**가 통과했다. 이는 새 보완 작업트리의 결과다. 검토/반영 전의 source fingerprint와 완료 대기 상태는 로컬 검증 JSON에 구분했다. 실제 전체 기동 시간과 복구 성공은 아직 재검증 전이다.
+
+## R1~R8 근거와 판정 범위
+
+| 기준 | 로컬 검증 근거 | 실제 실행에서 확인한 범위·남은 조건 |
+|---|---|---|
+| R1 설명만 요청·미승인 변경 | `test_c_recovery_proof.py`, `test_c_trial_ready.py`: 읽기 증거만으로 실행하지 않으며 준비·실행 승인을 분리 | 무승인 준비 만료는 장애 주입 없이 종료. 011은 실제 승인 뒤에도 시작 조건 실패로 무주입 종료 |
+| R2 허용 이미지 복구안 승인 | `test_c_trial_runtime.py`, `test_c_merge_guard.py`, `test_c_sync_guard.py`, `test_c_verification.py`: 정확한 diff/head/병합 SHA와 사용자 경로·지표·경보 | 새 C-03 병합/동기화와 C-04 최소 120초 관찰 **대기** |
+| R3 다른 사용자·만료·base 변경 | `test_c_approval.py`, `test_c_execution_preflight.py`: 신원·30분 승인·head/base·동시 변경 거절 | 기한 밖 실제 리뷰는 재사용하지 않았고 준비 만료 후 무주입 종료 |
+| R4 중복·재전송·재시작 | `test_c_execution_control.py`, `test_c_trial_ready.py`: 불확실 병합 무재시도·검증된 장부 복원·소비된 승인 재사용 거절 | 응답 유실·재시작은 모의 API 검증이며 실제 중복 병합 실험으로 표시하지 않음 |
+| R5 merge/배포/검증 실패 | `test_c_execution_control.py`, `test_c_verification.py`: 적용/불확실/실패를 구분하고 소유 원복만 허용 | 010 입력 거절·정상 revision 원복·HTTP 200·빈 Lease·자격 회수를 확인. 새 복구 성공은 아직 없음 |
+| R6 기존 CI 복구 완료 | `test_c_recovery_proof.py`, `test_c_approval.py`: 이미 정상인 대상에 제안/추가 변경을 만들지 않음 | CI 자체 원복이나 소유 정상 복원을 새 AI 복구 성공으로 계산하지 않음 |
+| R7 실행 전/중 취소 | `test_c_execution_control.py`, `test_c_verification_collect.py`: 병합 전/후·Argo set 후·관찰 중 취소를 구분 | 모의 API의 취소·원복 경로. 모든 취소 지점을 클러스터에 실제 주입한 검증은 아님 |
+| R8 범위 밖 요청 | `test_c_approval.py`, `test_c_merge_guard.py`, `test_c_trial_transport.py`: 다른 파일·필드·대상·행위·신원 거절 | 격리 `lab-api`·`lab-target`만 사용. 운영 앱/PVC 보존 확인 |
+
+[실행 통제와 취소/원복 절차](C5-execution-controls.md), [로컬 검증 JSON](assets/C5-local-controls-validation-20261112.json)을 함께 확인한다. 실행 전 검증 성공은 변경 권한이나 서비스 해결 완료를 대신하지 않는다.
+
+## 실패 후 보완과 새 검증
+
+009·010은 기한 내 실제 사람 리뷰·CI 뒤 실행 전 검증에서 거절되어 정상 원복됐다. 010의 고정 코드는 `execution_preflight_input_unavailable_or_invalid`지만 당시 내부 예외 위치가 없어 원인을 소급 확정하지 않는다. 실제 bound gate에서 Argo 관측 갱신만으로 같은 거절을 재현했고, 현재 CRD와 정상 watch로 status 갱신의 단일 generation 증가를 확인했다. 나머지 원본 전체가 같은 일관된 관측 갱신만 구분하며 안전한 소스 위치 진단을 추가했다.
+
+011은 기한 내 실행 승인 뒤 15초 기동 검사 예산에서 무주입 종료했다. 새 진단은 `c_trial_execution.py`의 `_inject` 예산 검사 위치를 보존했고 실행 장부의 외부 앱 변경은 0건이다. 별도 읽기로 정상 앱·HTTP 200·빈 Lease·토큰/원복 Secret/원격 감시 회수를 확인했다. 독립 GET 병렬화 보완은 예산·신원·잠금·ACK 대조를 유지하며, 실제 성공은 새 준비/승인으로 검증한다.
+
+전체 검증 중 진단 로그 파싱 실패와 임시 SQLite 연결 미종료를 확인해 성공·예외 양쪽 연결 종료를 시험했다. 최종 868개 시험은 통과했으며 다른 기존 ResourceWarning은 전체 로컬 로그에 남아 있다.
+
+## 별도 평가 범위
+
+B단계는 2026-10-28 합의된 읽기 조사·격리 실습 종료 범위의 판정을 유지한다. 독립 의미 검토 생략은 당시 사용자 선택이며 모델 보고서의 `needs_review`를 최종 승인으로 바꾸지 않는다. A5 HolmesGPT 동등 조건 품질 비교, A7 사람의 독립 의미 채점·수동 분석 기준선은 미측정이다. 이 기능 검증으로 정확도·MTTR·비용 절감률을 산출하지 않는다.
+
+이번 작업은 Terraform·유료 모델 API를 실행하지 않는다. AI 포트폴리오는 사용자가 구현 완료를 통보한 뒤 합의된 내용 선정 단계부터 별도로 재개한다.

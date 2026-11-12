@@ -1,6 +1,7 @@
 """준비 완료 실행기의 실제 Kubernetes 제어·양쪽 감시 연결."""
 
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -60,7 +61,8 @@ class StandbyGuardReader:
             raise ValueError('local_standby_marker_rejected')
         remote = a['remote']
         prefix = 'repos/f-lab-edu/F-Lab-DevOps/actions/runs/'+str(remote['run_id'])
-        run, jobs = self.github(prefix), self.github(prefix+'/jobs?per_page=100')
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            run, jobs = list(pool.map(self.github, (prefix, prefix+'/jobs?per_page=100')))
         if (run['id'] != remote['run_id'] or run['status'] != 'in_progress'
                 or run['event'] != 'workflow_dispatch' or run['head_branch'] != 'main'
                 or run['head_sha'] != intent.targets['workflow_main'] or run['path'] != READY_WORKFLOW
@@ -142,6 +144,7 @@ class ReadyTrialTransport(C4TrialTransport):
         guards = self.require_standby_guards(activation.intent)
         if guards != activation.readiness.guards:
             raise ValueError('ready_active_guard_identity_changed')
+        # 원격 조회 도중 소유권이 바뀔 수 있어 Lease는 이후에 새로 읽는다.
         lease = self.get('lease')
         annotations = lease['metadata'].get('annotations', {})
         if (lease['metadata']['uid'] != activation.execution.lease_uid

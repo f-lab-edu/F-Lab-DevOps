@@ -76,6 +76,10 @@ PYTHONPATH="$runtime_root/ai-ops/src" python "$runtime_root/ai-ops/scripts/resto
 
 ## 최종 데모와 완료 판정
 
+011은 새 준비의 기한 내 실제 승인을 받은 뒤 `_inject`의 시작 직전 15초 예산 검사에서 중지했다. `fault_injected=false`이고 실행 장부의 events/confirmed는 비어 있으며 pending_operation도 null이다. 정상 앱·HTTP 200·빈 Lease·자격 회수를 별도로 확인했다. 이 실행의 새 복구 PR이나 C-04 성공은 없다.
+
+기동 직전 조회에서 고정 원격 workflow run과 jobs의 독립 GET만 함께 읽는다. 로컬 소스/PID/marker 검증은 원격 조회 전에 수행하며, 현재 Lease는 원격 조회 뒤 새로 읽어 그 사이의 소유권 변경을 놓치지 않는다. run/step·정확한 guard 신원·activation·소유권·양쪽 ACK를 기존 조건대로 대조한다. 조회를 성공으로 대체하거나 쓰기를 병렬화하지 않는다. **시작 예산 15초, 리뷰 210초, 소유 원복 240초, 독립 감시 300초, 관찰 120초는 유지한다.** 실환경 시간 단축과 성공 여부는 새 실행에서 측정한다.
+
 1. 현재 정상 CI·worker/PVC·정상/실패 이미지·Git 보호·원복 자격 부재를 대조한다.
 2. 양쪽 감시 준비 후 현재 준비 영수증의 새 실행 승인을 받는다.
 3. 실제 실패의 조사/원인 설명·해결 요청·제안·새 PR을 연결하고 즉시 안내한다.

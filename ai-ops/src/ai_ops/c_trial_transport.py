@@ -12,6 +12,7 @@ import tempfile
 import time
 
 from ai_ops.c_verification_transport import CONTEXT, LIMIT, RESOURCES
+from ai_ops.c_recovery_snapshot import same_recovery_resources
 
 
 TRIAL_RESOURCES = {
@@ -81,7 +82,9 @@ class C4TrialTransport:
         owners = pods[0].get("metadata", {}).get("ownerReferences", []) if len(pods) == 1 else []
         matching = [item for item in sets if len(owners) == 1 and owners[0].get("kind") == "ReplicaSet"
                     and item["metadata"]["uid"] == owners[0].get("uid")]
-        if after != [app, dep, lease]:
+        if not same_recovery_resources(
+                {"application": app, "deployment": dep, "lease": lease},
+                dict(zip(("application", "deployment", "lease"), after)), now=self.clock()):
             raise SnapshotChanged("조회 도중 실습 원본이 바뀌었습니다")
         return {"application": app, "deployment": dep, "lease": lease, "pods": pods,
                 "replica_set": matching[0] if len(matching) == 1 else {}, "checked_at": started.isoformat()}

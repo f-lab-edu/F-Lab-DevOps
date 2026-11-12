@@ -11,6 +11,7 @@ from ai_ops.c_live_preflight import assess_live_preflight
 from ai_ops.c_pr_link import RecoveryPRLink, require_matching_recheck
 from ai_ops.c_recovery import IMAGE_REPOSITORY, ISOLATED_REPOSITORY, REPOSITORY, RecoveryProposal, _encoded_values
 from ai_ops.contracts import _utc_datetime
+from ai_ops.c_recovery_snapshot import same_recovery_resources
 
 
 REQUIRED_CHECK = "C03 Main PR Gate"
@@ -191,8 +192,8 @@ def verify_execution_preflight(*, drafts, proposal_id, pull_number, allowed_gith
         finished = _utc_datetime(clock())
         _require_recheck(draft, original_recheck, second["proof"], finished)
         _check_live(second, draft, pr_link, finished, expected_lease)
-        _require(all(first[name] == second[name] for name in (
-            "application", "deployment", "lease", "values_bytes")),
+        _require(same_recovery_resources(first, second, now=finished)
+                 and first["values_bytes"] == second["values_bytes"],
             "live_state_changed_during_preflight")
         _require(_main_sha(reader, repository) == review["base_sha"], "base_sha_changed")
         final_pr = reader.get(f"{api}/pulls/{pull_number}")

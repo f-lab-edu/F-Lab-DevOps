@@ -66,6 +66,14 @@ PYTHONPATH="$runtime_root/ai-ops/src" python "$runtime_root/ai-ops/scripts/resto
 
 실행이 거절되면 `approval_rejection_codes`에 허용 목록의 고정 코드만 보존한다. 알려지지 않은 승인 거절은 `approval_rejected`로 줄이고 일반 예외의 원문·API 응답·자격은 복사하지 않는다. 이 보완은 009의 정확한 거절 사유를 소급 확정하지 않는다. 009는 기한 내 사람 리뷰/CI 뒤 `ApprovalRejected`로 멈춰 정상 원복됐으며, 상세 코드를 저장하지 않았으므로 45초 예산 문제를 그 실행의 확정 원인으로 쓰지 않는다.
 
+`rejection_source_frames`에는 신뢰한 `ai-ops/src/ai_ops`·`ai-ops/scripts`의 상대 소스 경로·함수명·줄 번호만 최대 8개 남긴다. 예외 원문·locals·절대 경로·외부 프레임은 남기지 않는다. 입력 오류를 숨긴 채 다음 장애 실습으로 원인을 추측하지 않기 위한 진단이다.
+
+## Application 관측 갱신의 비교 경계
+
+전후 원본 비교는 Application의 `metadata.resourceVersion`이 다른 비어 있지 않은 문자열로 바뀌고 `status.reconciledAt`이 현재 시각을 넘지 않으며 엄격히 전진할 때에만 이 두 필드를 제외해 비교한다. 버전은 불투명 문자열로 취급한다. 하나만 바뀌거나 시간이 역행·미래·누락·잘못된 형식이면 거절한다. UID·generation·managedFields·삭제 시각·annotations·전체 spec·나머지 status는 동일해야 한다. Deployment·Lease의 resourceVersion을 포함한 전체 원본과 values 바이트 비교도 유지한다. 조회 전후 단계, 신선도·증거·승인·CI·원복 기한 검사는 그대로다.
+
+010은 정확한 head의 기한 내 사람 리뷰·필수 CI 뒤 `execution_preflight_input_unavailable_or_invalid`로 중지하고 정상 원복됐다. 로컬에서 resourceVersion/reconciledAt만 함께 갱신해 같은 거절을 재현했지만, 당시 내부 예외 위치를 저장하지 않아 **010의 확정 원인으로 단정하지 않는다.** 이후 정상 앱의 읽기 전용 watch에서는 generation·managedFields도 바뀌는 갱신을 관찰했다. 이 추가 변경은 위 예외로 허용하지 않는다. 보완 후 실제 C-03/C-04 성공은 새 준비와 실행별 승인·새 PR 리뷰로 별도 검증한다.
+
 ## 최종 데모와 완료 판정
 
 1. 현재 정상 CI·worker/PVC·정상/실패 이미지·Git 보호·원복 자격 부재를 대조한다.

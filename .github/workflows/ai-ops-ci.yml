@@ -85,6 +85,16 @@ jobs:
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/build_holdout_v3_fixtures.py --check
           PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/export_schemas.py
           git diff --exit-code -- ai-ops/schemas
+      - name: 실습과 같은 kubectl로 로컬 TLS·Lease proxy 검사
+        run: |
+          set -euo pipefail
+          proxy_tools="$RUNNER_TEMP/c4-proxy-tools"
+          mkdir -p "$proxy_tools"
+          curl -fsSL -o "$proxy_tools/kubectl" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl
+          curl -fsSL -o "$proxy_tools/kubectl.sha256" https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl.sha256
+          echo "$(cat "$proxy_tools/kubectl.sha256")  $proxy_tools/kubectl" | sha256sum --check --status
+          chmod +x "$proxy_tools/kubectl"
+          PATH="$proxy_tools:$PATH" PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_c4_lease_proxy_local.py
       - name: 배포 정의·읽기 권한·통신·저장 정적 검사
         run: PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_deployment.py
 

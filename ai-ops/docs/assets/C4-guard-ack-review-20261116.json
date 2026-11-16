@@ -1,0 +1,51 @@
+{
+  "status": "local_review_validation_passed",
+  "repository_scope": "platform",
+  "base_sha": "9573b8c9f323a643e65bb58c323dc932c681a6b2",
+  "tests": {
+    "passed": 886,
+    "skipped": 0
+  },
+  "fixture_sets_verified": 4,
+  "schema_changed": false,
+  "syntax_files": 287,
+  "review_fixes": [
+    "escape_literal_api_group_dots_in_proxy_filter",
+    "defer_sigterm_until_child_pid_is_owned_and_cleanup_finishes"
+  ],
+  "shared_source_sha256": {
+    "ai-ops/src/ai_ops/c_trial_lease_client.py": "7f81a1683ded33ba4d02b9e425b6fa1c483471adf63db1335d4bf61bca2391ae",
+    "ai-ops/scripts/run_c4_ready_guard.py": "9bf5cbab2fa0ddc73c323ace51cc84723f397949cf274cfed25683585d2d8a7f",
+    "ai-ops/scripts/check_c4_lease_proxy_local.py": "374e0e48e6c443c21ee206006c6d04e4c8d8eaa83dcf825de30f6a720569f05b",
+    "ai-ops/tests/test_c_trial_lease_client.py": "89776e5c834a68d1dc65ec1b0cfdd76352c2b43ee6706f311014963513492ff1"
+  },
+  "ready_guard_source_file_count": 9,
+  "start_budget_seconds": 15,
+  "minimum_review_seconds": 120,
+  "review_after_start_seconds": 210,
+  "owner_restore_after_start_seconds": 240,
+  "rollback_after_start_seconds": 300,
+  "observation_seconds": 120,
+  "local_proxy_smoke": {
+    "status": "passed",
+    "upstream": "local_tls_fixture_only",
+    "cloud_calls": 0,
+    "model_calls": 0,
+    "warm_gets": 20,
+    "warm_gets_seconds": 0.006462,
+    "initial_exec_credential_calls": 1,
+    "after_expiry_exec_credential_calls": 2,
+    "tls_verified": true,
+    "invalid_ca_rejected": true,
+    "kubectl_version": "v1.34.1",
+    "fixed_path_method_host_filters_verified": true,
+    "cas_conflict_and_both_acks_verified": true,
+    "proxy_and_socket_removed": true,
+    "sigterm_cleanup_verified": true
+  },
+  "ci_proxy_fixture_kubectl": "v1.35.8/linux-amd64",
+  "live_guard_started": false,
+  "fault_injected": false,
+  "terraform_executed": false,
+  "live_15_second_success_proven": false
+}

@@ -20,7 +20,8 @@ READY_STEP = '준비 대기와 승인 후 기한 원복'
 GUARD_SOURCES = {READY_WORKFLOW, 'ai-ops/scripts/run_c4_ready_guard.py',
     'ai-ops/scripts/run_c2_rollback_guard.py', 'ai-ops/src/ai_ops/c_trial_ready.py',
     'ai-ops/src/ai_ops/c_trial_ready_guard.py', 'ai-ops/src/ai_ops/c_trial_execution.py',
-    'ai-ops/src/ai_ops/c2_rollback_guard.py', 'ai-ops/src/ai_ops/b6_coordination.py'}
+    'ai-ops/src/ai_ops/c2_rollback_guard.py', 'ai-ops/src/ai_ops/b6_coordination.py',
+    'ai-ops/src/ai_ops/c_trial_lease_client.py'}
 
 
 class StandbyGuardReader:

@@ -4,12 +4,12 @@ import argparse
 import json
 import os
 from pathlib import Path
-import subprocess
 import uuid
 
 from ai_ops.c_trial_ready import ReadyTrialPlan
 from ai_ops.c_trial_ready_guard import standby_guard
 from ai_ops.c_trial_guards import private_json
+from ai_ops.c_trial_lease_client import TrialLeaseClient, LeaseConflict
 from ai_ops.path_policy import cli_paths, write_private_json
 from run_c2_rollback_guard import (SERVER_ARGO, get_application, verify_normal,
     verify_local_kubeconfig, verify_isolated_server_permissions, rollback_at_deadline, call)
@@ -50,14 +50,14 @@ def main(argv=None):
 
     verify_normal(normal_plan, get_application(argo), get('ai-ops-lab', 'deployment', 'lab-api'))
 
+    client = TrialLeaseClient(args.kubeconfig, target['lease_uid'], handle_sigterm=True)
+
     def replace(lease):
-        result = subprocess.run(['kubectl', '--kubeconfig', args.kubeconfig, 'replace', '-f', '-', '-o', 'json'],
-            input=json.dumps(lease).encode(), capture_output=True, timeout=15)
-        if result.returncode:
-            if b'(Conflict)' in result.stderr:
-                return False
-            raise ValueError('ready_guard_lease_write_failed')
-        return True
+        try:
+            client.replace(lease)
+            return True
+        except LeaseConflict:
+            return False
 
     identity = str(os.getpid()) if args.role == 'local' else os.environ['GITHUB_RUN_ID']
     guard_id = args.role+':'+identity+':'+uuid.uuid4().hex
@@ -67,13 +67,17 @@ def main(argv=None):
         print(json.dumps({'status': 'c04_guard_standby_ready', **marker}), flush=True)
 
     try:
+        client.start()
         result = standby_guard(intent, role=args.role, guard_id=guard_id,
-            get_lease=lambda: get('ai-ops-lab', 'lease', 'b6-scenario-lock'), replace_lease=replace,
+            get_lease=client.get, replace_lease=replace,
             rollback=lambda plan, initial: rollback_at_deadline(plan, get=get, argo=argo,
                 kubeconfig=args.kubeconfig, initial_lease=initial),
             publish_ready=ready)
     finally:
-        if args.core: core_config.unlink(missing_ok=True)
+        try:
+            client.close()
+        finally:
+            if args.core: core_config.unlink(missing_ok=True)
     print(json.dumps(result), flush=True)
     return 0
 

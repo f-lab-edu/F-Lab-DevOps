@@ -16,7 +16,7 @@
   "shared_source_sha256": {
     "ai-ops/src/ai_ops/c_trial_lease_client.py": "7f81a1683ded33ba4d02b9e425b6fa1c483471adf63db1335d4bf61bca2391ae",
     "ai-ops/scripts/run_c4_ready_guard.py": "9bf5cbab2fa0ddc73c323ace51cc84723f397949cf274cfed25683585d2d8a7f",
-    "ai-ops/scripts/check_c4_lease_proxy_local.py": "e9e697e6b772f08025d345309d7fd503ac71cf4030f2e79afb8d5a8f2c2ffce8",
+    "ai-ops/scripts/check_c4_lease_proxy_local.py": "374e0e48e6c443c21ee206006c6d04e4c8d8eaa83dcf825de30f6a720569f05b",
     "ai-ops/tests/test_c_trial_lease_client.py": "89776e5c834a68d1dc65ec1b0cfdd76352c2b43ee6706f311014963513492ff1"
   },
   "ready_guard_source_file_count": 9,

@@ -136,7 +136,9 @@ from ai_ops.c_trial_lease_client import TrialLeaseClient
 c=TrialLeaseClient(sys.argv[1],'local-fixture',handle_sigterm=True)
 try:
  c.start()
- Path(sys.argv[2]).write_text(json.dumps({'pid':c.process.pid,'socket':str(c.socket_path)}))
+ state=Path(sys.argv[2]); temporary=state.with_suffix('.tmp')
+ temporary.write_text(json.dumps({'pid':c.process.pid,'socket':str(c.socket_path)}))
+ temporary.replace(state)
  while True: time.sleep(.1)
 except ValueError: pass
 finally: c.close()

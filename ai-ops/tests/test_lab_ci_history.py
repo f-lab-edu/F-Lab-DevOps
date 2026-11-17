@@ -6,6 +6,7 @@ import io
 import json
 import unittest
 import zipfile
+from unittest.mock import patch
 from dataclasses import replace
 from datetime import timedelta
 
@@ -43,9 +44,10 @@ class Reader:
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, "w") as archive:
             for stage, record in self.records.items():
-                archive.writestr(stage + ".json", json.dumps(record))
+                # Fixed ZIP metadata keeps separately requested listing/download bytes identical.
+                archive.writestr(zipfile.ZipInfo(stage + ".json", (2020,1,1,0,0,0)), json.dumps(record))
             if self.extra:
-                archive.writestr(self.extra, "{}")
+                archive.writestr(zipfile.ZipInfo(self.extra, (2020,1,1,0,0,0)), "{}")
         raw = stream.getvalue()
         if path.endswith("/zip"):
             return raw
@@ -57,6 +59,14 @@ class Reader:
 class LabCIHistoryTest(unittest.TestCase):
     def verify(self, reader=None):
         return verify_lab_ci_history(RUN, HEAD, reader=reader or Reader())
+
+    def test_fixture_archive_digest_is_stable_across_wall_clock_boundary(self):
+        reader = Reader()
+        with patch('zipfile.time.localtime', return_value=(2026,11,17,7,26,0,1,321,0)):
+            listing = json.loads(reader.get(PREFIX+'/artifacts'))
+        with patch('zipfile.time.localtime', return_value=(2026,11,17,7,26,2,1,321,0)):
+            raw = reader.get(PREFIX+'/artifacts/9/zip')
+        self.assertEqual(listing['artifacts'][0]['digest'], 'sha256:'+hashlib.sha256(raw).hexdigest())
 
     def test_verified_pair_preserves_original_failure(self):
         history = self.verify()

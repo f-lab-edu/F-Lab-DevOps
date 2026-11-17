@@ -9,3 +9,5 @@
 독립 체크아웃에서 앱 시험7개(기존 cache2+신규5), 실제 ASGI lifespan/metrics 검사와 Ruff 통과. 이전 로컬 기록의8개는 원래 작업 폴더의 기존 시험3개를 포함한 수치이며 이번 최신main 체크아웃은7개다. ASGI 검사는 DB startup 대역, DB connect/외부 socket 차단으로 실행했다. idle0→합성 요청3개만 증가·route template·scrape 제외·DB 관측0 확인. 초기 CI에서 한 줄 YAML 명령의 `:all:` 뒤 콜론이 구문으로 해석돼 workflow가 시작되지 않았다. 해당 run을 block scalar로 수정했다. CI에는 앱 lock과 같은 prometheus-client0.25.0의 해시 고정 시험 의존성만 추가한다.
 
 이번 변경은 코드·로컬 검증이며 실제 Prometheus 표본·Slack 응답의 partial 해소를 보장하지 않는다. 시간 제한·승인·원복·Terraform·배포 정의는 변경하지 않는다. 배포/실습 workflow의 기존 비활성 상태를 유지한다. 재설치 후 새 이미지·새 worker·정상 CI·사용자의 새 Slack 요청으로 검증한다.
+
+플랫폼 필수 AI 계약 CI에서 기존 합성 ZIP의 두 요청 사이 생성 시각이 달라져 해시 검증이 간헐적으로 실패했다. AI 저장소의 이미 검증된 고정 ZIP metadata와 시각 경계 회귀 시험을 플랫폼 legacy 시험 fixture에 반영했다. 실제 artifact 검증 코드는 변경하지 않았다.

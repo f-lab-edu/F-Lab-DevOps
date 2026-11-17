@@ -13,7 +13,7 @@ import tempfile
 import threading
 import time
 
-from ai_ops.c_trial_lease_client import TrialLeaseClient, LeaseConflict, LEASE_PATH, CONTEXT, _UnixConnection
+from ai_ops.c_trial_lease_client import TrialLeaseClient, LeaseConflict, LeaseRequestError, LEASE_PATH, CONTEXT, _UnixConnection
 
 
 def main():
@@ -47,11 +47,14 @@ print(json.dumps({'apiVersion':'client.authentication.k8s.io/v1beta1','kind':'Ex
         state = dict(apiVersion='coordination.k8s.io/v1', kind='Lease', metadata=dict(
             name='b6-scenario-lock', namespace='ai-ops-lab', uid='local-fixture', resourceVersion='1'), spec={})
         requests = []
+        fault = {'headers_stall': False}
         lock = threading.Lock()
         class Handler(http.server.BaseHTTPRequestHandler):
             protocol_version = 'HTTP/1.1'
             def handle_request(self):
                 nonlocal state
+                if fault['headers_stall'] and self.path == LEASE_PATH:
+                    time.sleep(3.25)  # 로컬에서만 upstream 응답 지연을 재현한다.
                 with lock:
                     requests.append((self.command, self.path))
                     if self.headers.get('Authorization') != 'Bearer local-fixture-only':
@@ -70,7 +73,10 @@ print(json.dumps({'apiVersion':'client.authentication.k8s.io/v1beta1','kind':'Ex
                                 value = state
                     payload = json.dumps(value).encode()
                 self.send_response(code); self.send_header('Content-Type', 'application/json')
-                self.send_header('Content-Length', str(len(payload))); self.end_headers(); self.wfile.write(payload)
+                try:
+                    self.send_header('Content-Length', str(len(payload))); self.end_headers(); self.wfile.write(payload)
+                except (OSError, ssl.SSLError):
+                    pass  # 지연 시험에서 proxy가 먼저 연결을 닫을 수 있다.
             do_GET = do_PUT = handle_request
             def log_message(self, *_): pass
         server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
@@ -111,6 +117,20 @@ print(json.dumps({'apiVersion':'client.authentication.k8s.io/v1beta1','kind':'Ex
             time.sleep(6.1); client.get()
             assert int(count.read_text()) == 2, 'exec_credentials_not_refreshed'
             assert state['metadata']['annotations'] == {'remote':'ack','local':'ack'}
+            fault['headers_stall'] = True
+            delay_started = time.monotonic()
+            try:
+                try: client.get()
+                except LeaseRequestError as error:
+                    stalled = error.diagnostic
+                    assert stalled['phase'] in ('response_headers','response_body','response_validation')
+                    assert stalled['timeout_seconds'] == 3
+                else: raise AssertionError('stalled_upstream_was_accepted')
+            finally:
+                fault['headers_stall'] = False
+            assert time.monotonic()-delay_started < 4, 'original_read_timeout_was_extended'
+            # 별도의 읽기에서만 정상 서버 복귀를 확인한다. 실패한 요청의 자동 재시도는 없다.
+            assert client.get()['metadata']['uid'] == 'local-fixture'
             socket_path = client.socket_path; process = client.process
             client.close(); assert process.poll() is not None and not socket_path.parent.exists()
             subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
@@ -166,6 +186,8 @@ finally: c.close()
                 'tls_verified':True,'invalid_ca_rejected':True,'kubectl_version':version,
                 'fixed_path_method_host_filters_verified':True,
                 'cas_conflict_and_both_acks_verified':True,'proxy_and_socket_removed':True,
+                'stalled_upstream_diagnostic':stalled,
+                'original_three_second_read_limit_preserved':True,
                 'sigterm_cleanup_verified':True}))
         finally:
             client.close(); server.shutdown(); server.server_close(); thread.join(timeout=2)

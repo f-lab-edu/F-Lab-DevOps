@@ -10,6 +10,7 @@ import socket
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -18,6 +19,30 @@ CONTEXT = 'arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener'
 LEASE_PATH = '/apis/coordination.k8s.io/v1/namespaces/ai-ops-lab/leases/b6-scenario-lock'
 ACCEPT_PATH = '^'+re.escape(LEASE_PATH)+'$'
 LIMIT = 2 * 1024 * 1024
+REQUEST_TIMEOUT_SECONDS = 3
+
+
+class LeaseRequestError(ValueError):
+    """기존 오류 코드를 유지하며 원문 자격/응답 없는 진단만 전달한다."""
+
+    def __init__(self, code, diagnostic):
+        super().__init__(code)
+        self.diagnostic = diagnostic
+
+
+def _cause(error):
+    # 예외 문자열·args·HTTP 응답/헤더·proxy stderr를 진단에 복사하지 않는다.
+    for kind, name in ((TimeoutError, 'timeout'),
+                       (http.client.RemoteDisconnected, 'peer_closed'),
+                       (http.client.IncompleteRead, 'incomplete_response'),
+                       (ConnectionResetError, 'connection_reset'),
+                       (BrokenPipeError, 'broken_pipe'),
+                       (FileNotFoundError, 'socket_missing'),
+                       (ConnectionRefusedError, 'connection_refused'),
+                       (PermissionError, 'permission_denied')):
+        if isinstance(error, kind):
+            return name
+    return 'http_protocol' if isinstance(error, http.client.HTTPException) else 'os_error'
 
 
 class LeaseConflict(ValueError):
@@ -36,13 +61,16 @@ def _defer_sigterm(enabled):
 
 class _UnixConnection(http.client.HTTPConnection):
     def __init__(self, path):
-        super().__init__('localhost', timeout=3)
+        super().__init__('localhost', timeout=REQUEST_TIMEOUT_SECONDS)
         self.path = str(path)
+        self.phase = 'request_send'
 
     def connect(self):
+        self.phase = 'unix_connect'
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.settimeout(self.timeout)
         self.sock.connect(self.path)
+        self.phase = 'request_send'
 
 
 class TrialLeaseClient:
@@ -108,19 +136,30 @@ class TrialLeaseClient:
         return lease
 
     def _request(self, method, lease=None):
+        started = time.monotonic()
         if self.closed or self.process is None or self.process.poll() is not None:
-            raise ValueError('lease_proxy_not_running')
+            raise self._failure('lease_proxy_not_running', method, 'proxy_liveness',
+                                started, None, 'proxy_not_running')
         payload = None if lease is None else json.dumps(self._validate(lease)).encode()
         if payload is not None and len(payload) > LIMIT:
             raise ValueError('lease_proxy_payload_too_large')
         connection = _UnixConnection(self.socket_path)
+        status = None
         try:
             connection.request(method, LEASE_PATH, body=payload,
                                headers={'Content-Type': 'application/json', 'Host': 'localhost'})
+            connection.phase = 'response_headers'
             response = connection.getresponse()
+            status = response.status
+            connection.phase = 'response_body'
             body = response.read(LIMIT+1)
             if len(body) > LIMIT:
                 raise ValueError('lease_proxy_response_too_large')
+            # read(amt)는 EOF 때 Content-Length 부족을 예외 없이 반환한다.
+            # JSON 자체가 완전해도 잘린 HTTP 응답을 성공으로 사용하지 않는다.
+            if response.length not in (None, 0):
+                raise ValueError('lease_proxy_incomplete_response')
+            connection.phase = 'response_validation'
             try:
                 value = json.loads(body)
             except (ValueError, UnicodeError):
@@ -131,10 +170,37 @@ class TrialLeaseClient:
             if response.status != 200:
                 raise ValueError('lease_proxy_request_failed')
             return self._validate(value)
-        except (OSError, http.client.HTTPException):
-            raise ValueError('lease_proxy_connection_failed') from None
+        except (OSError, http.client.HTTPException) as error:
+            raise self._failure('lease_proxy_connection_failed', method, connection.phase,
+                                started, status, _cause(error)) from None
+        except LeaseConflict:
+            raise
+        except ValueError as error:
+            causes = {'lease_proxy_response_too_large': 'response_too_large',
+                      'lease_proxy_incomplete_response': 'incomplete_response',
+                      'lease_proxy_invalid_response': 'invalid_json',
+                      'lease_proxy_request_failed': 'http_status',
+                      'lease_proxy_resource_changed': 'resource_identity'}
+            # SIGTERM의 기존 취소 예외 등은 변환하거나 재시도하지 않는다.
+            if str(error) not in causes:
+                raise
+            raise self._failure(str(error), method, connection.phase,
+                                started, status, causes[str(error)]) from None
         finally:
             connection.close()
+
+    def _failure(self, code, method, phase, started, status, cause):
+        exit_code = self.process.poll() if self.process is not None else None
+        diagnostic = dict(event='lease_request_failed', schema_version=1, code=code,
+            method=method, phase=phase, cause=cause, http_status=status,
+            elapsed_seconds=round(time.monotonic()-started, 6),
+            timeout_seconds=REQUEST_TIMEOUT_SECONDS,
+            proxy_exit_code=exit_code if type(exit_code) is int else None)
+        try:
+            print(json.dumps(diagnostic, separators=(',', ':')), file=sys.stderr, flush=True)
+        except (OSError, ValueError):
+            pass  # 진단 출력 실패가 기존 중지·원복 경로를 바꾸지 않는다.
+        return LeaseRequestError(code, diagnostic)
 
     def get(self):
         return self._request('GET')

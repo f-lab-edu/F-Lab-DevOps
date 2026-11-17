@@ -2,7 +2,7 @@
 
 from prometheus_client import Counter, Histogram
 
-# TODO: Path - Cardinality 폭발 가능성 존재 -> Label Value 제한 필요
+# 초기화에는 고정된 route template과 계측 조합만 사용한다.
 
 # ── HTTP 요청 카운터 ──────────────────────────────────────────
 # labels: method(GET/POST), path(/items, /items/{id}), status_code(200/404/500)
@@ -53,3 +53,40 @@ db_query_latency_seconds = Histogram(
     ["operation"],
     buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
+
+
+# 실제 계측 지점의 유한한 값만 초기화한다. URL/아이템 ID로 조합을 만들지 않는다.
+CACHE_ENDPOINTS = ("list_items", "get_item")
+CACHE_RESULTS = ("hit", "miss", "error", "unavailable", "bypass", "consistency_primary")
+DB_OPERATIONS = ("select_one", "select_all", "insert", "delete")
+HTTP_METRIC_LABELS = (
+    ("GET", "/healthz", ("200", "500")),
+    ("GET", "/readyz", ("200", "500", "503")),
+    ("GET", "/error-test", ("500",)),
+    ("GET", "/items", ("200", "422", "500")),
+    ("POST", "/items", ("201", "422", "500")),
+    ("GET", "/items/_db", ("200", "500")),
+    ("GET", "/items/{item_id}", ("200", "404", "422", "500")),
+    ("DELETE", "/items/{item_id}", ("204", "404", "422", "500")),
+)
+
+
+def initialize_metric_labels() -> None:
+    """Expose zero-valued children without inventing requests or latency samples.
+
+    Repeated calls preserve observations. Unexpected responses remain measurable
+    by the middleware; this list only bounds startup initialization.
+    """
+    for endpoint in CACHE_ENDPOINTS:
+        cache_hit_total.labels(endpoint=endpoint)
+        cache_miss_total.labels(endpoint=endpoint)
+        for result in CACHE_RESULTS:
+            cache_operation_total.labels(endpoint=endpoint, result=result)
+    for operation in DB_OPERATIONS:
+        db_query_latency_seconds.labels(operation=operation)
+    for method, route, statuses in HTTP_METRIC_LABELS:
+        for status in statuses:
+            http_request_total.labels(method=method, path=route, status_code=status)
+            http_request_duration_seconds.labels(
+                method=method, route=route, status_code=status
+            )

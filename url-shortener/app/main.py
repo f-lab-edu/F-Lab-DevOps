@@ -7,7 +7,11 @@ from prometheus_client import make_asgi_app
 
 from app.api.routes import health, item
 from app.core.database import Base, write_engine
-from app.core.metrics import http_request_duration_seconds, http_request_total
+from app.core.metrics import (
+    http_request_duration_seconds,
+    http_request_total,
+    initialize_metric_labels,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,6 +24,7 @@ async def lifespan(app: FastAPI):
     """
     # 시작 시: DB 테이블 생성 (이미 있으면 건너뜀)
     Base.metadata.create_all(bind=write_engine)  # Primary에 테이블 생성
+    initialize_metric_labels()
     yield
     # 종료 시: 필요한 정리 작업 추가 가능
 

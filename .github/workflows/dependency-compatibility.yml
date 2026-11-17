@@ -76,7 +76,8 @@ jobs:
         run: |
           ruff check app/
       - name: Install metrics test dependency
-        run: python3 -m pip install --require-hashes --only-binary=:all: -r url-shortener/tests/requirements-metrics.txt
+        run: |
+          python3 -m pip install --require-hashes --only-binary=:all: -r url-shortener/tests/requirements-metrics.txt
       - name: 캐시 일관성·지표 초기화 단위 시험
         working-directory: url-shortener
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v

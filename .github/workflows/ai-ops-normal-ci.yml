@@ -19,7 +19,7 @@ jobs:
       AWS_REGION: ap-northeast-2
       PYTHONPATH: ai-ops/src
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # 버전 6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 버전 7.0.1
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # 버전 6.3.0
         with:
           role-to-assume: ${{ vars.NORMAL_CI_ROLE_ARN }}

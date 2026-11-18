@@ -166,6 +166,11 @@ def lease_failure_summary(value):
         if isinstance(last, dict) and isinstance(last.get('phase'), str)
         and last['phase'] in _StageCollector.PHASES and isinstance(last.get('state'), str)
         and last['state'] in {'start', 'done', 'failed'} else None)
+    retry = value.get('authentication_retry')
+    if (isinstance(retry, dict) and type(retry.get('attempts')) is int
+            and retry['attempts'] == 2 and type(retry.get('first_http_status')) is int
+            and retry['first_http_status'] == 401):
+        result['authentication_retry'] = {'attempts': 2, 'first_http_status': 401}
     # Missing best-effort telemetry is not proof of a network/authentication cause.
     result['upstream_cause_proven'] = False
     return result
@@ -200,18 +205,50 @@ def _defer_sigterm(enabled):
             signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
+class _DeadlineSocket(socket.socket):
+    """One monotonic budget covers connect, headers, body and an auth retry."""
+
+    def __init__(self, deadline):
+        super().__init__(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.deadline = deadline
+
+    def _remaining(self):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('lease_request_deadline')
+        self.settimeout(remaining)
+
+    def connect(self, address):
+        self._remaining()
+        return super().connect(address)
+
+    def sendall(self, data, flags=0):
+        self._remaining()
+        return super().sendall(data, flags)
+
+    def recv_into(self, buffer, nbytes=0, flags=0):
+        # HTTPResponse's buffered makefile reads through SocketIO.recv_into.
+        self._remaining()
+        return super().recv_into(buffer, nbytes, flags)
+
+
 class _UnixConnection(http.client.HTTPConnection):
-    def __init__(self, path):
+    def __init__(self, path, *, deadline=None):
         super().__init__('localhost', timeout=REQUEST_TIMEOUT_SECONDS)
         self.path = str(path)
+        self.deadline = (time.monotonic()+REQUEST_TIMEOUT_SECONDS
+                         if deadline is None else deadline)
         self.phase = 'request_send'
 
     def connect(self):
         self.phase = 'unix_connect'
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock.settimeout(self.timeout)
+        self.sock = _DeadlineSocket(self.deadline)
         self.sock.connect(self.path)
         self.phase = 'request_send'
+
+
+class _AuthenticationRefreshRequired(Exception):
+    """A complete Kubernetes Unauthorized GET; no response contents retained."""
 
 
 class TrialLeaseClient:
@@ -230,6 +267,7 @@ class TrialLeaseClient:
         self.stage_collector = None
         self.trace_request_id = None
         self.last_upstream_trace = None
+        self.last_auth_retry = None
 
     def _proxy_command(self):
         if self.trace_binary is None and self.trace_sha256 is None:
@@ -330,14 +368,33 @@ class TrialLeaseClient:
 
     def _request(self, method, lease=None):
         started = time.monotonic()
+        deadline = started + REQUEST_TIMEOUT_SECONDS
+        self.last_auth_retry = None
+        try:
+            return self._request_once(method, lease, started, deadline, attempt=1)
+        except _AuthenticationRefreshRequired:
+            # client-go refreshes exec credentials on 401 but returns that 401.
+            # Only a fresh fixed-path GET is safe here. Never replay PUT/CAS,
+            # transport errors, malformed bodies, 403, or a second 401.
+            self.last_auth_retry = {'first_http_status': 401, 'attempts': 2,
+                                    'outcome': 'failed'}
+            try:
+                result = self._request_once(method, lease, started, deadline, attempt=2)
+                self.last_auth_retry['outcome'] = 'recovered'
+                return result
+            finally:
+                self.last_auth_retry['elapsed_seconds'] = round(time.monotonic()-started, 6)
+
+    def _request_once(self, method, lease, started, deadline, *, attempt):
         if self.closed or self.process is None or self.process.poll() is not None:
             raise self._failure('lease_proxy_not_running', method, 'proxy_liveness',
                                 started, None, 'proxy_not_running')
         payload = None if lease is None else json.dumps(self._validate(lease)).encode()
         if payload is not None and len(payload) > LIMIT:
             raise ValueError('lease_proxy_payload_too_large')
-        connection = _UnixConnection(self.socket_path)
+        connection = _UnixConnection(self.socket_path, deadline=deadline)
         status = None
+        response = None
         headers = {'Content-Type': 'application/json', 'Host': 'localhost'}
         if self.stage_collector is not None:
             self.trace_request_id = uuid.uuid4().hex
@@ -365,9 +422,16 @@ class TrialLeaseClient:
             if (response.status == 409 and method == 'PUT' and isinstance(value, dict)
                     and value.get('kind') == 'Status' and value.get('reason') == 'Conflict'):
                 raise LeaseConflict('lease_proxy_cas_conflict')
+            if (response.status == 401 and method == 'GET' and attempt == 1
+                    and isinstance(value, dict) and value.get('kind') == 'Status'
+                    and value.get('reason') == 'Unauthorized'):
+                raise _AuthenticationRefreshRequired()
             if response.status != 200:
                 raise ValueError('lease_proxy_request_failed')
-            return self._validate(value)
+            validated = self._validate(value)
+            if time.monotonic() >= deadline:
+                raise TimeoutError('lease_request_deadline')
+            return validated
         except (OSError, http.client.HTTPException) as error:
             raise self._failure('lease_proxy_connection_failed', method, connection.phase,
                                 started, status, _cause(error)) from None
@@ -385,6 +449,8 @@ class TrialLeaseClient:
             raise self._failure(str(error), method, connection.phase,
                                 started, status, causes[str(error)]) from None
         finally:
+            if response is not None:
+                response.close()
             connection.close()
             if self.stage_collector is not None:
                 self.last_upstream_trace = self.stage_collector.snapshot()
@@ -398,6 +464,8 @@ class TrialLeaseClient:
             elapsed_seconds=round(time.monotonic()-started, 6),
             timeout_seconds=REQUEST_TIMEOUT_SECONDS,
             proxy_exit_code=exit_code if type(exit_code) is int else None)
+        if self.last_auth_retry is not None:
+            diagnostic['authentication_retry'] = {'attempts': 2, 'first_http_status': 401}
         if self.stage_collector is not None:
             diagnostic['request_id'] = self.trace_request_id
             diagnostic['upstream'] = (self.stage_collector.snapshot() if self.trace_request_id else

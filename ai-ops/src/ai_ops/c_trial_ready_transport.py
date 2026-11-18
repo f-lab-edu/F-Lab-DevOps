@@ -13,6 +13,7 @@ from ai_ops.c_trial_guards import private_json, _github
 from ai_ops.c_trial_transport import C4TrialTransport
 from ai_ops.c_trial_ready import ACTIVATION_KEY, ACK_KEYS
 from ai_ops.contracts import _utc_datetime
+from ai_ops.c_trial_lease_client import lease_failure_summary
 
 
 READY_WORKFLOW = '.github/workflows/ai-ops-c4-ready-rollback.yml'
@@ -31,6 +32,7 @@ class StandbyGuardReader:
         self.anchor, self.github = Path(anchor), github
         self.expected_hashes = dict(expected_hashes)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.last_failure = None
 
     def __call__(self, intent):
         a = private_json(self.anchor)
@@ -50,16 +52,27 @@ class StandbyGuardReader:
         pid = local['pid']
         if type(pid) is not int or pid <= 0:
             raise ValueError('standby_guard_pid_rejected')
+        marker = private_json(Path(local['marker']))
+        if (marker['intent_hash'] != intent.digest() or marker['guard_id'] != local['guard_id']
+                or marker['role'] != 'local'):
+            raise ValueError('local_standby_marker_rejected')
+        if marker['state'] != 'standby':
+            raise ValueError('local_standby_marker_rejected')
+        failure_path = Path(local['marker']).with_name(Path(local['marker']).name+'.failure.json')
+        if failure_path.exists():
+            failure = private_json(failure_path)
+            if (failure.get('intent_hash') != intent.digest()
+                    or failure.get('guard_id') != local['guard_id']
+                    or failure.get('role') != 'local' or failure.get('state') != 'failed'):
+                raise ValueError('local_standby_failure_binding_rejected')
+            self.last_failure = lease_failure_summary(failure.get('lease_failure'))
+            raise ValueError('local_standby_guard_failed')
         os.kill(pid, 0)
         command = subprocess.run(['ps', '-p', str(pid), '-o', 'command='],
                                  capture_output=True, check=True, timeout=2).stdout.decode()
         if (str(root/'ai-ops/scripts/run_c4_ready_guard.py') not in command
                 or local['intent_path'] not in command):
             raise ValueError('standby_guard_process_changed')
-        marker = private_json(Path(local['marker']))
-        if (marker['intent_hash'] != intent.digest() or marker['guard_id'] != local['guard_id']
-                or marker['role'] != 'local' or marker['state'] != 'standby'):
-            raise ValueError('local_standby_marker_rejected')
         remote = a['remote']
         prefix = 'repos/f-lab-edu/F-Lab-DevOps/actions/runs/'+str(remote['run_id'])
         with ThreadPoolExecutor(max_workers=2) as pool:

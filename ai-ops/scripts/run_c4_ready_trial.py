@@ -81,8 +81,9 @@ def main(argv=None):
     binding = NormalCIBinding.model_validate(private_json(args.normal_binding))
     from ai_ops.c_trial_aws import AWSImageReader
     images = RefreshingProbe(intent.source_plan(), AWSImageReader())
-    guards = RefreshingProbe(intent, StandbyGuardReader(args.guard_evidence,
-        preflight['checks']['rollback_workflow_hashes']))
+    guard_reader = StandbyGuardReader(args.guard_evidence,
+        preflight['checks']['rollback_workflow_hashes'])
+    guards = RefreshingProbe(intent, guard_reader)
     def standby_reader(current):
         guards.require(current)
         with guards.lock:
@@ -218,6 +219,8 @@ def main(argv=None):
         for probe in (images, guards):
             try: probe.close()
             except ValueError: evidence.update(status='stopped', probe_cleanup_complete=False)
+        if guard_reader.last_failure is not None:
+            evidence['local_guard_failure'] = guard_reader.last_failure
         if controller.executor is not None and controller.executor.finished:
             try:
                 transport.clear_ready_control()

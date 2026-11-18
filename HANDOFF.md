@@ -1,5 +1,14 @@
 # 작업 인계 · 2026-11-17 최신 정리
 
+## 2026-11-18 Lease401 수정 검토·CI 반영 준비
+
+직접 코드 검토 추가 발견0건, 로컬 검증 파일 hash 동일. GET의401만 1회·총3초 재조회, PUT/오류/취소는 중단하며 기존 시간·승인·원복 유지. 상세 `ai-ops/docs/C4-lease-auth-refresh-review-20261118.md`. 원격CI/main 반영 여부는 이 문서를 포함한 PR 기록으로 확인한다. 실제 배포·연결·실습 없음. 첫401 원인은 미확정, 실제 연결 검증 전 실습 금지.
+
+## 2026-11-18 Lease401 인증 갱신 · 로컬 수정 완료
+
+client-go가401 후 자격을 갱신해도 원래401을 반환해 감시가 중단되는 경로를 실제 kubectl+로컬TLS/가짜exec로 재현했다. Unauthorized GET만 최대1회·최초부터 합산3초 안에서 재조회하며 PUT/다른오류/지속401은 중단한다. 응답 핸들 즉시 회수·진단 허용목록을 보완했고 기존15초·리뷰·원복·승인 조건 유지. AI1267/플랫폼925 로컬 시험 및 일반/계측kubectl 각각7개 TLS사례 통과. 첫 실환경401 발생 원인은 미확정이며 실환경 해결 완료로 보지 않는다. 배포/원격CI/실제연결/실습 없음. 수정은 양쪽 `.worktrees/lease-auth-refresh`의 `codex/lease-auth-refresh-local-20261118`에 보존, 원래 미커밋 파일 유지. 상세는 해당 worktree `ai-ops/docs/C4-lease-auth-refresh-local-20261118.md`, 원시 검증은 `~/.local/share/url-shortener-ai-ops/lease-auth-refresh-20261118/verification.json`. 다음은 코드검토/CI/main반영→장애 없는 실제 인증 검증이며 성공 전 실습 반복 금지. 추천 GPT-6 SOL · High.
+
+
 ## 2026-11-18 Lease 계측 연결·오류 전달 검토
 
 AI 1,257개·플랫폼 915개 로컬 시험 통과. 초대형 정수 진단 오류 1건 수정, 감시 옵션·정제 실패 전달과 플랫폼 의존성 반영을 준비했다. 상세 `ai-ops/docs/C4-lease-integration-review-20261118.md`. 원격 CI·main 반영 여부는 해당 PR 기록으로 확인한다. 실제 배포·실습 없음. 기존 시간·승인·원복 조건 유지, 실제 timeout 하위 원인 미확정이며 원인 해결 전 실습 반복 금지. 추천 GPT-6 SOL · High.

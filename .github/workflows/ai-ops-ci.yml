@@ -95,6 +95,7 @@ jobs:
           echo "$(cat "$proxy_tools/kubectl.sha256")  $proxy_tools/kubectl" | sha256sum --check --status
           chmod +x "$proxy_tools/kubectl"
           PATH="$proxy_tools:$PATH" PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_c4_lease_proxy_local.py
+          PATH="$proxy_tools:$PATH" PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_c4_lease_auth_local.py
       - name: 배포 정의·읽기 권한·통신·저장 정적 검사
         run: PYTHONPATH=ai-ops/src /tmp/ai-ops-venv/bin/python ai-ops/scripts/check_deployment.py
 

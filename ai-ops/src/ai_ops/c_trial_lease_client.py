@@ -1,8 +1,10 @@
 """한 실습 Lease만 노출하는 개인 Unix proxy. 인증·TLS·갱신은 kubectl이 담당한다."""
 
 import http.client
+import hashlib
 from contextlib import contextmanager
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -12,7 +14,10 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
+import select
 import time
+import uuid
 
 
 CONTEXT = 'arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener'
@@ -22,12 +27,148 @@ LIMIT = 2 * 1024 * 1024
 REQUEST_TIMEOUT_SECONDS = 3
 
 
+class _StageCollector:
+    """Drain untrusted stderr; retain only bounded, whitelisted events for this request."""
+
+    PREFIX = b'C04_LEASE_STAGE_V1 '
+    PHASES = {'authentication', 'authentication_refresh', 'dns', 'tcp', 'tls',
+              'connection', 'request_write', 'response_wait', 'response_headers'}
+
+    def __init__(self, stream=None):
+        self.lock = threading.Lock()
+        self.active = None
+        self.events = []
+        self.lost = False
+        self.stop = threading.Event()
+        self.thread = None
+        if stream is not None:
+            self.thread = threading.Thread(target=self._read, args=(stream,), daemon=True)
+            self.thread.start()
+
+    def begin(self, request_id):
+        with self.lock:
+            self.active, self.events, self.lost = request_id, [], False
+
+    def accept(self, line):
+        # No raw log/error/header/token is retained or echoed, including malformed input.
+        if len(line) > 1024 or not line.startswith(self.PREFIX):
+            return
+        try:
+            value = json.loads(line[len(self.PREFIX):])
+        except (ValueError, UnicodeError, RecursionError):
+            return
+        required = {'version', 'request_id', 'sequence', 'phase', 'state', 'elapsed_us', 'dropped'}
+        if (not isinstance(value, dict) or not required <= set(value)
+                or set(value) - required - {'reused'}
+                or type(value['version']) is not int or value['version'] != 1
+                or not isinstance(value['request_id'], str)
+                or re.fullmatch('[a-f0-9]{32}', value['request_id']) is None
+                or not isinstance(value['phase'], str) or value['phase'] not in self.PHASES
+                or not isinstance(value['state'], str) or value['state'] not in {'start', 'done', 'failed'}
+                or any(type(value[k]) is not int or not 0 <= value[k] <= 3600000000
+                       for k in ('sequence', 'elapsed_us', 'dropped'))
+                or value['sequence'] < 1
+                or ('reused' in value and (type(value['reused']) is not bool
+                    or value['phase'] != 'connection' or value['state'] != 'done'))):
+            return
+        with self.lock:
+            if value['request_id'] != self.active:
+                return
+            if value['dropped'] or len(self.events) >= 32:
+                self.lost = True
+            self.events.append(value)
+            self.events = sorted(self.events, key=lambda e: e['sequence'])[-32:]
+
+    def snapshot(self):
+        with self.lock:
+            events = [dict(e) for e in self.events]
+            seq = [e['sequence'] for e in events]
+            return {'coverage': 'best_effort', 'delivery_complete': False,
+                    'loss_observed': self.lost or seq != list(range(1, len(seq)+1)),
+                    'events': events,
+                    'last_observed': ({'phase': events[-1]['phase'], 'state': events[-1]['state']}
+                                      if events else None)}
+
+    def end(self):
+        with self.lock:
+            self.active = None
+
+    def _read(self, stream):
+        pending = bytearray()
+        discard = False
+        try:
+            fd = stream.fileno()
+            os.set_blocking(fd, False)
+            while not self.stop.is_set():
+                ready, _, _ = select.select([fd], [], [], .05)
+                if not ready:
+                    continue
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    break
+                for byte in chunk:
+                    if byte == 10:
+                        if not discard:
+                            self.accept(bytes(pending))
+                        pending.clear(); discard = False
+                    elif not discard:
+                        if len(pending) == 1024:
+                            pending.clear(); discard = True
+                        else:
+                            pending.append(byte)
+        except (OSError, ValueError):
+            pass  # Losing telemetry cannot change request outcome or retry it.
+        finally:
+            stream.close()
+
+    def close(self):
+        self.end()
+        self.stop.set()  # Never extend request/rollback budgets waiting for telemetry.
+
+
 class LeaseRequestError(ValueError):
     """기존 오류 코드를 유지하며 원문 자격/응답 없는 진단만 전달한다."""
 
     def __init__(self, code, diagnostic):
         super().__init__(code)
         self.diagnostic = diagnostic
+
+
+def lease_failure_summary(value):
+    """Revalidate persisted child diagnostics; never forward raw exception/log fields."""
+    value = value if isinstance(value, dict) else {}
+    choices = {
+        'code': {'lease_proxy_connection_failed', 'lease_proxy_not_running',
+                 'lease_proxy_response_too_large', 'lease_proxy_incomplete_response',
+                 'lease_proxy_invalid_response', 'lease_proxy_request_failed',
+                 'lease_proxy_resource_changed'},
+        'method': {'GET', 'PUT'},
+        'phase': {'proxy_liveness', 'unix_connect', 'request_send', 'response_headers',
+                  'response_body', 'response_validation'},
+        'cause': {'timeout', 'peer_closed', 'incomplete_response', 'connection_reset',
+                  'broken_pipe', 'socket_missing', 'connection_refused', 'permission_denied',
+                  'http_protocol', 'os_error', 'proxy_not_running', 'response_too_large',
+                  'invalid_json', 'http_status', 'resource_identity'},
+    }
+    result = {key: value.get(key) if isinstance(value.get(key), str)
+              and value[key] in allowed else 'unknown' for key, allowed in choices.items()}
+    for key, limit in (('elapsed_seconds', 3600), ('timeout_seconds', 3)):
+        number = value.get(key)
+        result[key] = (number if type(number) in (int, float) and 0 <= number <= limit
+                       and math.isfinite(number) else None)
+    status = value.get('http_status')
+    result['http_status'] = status if type(status) is int and 100 <= status <= 599 else None
+    upstream = value.get('upstream')
+    last = (upstream.get('last_observed') if isinstance(upstream, dict)
+            else value.get('last_observed_upstream'))
+    result['last_observed_upstream'] = (
+        {'phase': last['phase'], 'state': last['state']}
+        if isinstance(last, dict) and isinstance(last.get('phase'), str)
+        and last['phase'] in _StageCollector.PHASES and isinstance(last.get('state'), str)
+        and last['state'] in {'start', 'done', 'failed'} else None)
+    # Missing best-effort telemetry is not proof of a network/authentication cause.
+    result['upstream_cause_proven'] = False
+    return result
 
 
 def _cause(error):
@@ -76,7 +217,8 @@ class _UnixConnection(http.client.HTTPConnection):
 class TrialLeaseClient:
     """응답 캐시는 없다. GET과 resourceVersion을 보존한 PUT만 고정 경로로 보낸다."""
 
-    def __init__(self, kubeconfig, uid, *, handle_sigterm=False):
+    def __init__(self, kubeconfig, uid, *, handle_sigterm=False,
+                 trace_binary=None, trace_sha256=None):
         self.kubeconfig, self.uid = str(kubeconfig), uid
         if not isinstance(uid, str) or not uid or len(uid) > 128:
             raise ValueError('lease_proxy_uid_required')
@@ -84,10 +226,58 @@ class TrialLeaseClient:
         self.closed = False
         self.handle_sigterm = handle_sigterm
         self.previous_sigterm = self.sigterm_handler = None
+        self.trace_binary, self.trace_sha256 = trace_binary, trace_sha256
+        self.stage_collector = None
+        self.trace_request_id = None
+        self.last_upstream_trace = None
+
+    def _proxy_command(self):
+        if self.trace_binary is None and self.trace_sha256 is None:
+            return 'kubectl'
+        if (not isinstance(self.trace_binary, (str, Path))
+                or not isinstance(self.trace_sha256, str)
+                or re.fullmatch('[a-f0-9]{64}', self.trace_sha256) is None):
+            raise ValueError('lease_trace_binary_pin_required')
+        path = Path(self.trace_binary)
+        try:
+            info = path.lstat()
+            if (not path.is_absolute() or not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != os.geteuid() or info.st_mode & 0o022
+                    or info.st_nlink != 1 or not os.access(path, os.X_OK)):
+                raise ValueError('lease_trace_binary_rejected')
+            # A pinned file is still replaceable through a shared writable parent.
+            # Only root-owned sticky system directories (e.g. /tmp) are exempt.
+            for parent in path.parents:
+                meta = parent.lstat()
+                if stat.S_ISLNK(meta.st_mode) and meta.st_uid != 0:
+                    raise ValueError('lease_trace_binary_rejected')
+            for parent in path.resolve(strict=True).parents:
+                meta = parent.stat()
+                sticky_root = meta.st_uid == 0 and meta.st_mode & stat.S_ISVTX
+                if (meta.st_uid not in (0, os.geteuid())
+                        or (meta.st_mode & 0o022 and not sticky_root)):
+                    raise ValueError('lease_trace_binary_rejected')
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, 'rb') as stream:
+                opened = os.fstat(stream.fileno())
+                if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                    raise ValueError('lease_trace_binary_rejected')
+                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+                after = os.fstat(stream.fileno())
+                if (after.st_size, after.st_mtime_ns, after.st_ctime_ns) != (
+                        info.st_size, info.st_mtime_ns, info.st_ctime_ns):
+                    raise ValueError('lease_trace_binary_rejected')
+            if digest != self.trace_sha256:
+                raise ValueError('lease_trace_binary_rejected')
+        except OSError:
+            # Do not put a private executable path in an error message.
+            raise ValueError('lease_trace_binary_rejected') from None
+        return str(path)
 
     def start(self):
         if self.closed or self.process is not None:
             raise ValueError('lease_proxy_already_started_or_closed')
+        command = self._proxy_command()
         info = Path(self.kubeconfig).lstat()
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
                 or stat.S_IMODE(info.st_mode) & 0o077 or info.st_nlink != 1):
@@ -106,12 +296,15 @@ class TrialLeaseClient:
                 signal.signal(signal.SIGTERM, terminate)
             # PID를 소유 자료에 저장한 뒤 취소를 전달해 생성 직후 자식이 유실되지 않게 한다.
             with _defer_sigterm(self.handle_sigterm):
-                self.process = subprocess.Popen(['kubectl', '--kubeconfig', self.kubeconfig,
+                self.process = subprocess.Popen([command, '--kubeconfig', self.kubeconfig,
                     '--context', CONTEXT, '--request-timeout=3s', 'proxy',
                     '--unix-socket='+str(self.socket_path), '--accept-hosts=^localhost$',
                     '--accept-paths='+ACCEPT_PATH,
                     '--reject-methods=^(POST|PATCH|DELETE|CONNECT|HEAD|OPTIONS|TRACE)$'],
-                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE if self.trace_binary is not None else subprocess.DEVNULL)
+                if self.trace_binary is not None:
+                    self.stage_collector = _StageCollector(self.process.stderr)
             end = time.monotonic()+10
             while not self.socket_path.exists():
                 if self.process.poll() is not None or time.monotonic() >= end:
@@ -145,9 +338,14 @@ class TrialLeaseClient:
             raise ValueError('lease_proxy_payload_too_large')
         connection = _UnixConnection(self.socket_path)
         status = None
+        headers = {'Content-Type': 'application/json', 'Host': 'localhost'}
+        if self.stage_collector is not None:
+            self.trace_request_id = uuid.uuid4().hex
+            self.stage_collector.begin(self.trace_request_id)
+            headers.update({'Audit-ID': self.trace_request_id, 'X-C04-Lease-Trace': '1'})
         try:
             connection.request(method, LEASE_PATH, body=payload,
-                               headers={'Content-Type': 'application/json', 'Host': 'localhost'})
+                               headers=headers)
             connection.phase = 'response_headers'
             response = connection.getresponse()
             status = response.status
@@ -188,6 +386,10 @@ class TrialLeaseClient:
                                 started, status, causes[str(error)]) from None
         finally:
             connection.close()
+            if self.stage_collector is not None:
+                self.last_upstream_trace = self.stage_collector.snapshot()
+                self.stage_collector.end()
+                self.trace_request_id = None
 
     def _failure(self, code, method, phase, started, status, cause):
         exit_code = self.process.poll() if self.process is not None else None
@@ -196,6 +398,11 @@ class TrialLeaseClient:
             elapsed_seconds=round(time.monotonic()-started, 6),
             timeout_seconds=REQUEST_TIMEOUT_SECONDS,
             proxy_exit_code=exit_code if type(exit_code) is int else None)
+        if self.stage_collector is not None:
+            diagnostic['request_id'] = self.trace_request_id
+            diagnostic['upstream'] = (self.stage_collector.snapshot() if self.trace_request_id else
+                {'coverage': 'best_effort', 'delivery_complete': False, 'loss_observed': False,
+                 'events': [], 'last_observed': None})
         try:
             print(json.dumps(diagnostic, separators=(',', ':')), file=sys.stderr, flush=True)
         except (OSError, ValueError):
@@ -221,6 +428,8 @@ class TrialLeaseClient:
                         self.process.wait(timeout=5)
             finally:
                 try:
+                    if self.stage_collector is not None:
+                        self.stage_collector.close()
                     if self.directory is not None:
                         self.directory.cleanup()
                 finally:

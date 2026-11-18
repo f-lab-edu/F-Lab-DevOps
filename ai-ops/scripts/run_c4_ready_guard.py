@@ -9,7 +9,8 @@ import uuid
 from ai_ops.c_trial_ready import ReadyTrialPlan
 from ai_ops.c_trial_ready_guard import standby_guard
 from ai_ops.c_trial_guards import private_json
-from ai_ops.c_trial_lease_client import TrialLeaseClient, LeaseConflict
+from ai_ops.c_trial_lease_client import (TrialLeaseClient, LeaseConflict, LeaseRequestError,
+                                       lease_failure_summary)
 from ai_ops.path_policy import cli_paths, write_private_json
 from run_c2_rollback_guard import (SERVER_ARGO, get_application, verify_normal,
     verify_local_kubeconfig, verify_isolated_server_permissions, rollback_at_deadline, call)
@@ -23,7 +24,13 @@ def main(argv=None):
     parser.add_argument('--kubeconfig', required=True)
     parser.add_argument('--role', choices=['local', 'remote'], required=True)
     parser.add_argument('--core', action='store_true')
+    # Executables use TrialLeaseClient's owner/mode/absolute-path/hash validator,
+    # not the JSON data path policy used for intent and marker files.
+    parser.add_argument('--lease-trace-binary')
+    parser.add_argument('--lease-trace-sha256')
     args = cli_paths(parser, parser.parse_args(argv), {'intent': 'input', 'marker': 'output'})
+    if (args.lease_trace_binary is None) != (args.lease_trace_sha256 is None):
+        parser.error('lease trace requires both binary and sha256')
     if args.core != (args.role == 'local'):
         raise ValueError('ready_guard_role_transport_rejected')
     intent = ReadyTrialPlan.model_validate(private_json(args.intent))
@@ -50,7 +57,8 @@ def main(argv=None):
 
     verify_normal(normal_plan, get_application(argo), get('ai-ops-lab', 'deployment', 'lab-api'))
 
-    client = TrialLeaseClient(args.kubeconfig, target['lease_uid'], handle_sigterm=True)
+    client = TrialLeaseClient(args.kubeconfig, target['lease_uid'], handle_sigterm=True,
+        trace_binary=args.lease_trace_binary, trace_sha256=args.lease_trace_sha256)
 
     def replace(lease):
         try:
@@ -73,6 +81,18 @@ def main(argv=None):
             rollback=lambda plan, initial: rollback_at_deadline(plan, get=get, argo=argo,
                 kubeconfig=args.kubeconfig, initial_lease=initial),
             publish_ready=ready)
+    except LeaseRequestError as error:
+        # A bound failure sidecar invalidates the old ready marker before exit.
+        # Recording failure must not
+        # replace the original exception, retry the request, or change rollback.
+        try:
+            write_private_json(args.marker.with_name(args.marker.name+'.failure.json'),
+                dict(state='failed', role=args.role,
+                guard_id=guard_id, intent_hash=intent.digest(),
+                lease_failure=lease_failure_summary(error.diagnostic)))
+        except (OSError, ValueError):
+            pass
+        raise
     finally:
         try:
             client.close()

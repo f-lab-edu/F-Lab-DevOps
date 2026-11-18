@@ -1,5 +1,23 @@
 # 작업 인계 · 2026-11-17 최신 정리
 
+## 2026-11-18 WF-03 검토·CI 반영 준비
+
+WF-03 직접 검토에서 Slack 기본 fallback의 제한하지 않은 라벨 노출, 대체 Helm 설정의 후보 무시, 실제 template 검사의 CI 누락을 보완했다. 플랫폼10개 실제 amtool 시험 통과. 필수 C03 gate에 notice 검사를 연결하며 배포 values/Application은 유지한다. 양쪽 PR의 정확 head·CI·리뷰를 확인해 정상 병합한다. 플랫폼 main은 관리자에게도 리뷰1명을 강제하므로 새로운 보호 변경은 별도 사용자 결정 없이 실행하지 않는다. 실제 배포·Slack·장애 없음. 기존 시간/승인/원복 유지.
+
+
+## 2026-11-18 WF-03 경보 공지·사건 참조 로컬 구현 완료
+
+양쪽 `codex/wf03-alert-reference-20261118`에서 로컬 구현했다. AI 작업트리는 `/Users/jounghyeon/dev/url-shortener-ai-ops/.worktrees/wf03-alert-reference-20261118`(기준 main9c9f3fc), 플랫폼은 `/Users/jounghyeon/dev/Url-Shortener-EKS-Platform/.worktrees/wf03-alert-reference-20261118`(기준 main01ca82b)다. 원래 작업트리의 다른 수정은 보존했다. WF-02는 PR30/main9c9f3fc·CI44318734083 완료 상태를 이어받았다.
+
+플랫폼 `cluster-addons/prometheus/wf03/`에 제한된 경보 사실·나노초 사건 참조·조사 채널 template와 후보 생성기를 추가했다. 기존 Watchdog/억제/간격/Secret은 보존하며 실제 values.yaml/Application은 변경하지 않았다. 후보는 기존 자동조사 분기를 별도 사건 접수로 전환하므로 후속 배포 계획에서 정책/DB 전환을 함께 검토해야 한다.
+
+AI는 기존 EventStore와 TLS 수신기를 재사용해 명시 옵션의 `/v1/events`·고정 발신원·pending/registered/expired 참조 상태를 연결했다. 기본 `/v1/alerts` 유지. 사건 접수 ACK는 Slack 전달 성공이 아니며 notification은 unknown이다. 새 사건 Slack 명령·결과 회신은 WF-04에 남아 있다.
+
+플랫폼8개·AI집중50개·전체1334개(81.827초, skip0), AST6개·양쪽 diff·저장소 경계·실제 inline template 렌더 통과. 상세/해시는 AI 작업트리 `ai-ops/docs/incident-notice-local-20261118.md`와 `incident-notice-local-validation-20261118.json`, 상태는 `incident-workflow-implementation-tracker.md`에 있다. 실제 Slack 전송/실물 실패·재시도 SLA·채널/DB 전환은 미검증이며 기존 SQLite ResourceWarning과 C04/C05 미완료를 보존한다.
+
+WF-03 로컬 미커밋. 원격 CI/main·실제 배포·Slack 전송·장애 실습·Terraform·유료 모델 호출 없음. 기존3/15/120/210/240/300/120초·실행별 승인·정확 head 리뷰/CI·잠금/ACK·원복/회수 조건은 유지했다. 다음은 WF-03 양쪽 코드 검토·CI/main 반영 후 WF-04 인증된 사건 조사 요청·결과·보관 정리의 로컬 연결이다. 추천 GPT-6 SOL · High.
+
+
 ## 2026-11-18 Lease401 수정 검토·CI 반영 준비
 
 직접 코드 검토 추가 발견0건, 로컬 검증 파일 hash 동일. GET의401만 1회·총3초 재조회, PUT/오류/취소는 중단하며 기존 시간·승인·원복 유지. 상세 `ai-ops/docs/C4-lease-auth-refresh-review-20261118.md`. 원격CI/main 반영 여부는 이 문서를 포함한 PR 기록으로 확인한다. 실제 배포·연결·실습 없음. 첫401 원인은 미확정, 실제 연결 검증 전 실습 금지.

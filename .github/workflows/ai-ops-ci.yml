@@ -10,6 +10,7 @@ on:
     paths:
       - 'ai-ops/**'
       - 'cluster-addons/ai-ops/**'
+      - 'cluster-addons/prometheus/**'
       - '.github/workflows/ai-ops-ci.yml'
       - '.github/workflows/ai-ops-image.yml'
       - '.github/workflows/ai-ops-lab-ci.yml'
@@ -116,21 +117,45 @@ jobs:
             'import os, pydantic; from ai_ops.replay_tools import _runbook; assert os.getuid() == 10001; assert pydantic.__version__ == "2.13.5"; [_runbook(name) for name in ("cache", "database", "deployment")]'
 
 
+  notice:
+    name: WF03 notice contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: 고정된 경보 템플릿 검증 도구 준비
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/wf03-venv"
+          "$RUNNER_TEMP/wf03-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r cluster-addons/prometheus/wf03/requirements.lock
+          mkdir -p "$RUNNER_TEMP/wf03-tools"
+          curl -fsSL -o "$RUNNER_TEMP/wf03-tools/am.tar.gz" https://github.com/prometheus/alertmanager/releases/download/v0.32.0/alertmanager-0.32.0.linux-amd64.tar.gz
+          echo "be72f50f6124ec53d944c0f100f8ec8108d969bade02fcc9f06a3068ff6c726f  $RUNNER_TEMP/wf03-tools/am.tar.gz" | sha256sum --check --status
+          tar -xzf "$RUNNER_TEMP/wf03-tools/am.tar.gz" -C "$RUNNER_TEMP/wf03-tools" --strip-components=1 alertmanager-0.32.0.linux-amd64/amtool
+      - name: 실제 Go template·라우팅·공지 비밀 비출력 검사
+        env:
+          WF03_AMTOOL: ${{ runner.temp }}/wf03-tools/amtool
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: '"$RUNNER_TEMP/wf03-venv/bin/python" -m unittest discover -s cluster-addons/prometheus/wf03 -p "test_*.py" -v'
+
   main-gate:
     name: C03 Main PR Gate
     if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' }}
-    needs: [scope, contracts, image]
+    needs: [scope, contracts, image, notice]
     runs-on: ubuntu-24.04
     steps:
       - name: 적용 범위에 맞는 검사 결과 확인
         shell: bash
         env:
+          NOTICE_RESULT: ${{ needs.notice.result }}
           SCOPE_RESULT: ${{ needs.scope.result }}
           AI_CHANGES: ${{ needs.scope.outputs.ai_changes }}
           CONTRACTS_RESULT: ${{ needs.contracts.result }}
           IMAGE_RESULT: ${{ needs.image.result }}
         run: |
-          [[ "$SCOPE_RESULT" == success ]] || exit 1
+          [[ "$SCOPE_RESULT" == success && "$NOTICE_RESULT" == success ]] || exit 1
           case "$AI_CHANGES" in
             true)
               [[ "$CONTRACTS_RESULT" == success && "$IMAGE_RESULT" == success ]]

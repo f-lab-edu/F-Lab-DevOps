@@ -1,0 +1,12 @@
+{{ define "wf03.notice" }}{{ range $index, $alert := .Alerts }}{{ if lt $index 3 }}
+경보 {{ if eq .Status "resolved" }}해제{{ else }}발생{{ end }} 사실 (원인·복구 성공 판정 아님)
+경보명: {{ if match "^[A-Za-z0-9_.:-]{1,64}$" .Labels.alertname }}{{ .Labels.alertname }}{{ else }}미확인{{ end }}
+심각도: {{ if match "^(critical|warning|info)$" .Labels.severity }}{{ .Labels.severity }}{{ else }}미확인{{ end }}
+대상: {{ range $key := stringSlice "cluster_id" "namespace" "workload" "service" "environment" }}{{ $key }}={{ $value := index $alert.Labels $key }}{{ if match "^[A-Za-z0-9_.:-]{1,64}$" $value }}{{ $value }}{{ else }}미확인{{ end }} {{ end }}
+발생 시각: {{ .StartsAt.UTC.Format "2006-01-02T15:04:05.000000000Z" }}
+{{ if eq .Status "resolved" }}해제 시각: {{ .EndsAt.UTC.Format "2006-01-02T15:04:05.000000000Z" }}
+{{ end }}{{ if match "^[0-9a-f]{16}$" .Fingerprint }}사건 참조: al1/__SOURCE_ALIAS__/{{ .Fingerprint }}/{{ .StartsAt.UTC.Format "2006-01-02T15:04:05.000000000Z" }}
+{{ else }}사건 참조: 생성 불가 — 발신 경보 식별값 확인 필요
+{{ end }}조사 채널: __INVESTIGATION_CHANNEL__
+사건 참조는 식별용이며, 조사 접수 여부와 지원 대상은 해당 채널에서 별도 확인합니다. 공지는 자동 복구 승인이 아닙니다.
+{{ end }}{{ end }}{{ if gt (len .Alerts) 3 }}표시 상한: 경보 3개만 표시했습니다. 나머지는 Alertmanager에서 확인하세요.{{ end }}{{ end }}

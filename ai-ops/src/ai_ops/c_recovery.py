@@ -198,13 +198,16 @@ def create_request(projection: IncidentProjection, requester_github_id: int,
     """인증 주체는 추후 서비스가 검증해 전달하며 요청은 변경 승인이 아니다."""
     if type(requester_github_id) is not int or requester_github_id <= 0 or projection.target != TARGET:
         raise ValueError("실습 사건과 검증된 GitHub 사용자 ID가 필요합니다")
+    moment = _utc_datetime(now or datetime.now(timezone.utc))
+    if projection.image_failure is not None and projection.image_failure.observed_at > moment:
+        raise ValueError('incident_observation_in_future')
     return RecoveryRequest(request_id="creq-" + uuid.uuid4().hex,
                            requester_github_id=requester_github_id,
                            incident_id=projection.incident_id, run_id=projection.run_id,
                            bundle_hash=projection.bundle_hash, report_hash=projection.report_hash,
                            failure_binding_hash=(sha256_json(projection.image_failure.model_dump(mode="json"))
                                                  if projection.image_failure else None),
-                           target=TARGET, requested_at=now or datetime.now(timezone.utc))
+                           target=TARGET, requested_at=moment)
 
 
 class RecoveryProposal(StrictModel):

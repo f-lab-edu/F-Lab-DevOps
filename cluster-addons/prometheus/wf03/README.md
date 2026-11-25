@@ -28,3 +28,29 @@ WF03_AMTOOL=/tmp/wf03-tools/amtool <venv>/bin/python -m unittest discover \
 추가 회귀를 포함한 플랫폼 10개 시험이 통과했다. `.github/workflows/ai-ops-ci.yml`에 고정 Alertmanager 0.32.0·배포파일 SHA256·해시 잠금 PyYAML을 사용하는 `WF03 notice contracts`를 추가하고 기존 필수 C03 Main PR Gate에 연결했다. 기존 배포 values/Application·시간·승인·원복은 유지한다. CI는 템플릿 렌더/라우팅 검사만 수행하며 Slack이나 클러스터에 연결하지 않는다.
 
 공식 기본값 근거: [default.tmpl](https://github.com/prometheus/alertmanager/blob/v0.32.0/template/default.tmpl), [Slack config defaults](https://github.com/prometheus/alertmanager/blob/v0.32.0/config/notifiers.go). 전체 검토·병합 결과는 AI 저장소 `ai-ops/docs/incident-notice-review-20261118.md`와 양쪽 HANDOFF에서 이어 기록한다.
+
+## WF11 실제 전환 · 2026-11-25
+
+WF11(실환경 전 구간 검증) 결정에 따라 **배포 values를 전환했다.**
+
+- **결정 내용:**
+  - WF10만 namespace·이름 `ai-ops`로 설치한다.
+  - 발신원 alias는 `eks-seoul`이다.
+  - 경보 공지는 기존 Webhook 채널에 그대로 보낸다.
+- **원본 보존:** 전환 전 `values.yaml`을 `legacy-values.yaml`로 그대로 보존했다.
+- **생성 방식:** `../values.yaml`의 Alertmanager `config`는 아래 명령으로 생성한 결과다.
+  ```
+  prepare.py --values legacy-values.yaml --source-alias eks-seoul --investigation-channel '#ai-ops' --event-service ai-ops-events.ai-ops.svc
+  ```
+- **정합성 강제:** `test_live_values_equal_the_generated_transition`이 생성 결과와의 일치를 강제한다. values의 다른 부분과 `alertmanagerSpec`은 바꾸지 않았다.
+- **동작 변화:**
+  - Watchdog 외 모든 경보는 기존 Slack 공지(continue)와 `ai-events`(`https://ai-ops-events.ai-ops.svc:9443/v1/events`)로 함께 간다.
+  - TLS `server_name`은 같은 Service 이름이다.
+  - 예전 `ai_ops=enabled`→`/v1/alerts` 분기는 없어졌다.
+- **새 인자:** `prepare.py --event-service`는 `<service>.<namespace>.svc` 형식만 받는다. 기본값은 예전 `ai-ops-webhook.ai-ops.svc`이며, 기존 후보 시험과 호환된다.
+- **amtool 검사:** 실제 배포 설정도 amtool로 검사한다(`LiveAlertmanagerTest`, CI 고정 0.32.0). 대상은 `check-config`, 그리고 Watchdog·`LabDeploymentUnavailable`·`HighErrorRate` 경로다.
+- **배포 시점:** 이 values는 Argo가 main에서 가져가므로 다음 설치 때 적용된다.
+- **AI 쪽 연결 조건:**
+  - WF10이 `ai-ops/ai-ops`로 배포돼야 한다.
+  - `ai-ops-alertmanager-auth` Secret(token, ca.crt)이 WF10 사건 수신기의 토큰·CA와 같아야 한다.
+- **더 이상 맞지 않는 도구:** 예전 `/v1/alerts` 분기를 추가하던 AI 쪽 `prepare_alertmanager.py`/`build_routing`은 이 values와 맞지 않는다. 재설치 때 쓰지 않는다.

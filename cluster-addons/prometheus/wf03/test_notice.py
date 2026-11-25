@@ -12,9 +12,14 @@ from prepare import build_candidate, notice_template
 ROOT=Path(__file__).resolve().parent
 
 
+LIVE_EVENT_SERVICE='ai-ops-events.ai-ops.svc'  # WF10 namespace/name ai-ops (WF11 decision 2026-11-25)
+LIVE_SOURCE_ALIAS='eks-seoul'
+
+
 class CandidateFixture:
     def setUp(self):
-        self.values=yaml.safe_load((ROOT.parent/'values.yaml').read_text())
+        # The transition input: values.yaml as it was before WF11 (byte copy).
+        self.values=yaml.safe_load((ROOT/'legacy-values.yaml').read_text())
 
     def candidate(self,values=None):
         return build_candidate(values or self.values,source_alias='lab-seoul',investigation_channel='#ai-ops')
@@ -70,6 +75,54 @@ class CandidateTest(CandidateFixture, unittest.TestCase):
         config=copy.deepcopy(self.values)
         config['alertmanager']['config']['receivers'][2]['slack_configs'][0]['pretext']='{{ .CommonLabels }}'
         with self.assertRaises(ValueError):self.candidate(config)
+
+
+class LiveValuesTest(CandidateFixture, unittest.TestCase):
+    """values.yaml (what Argo deploys) must be exactly the reviewed transition of the legacy file."""
+    def live(self):
+        return yaml.safe_load((ROOT.parent/'values.yaml').read_text())
+
+    def test_live_values_equal_the_generated_transition(self):
+        expected=build_candidate(self.values,source_alias=LIVE_SOURCE_ALIAS,investigation_channel='#ai-ops',
+                                 event_service=LIVE_EVENT_SERVICE)
+        self.assertEqual(self.live(),expected)
+
+    def test_live_values_route_every_non_watchdog_alert_to_the_wf10_receiver(self):
+        config=self.live()['alertmanager']['config']
+        self.assertEqual(config['route']['routes'][1:],[{'receiver':'slack-notifications','continue':True},{'receiver':'ai-events'}])
+        event=next(r for r in config['receivers'] if r['name']=='ai-events')['webhook_configs'][0]
+        self.assertEqual(event['url'],'https://ai-ops-events.ai-ops.svc:9443/v1/events')
+        self.assertEqual(event['http_config']['tls_config']['server_name'],'ai-ops-events.ai-ops.svc')
+        self.assertEqual(event['http_config']['authorization']['credentials_file'],
+                         '/etc/alertmanager/secrets/ai-ops-alertmanager-auth/token')
+        self.assertNotIn('ai_ops="enabled"',json.dumps(config['route']))
+        self.assertIn('al1/eks-seoul/',json.dumps(config))
+
+    def test_event_service_name_is_validated(self):
+        for bad in ('ai-ops-events.ai-ops','https://x.y.svc','Ai.ai.svc','x.y.svc.cluster.local','a..svc'):
+            with self.subTest(bad=bad),self.assertRaisesRegex(ValueError,'event receiver service'):
+                build_candidate(self.values,source_alias='lab-seoul',investigation_channel='#ai-ops',event_service=bad)
+
+
+@unittest.skipUnless(os.environ.get('WF03_AMTOOL'),'explicit local amtool binary required')
+class LiveAlertmanagerTest(unittest.TestCase):
+    """Pinned amtool against the deployed values.yaml config (not a candidate)."""
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.tool=os.environ['WF03_AMTOOL']
+        self.assertIn('version 0.32.0',subprocess.check_output([self.tool,'--version'],stderr=subprocess.STDOUT,text=True))
+        self.config=Path(self.temp.name)/'config.json'
+        live=yaml.safe_load((ROOT.parent/'values.yaml').read_text())
+        self.config.write_text(json.dumps(live['alertmanager']['config']))
+
+    def test_live_config_checks_and_routes_the_lab_alert_to_ai_events(self):
+        subprocess.run([self.tool,'check-config',str(self.config)],capture_output=True,check=True,timeout=10)
+        for labels,expected in [(['alertname=Watchdog'],'heartbeat-receiver'),
+                                (['alertname=LabDeploymentUnavailable','ai_ops=enabled','namespace=ai-ops-lab'],
+                                 'slack-notifications,ai-events'),
+                                (['alertname=HighErrorRate','ai_ops=enabled'],'slack-notifications,ai-events')]:
+            subprocess.run([self.tool,'config','routes','test','--config.file='+str(self.config),
+                            '--verify.receivers='+expected,*labels],capture_output=True,check=True,timeout=10)
 
 
 @unittest.skipUnless(os.environ.get('WF03_AMTOOL'),'explicit local amtool binary required')

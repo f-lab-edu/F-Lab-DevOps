@@ -17,7 +17,15 @@ def notice_template(source_alias, investigation_channel):
     return (ROOT/'notice.tmpl').read_text().replace('__SOURCE_ALIAS__',source_alias).replace('__INVESTIGATION_CHANNEL__',investigation_channel)
 
 
-def build_candidate(values, *, source_alias, investigation_channel):
+LEGACY_EVENT_SERVICE = 'ai-ops-webhook.ai-ops.svc'
+SERVICE = re.compile(r'[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.svc')
+
+
+def build_candidate(values, *, source_alias, investigation_channel, event_service=LEGACY_EVENT_SERVICE):
+    """``event_service`` is the in-cluster DNS name of the event receiver Service
+    (``<name>.<namespace>.svc``); it is both the URL host and the TLS server_name."""
+    if not isinstance(event_service,str) or not SERVICE.fullmatch(event_service):
+        raise ValueError('invalid event receiver service name')
     template = notice_template(source_alias,investigation_channel)
     result = copy.deepcopy(values)
     am = result['alertmanager']
@@ -49,7 +57,8 @@ def build_candidate(values, *, source_alias, investigation_channel):
         raise ValueError('unreviewed Slack destination')
     # Candidate only: explicit transition from the legacy automatic route to metadata intake.
     route['routes']=[routes[0],{'receiver':'slack-notifications','continue':True},{'receiver':'ai-events'}]
-    legacy['name']='ai-events'; legacy['webhook_configs'][0]['url']='https://ai-ops-webhook.ai-ops.svc:9443/v1/events'
+    legacy['name']='ai-events'; legacy['webhook_configs'][0]['url']=f'https://{event_service}:9443/v1/events'
+    legacy['webhook_configs'][0]['http_config']['tls_config']['server_name']=event_service
     text=template+'{{ template "wf03.notice" . }}'
     # The upstream fallback renders all common labels even when title is overridden.
     slack['slack_configs'][0].update(title='경보 발생·해제 사실',text=text,
@@ -63,9 +72,11 @@ def main():
     parser.add_argument('--values',type=Path,required=True)
     parser.add_argument('--source-alias',required=True)
     parser.add_argument('--investigation-channel',required=True)
+    parser.add_argument('--event-service',default=LEGACY_EVENT_SERVICE,help='<service>.<namespace>.svc of the event receiver')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
-    value=build_candidate(yaml.safe_load(args.values.read_text()),source_alias=args.source_alias,investigation_channel=args.investigation_channel)
+    value=build_candidate(yaml.safe_load(args.values.read_text()),source_alias=args.source_alias,
+                          investigation_channel=args.investigation_channel,event_service=args.event_service)
     # Exclusive creation prevents silently overwriting a previously reviewed candidate.
     with args.output.open('x') as stream: json.dump(value,stream,ensure_ascii=False,indent=2)
 

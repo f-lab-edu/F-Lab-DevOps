@@ -92,6 +92,8 @@ AI 진단 배포를 준비할 때 계정·CSI를 확인하고 `ai-ops/kubernetes
 
 ### 2-2. AI 수동 조사 worker·PVC 재배포 시점
 
+> **2026-11-27 안내:** AI 설치는 지금 WF10 경로로 한다. 순서와 점검은 AI 저장소의 [AI 운영 재설치와 실습 절차](https://github.com/joungGo/url-shortener-ai-ops/blob/main/docs/runbooks/wf10-wf11-reinstall.md)를 따른다. `ai-ops-gp3-encrypted` StorageClass는 WF10 PVC `ai-ops-data`에 계속 쓴다. 아래 수동 큐 worker 설명은 예전 B 경로 기록이다.
+
 실제 수동 큐 worker·자체 관측 배포는 필요한 앱·Argo·Prometheus 준비 뒤 **11-1절**에서 수행한다. [AI 설치·정리 절차](ai-ops-cluster-lifecycle.md)의 준비 도구가 새 API 주소·승인 이미지·StorageClass 입력을 생성하므로 과거 IP/digest를 그대로 재사용하지 않는다.
 
 ## 3. AWS Load Balancer Controller
@@ -448,7 +450,11 @@ NodeClaim이 생겼다면 해당 노드가 `Ready`가 될 때까지 기다리고
 
 과거 문서의 Pod 이름과 노드 이름은 재사용하지 않는다. 현재 저장소에는 Loki/로그 수집기를 배포하는 선언이 없으므로, 로그 수집 설치는 별도의 설계와 검증 대상으로 기록한다. 예전 Promtail 설치 명령을 그대로 실행하지 않는다.
 
-### 11-1. AI 수동 큐 worker·자체 관측 재설치 — 필수
+### 11-1. AI 재설치 — 필수
+
+앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 AI 저장소의 [AI 운영 재설치와 실습 절차(WF10 경로 · WF11 시나리오)](https://github.com/joungGo/url-shortener-ai-ops/blob/main/docs/runbooks/wf10-wf11-reinstall.md)를 수행한다. AI Terraform, 이미지 반입, 격리 lab, 정상 CI 준비, WF10 입력·렌더링·적용, S0 점검, 시나리오와 철거 순서가 그 문서에 있다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다.
+
+**예전 B 경로(지금은 쓰지 않음, 2026-11-27 기준 역사 기록):** 아래 두 문단은 수동 큐 worker StatefulSet/PVC 방식의 설명이다. 새 설치에서 실행하지 않는다.
 
 앱·Argo·Prometheus·Karpenter의 앞 단계 검증 후 [AI 클러스터 설치·정리 절차](ai-ops-cluster-lifecycle.md#설치-순서)를 반드시 수행한다. 1-1절의 AI ECR/IAM 생성만으로 AI 설치 완료로 표시하지 않는다. main 원본의 namespace·암호화 StorageClass, 새 이미지 등록/artifact·ECR 검사, 현재 API Service/Endpoint 주소로 생성한 private values와 `b4-values.worker.yaml` overlay를 이용해 수동 큐 worker StatefulSet/PVC·RBAC·NetworkPolicy·ServiceMonitor를 설치한다. 실습 모델 연결을 선택할 때는 [M6 비활성 gateway/proxy 절차](../../ai-ops/docs/B6-model-service-deployment.md) 후 [M7-2 준비 절차](../../ai-ops/docs/B6-model-campaign-deployment-preparation.md)를 수행한다. 현재 클러스터 API의 사설 `/32`를 다시 조회해 `prepare_model_service.py --prepared --api-cidr <현재 주소>`로 0/0 정의를 생성·검증한다. 기본·준비 배포만으로 실제 모델 활성화나 B 단계 완료를 표시하지 않는다.
 

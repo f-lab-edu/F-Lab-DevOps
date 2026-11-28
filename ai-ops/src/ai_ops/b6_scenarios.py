@@ -9,7 +9,7 @@ import subprocess
 import time
 import uuid
 
-from ai_ops.b6_lab import CONTEXT, NAMESPACE, PURPOSE
+from ai_ops.b6_lab import CONTEXT, NAMESPACE, PURPOSE, protected_identity
 from ai_ops.b6_coordination import require_manual_deployment
 
 
@@ -243,12 +243,7 @@ class LabClient:
         return json.loads(self.command("-n", namespace, "get", kind, name, "-o", "json"))
 
     def production(self):
-        result = {}
-        for namespace, kind, name in (("url-shortener", "deployment", "url-shortener-api"),
-                                       ("ai-ops", "statefulset", "ai-ops"), ("ai-ops", "pvc", "data-ai-ops-0")):
-            obj = self.get(namespace, kind, name)
-            result[namespace + "/" + name] = {k: obj["metadata"][k] for k in ("uid", "generation") if k in obj["metadata"]}
-        return result
+        return protected_identity(self.command)
 
     def guard(self, *, require_quality=True):
         namespace = self.get(NAMESPACE, "namespace", NAMESPACE)

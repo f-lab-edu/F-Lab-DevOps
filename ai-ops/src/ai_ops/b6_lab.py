@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 import ipaddress
+import json
 from pathlib import Path
 import re
 import secrets
@@ -18,6 +19,33 @@ NAMESPACE = "ai-ops-lab"
 CLUSTER = "urlshortener"
 CONTEXT = "arn:aws:eks:ap-northeast-2:764428911194:cluster/urlshortener"
 PURPOSE = {"ai-ops-purpose": "b6-isolated-lab"}
+# Objects the lab install and lab scenarios must leave unchanged (WF11 follow-up, 2026-11-27).
+# The production app must exist. The AI service objects are optional: a WF10-only install has the
+# Deployment/PVC and no B worker, a retired B install the reverse, and the lab may be installed
+# before WF10. An optional object is recorded as absent; appearing, disappearing or a uid/generation
+# change between two reads is a change.
+PROTECTED_REQUIRED = (("url-shortener", "deployment", "url-shortener-api"),)
+PROTECTED_OPTIONAL = (("ai-ops", "deployment", "ai-ops"), ("ai-ops", "pvc", "ai-ops-data"),
+                      ("ai-ops", "statefulset", "ai-ops"), ("ai-ops", "pvc", "data-ai-ops-0"))
+
+
+def protected_identity(command):
+    """``command(*kubectl_args) -> stdout`` (context fixed by the caller). Issues ``get`` only."""
+    identities = {}
+    for item in PROTECTED_REQUIRED + PROTECTED_OPTIONAL:
+        namespace, kind, name = item
+        optional = item in PROTECTED_OPTIONAL
+        raw = command("-n", namespace, "get", kind, name, "-o", "json",
+                      *(("--ignore-not-found",) if optional else ())).strip()
+        key = "/".join(item)
+        if not raw:
+            if not optional:
+                raise ValueError("protected_resource_missing")
+            identities[key] = {"absent": True}
+            continue
+        metadata = json.loads(raw)["metadata"]
+        identities[key] = {k: metadata[k] for k in ("uid", "generation") if k in metadata}
+    return identities
 ROOT = Path(__file__).resolve().parents[2]
 ECR = "764428911194.dkr.ecr.ap-northeast-2.amazonaws.com/"
 

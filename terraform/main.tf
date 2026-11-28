@@ -371,6 +371,20 @@ module "eks" {
     "karpenter.sh/discovery" = var.project_name
   }
 
+  # WF11(2026-11-28): AI 정상 판정은 API 서버 pods/proxy로 격리 lab의 lab-api:8000을 읽는다.
+  # 제어 평면 SG는 기본적으로 webhook·kubelet 포트만 허용되므로 8000/tcp만 추가한다.
+  # Pod 단위 접근은 lab NetworkPolicy가 API 서버 endpoint로만 계속 제한한다.
+  node_security_group_additional_rules = {
+    cluster_api_to_lab_api = {
+      description                   = "Cluster API to lab-api 8000/tcp (pods/proxy healthy judgment)"
+      protocol                      = "tcp"
+      from_port                     = 8000
+      to_port                       = 8000
+      type                          = "ingress"
+      source_cluster_security_group = true
+    }
+  }
+
   # AWS Console에서 EKS 클러스터 리소스의 이름 표시용
   tags = {
     Name = "${var.project_name}-eks"
